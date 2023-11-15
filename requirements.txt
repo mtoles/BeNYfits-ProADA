@@ -1,0 +1,10 @@
+transformers
+datasets
+sentencepiece
+torch
+seaborn
+matplotlib
+click
+openai
+ipykernel
+shelved-cache

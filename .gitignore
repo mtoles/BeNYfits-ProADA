@@ -1,0 +1,7 @@
+.vscode/
+build/
+*__pycache__
+models.egg-info
+outputs/
+shelved_cache/
+.env
