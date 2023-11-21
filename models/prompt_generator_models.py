@@ -1,4 +1,4 @@
-from openai import OpenAI
+from utils import cached_openai_call
 
 
 class PromptGeneratorModel:
@@ -12,19 +12,13 @@ class PromptGeneratorModel:
 
 class GPTPromptGenerator(PromptGeneratorModel):
     def __init__(self):
-        self.client = OpenAI()
+        pass
 
-    def forward(self, x, n, temperature, model="gpt-4"):
-        lm_input=f"Memorize the following document and then follow the instructions below:\n\n{x}\n\nInstructions: Generate an interesting question about the document and the speaker. Ideally the question extends to themes beyond the literal facts in the document."
-        completion = self.client.chat.completions.create(
+    def forward(self, document_full: str, n: int, temperature: float, model="gpt-4"):
+        lm_input = f"Memorize the following document and then follow the instructions below:\n\n{document_full}\n\nInstructions: Generate an interesting question about the document and the speaker. Ideally the question extends to themes beyond the literal facts in the document."
+        completion = cached_openai_call(
+            lm_input,
             model=model,
-            messages=[
-                # {
-                #     "role": "system",
-                #     "content": f"You are a study assistant, skilled in creating interesting questions to ask about documents. Your job is to create a challenging, long-form question that can be answered from the document. When you recieve a document, you respond with a questions about the document. Only generate one question. Do not include any other text.",
-                # },
-                {"role": "user", "content": lm_input},
-            ],
             n=n,
             temperature=temperature,
         )

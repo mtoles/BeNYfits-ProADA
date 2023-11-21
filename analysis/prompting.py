@@ -5,75 +5,85 @@ import json
 from models.summarization_models import GPTSummarizer
 from prompt_generator_models import GPTPromptGenerator
 from primary_models import GPTPrimaryModel
+from reward_models import GPTRewardModel
 from tqdm import tqdm
-from shelved_cache import PersistentCache
-from cachetools import LRUCache
-import cachetools
 import click
+import numpy as np
 
 
 @click.command()
-@click.option("--n_prompts", default=3, help="Number of prompts to generate")
+@click.option("--n_prompts", default=1, help="Number of prompts to generate")
 @click.option(
     "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation"
 )
-def main(n_prompts, prompt_gen_temperature):
-    # for persistent caching
-    cache_filename = "shelved_cache/shelved_cache"
-    pc = PersistentCache(LRUCache, cache_filename, maxsize=10000)
-
+@click.option("--use_cache", default=False, help="Use the GPT-4 shelved cache")
+@click.option(
+    "--downsample_size",
+    default=None,
+    type=int,
+    help="Use at most this many rows of the dataset",
+)
+def main(n_prompts, prompt_gen_temperature, use_cache, downsample_size):
     tqdm.pandas()
-    client = OpenAI()
+    np.random.seed(42)
 
     # Read docs from the dataset
-    ds_path = "data/prompting_mini_dataset.json"
-    with open(ds_path, "r") as f:
-        ds_json = json.load(f)
-        df = pd.DataFrame(ds_json)
-    # df = df.tail(1)
+    # ds_path = "data/prompting_mini_dataset.json"
+    ds_path = "data/prompting_mini_dataset_2.csv"
+    if ds_path.lower().endswith(".json"):
+        with open(ds_path, "r") as f:
+            ds_json = json.load(f)
+            df = pd.DataFrame(ds_json)
+    elif ds_path.lower().endswith(".csv"):
+        df = pd.read_csv(ds_path)
+    # Apply downsampling
+    if downsample_size is not None:
+        df = df.head(downsample_size)
     # summarize each item of the dataset to 50% of its original length
     summarizer = GPTSummarizer()
 
-    # make the summarizer cacheable
-    # @cachetools.cached(pc)
-    def generate_summary(x):
-        return summarizer.forward(x)
-
-    df["summary"] = df["original_document"].progress_apply(
-        lambda x: generate_summary(x)
-    )
+    df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
 
     # Generate primary tasks
     prompt_generator = GPTPromptGenerator()
 
-    # make the summarizer cacheable
-    # @cachetools.cached(pc)
-    def generate_prompts(x):
-        return prompt_generator.forward(x, n_prompts, prompt_gen_temperature)
-
-    df["prompts"] = df["original_document"].progress_apply(
-        lambda x: generate_prompts(x)
+    df["prompts"] = df["doc_orig"].progress_apply(
+        lambda x: prompt_generator.forward(x, n_prompts, prompt_gen_temperature)
     )
 
     # Run the primary task
-    def generate_pm_answer_full(x):
-        primary_model = GPTPrimaryModel()
-        return primary_model.forward(
-            x["original_document"], x["prompts"][0], temperature=0.7
-        )
-
+    primary_model = GPTPrimaryModel()
     df["pm_answer_full"] = df.progress_apply(
-        lambda x: generate_pm_answer_full(x), axis=1
+        lambda x: primary_model.forward(
+            x["doc_orig"], x["prompts"][0], temperature=0.7
+        ),
+        axis=1,
     )
-
-    def generate_pm_answer_summ(x):
-        primary_model = GPTPrimaryModel()
-        return primary_model.forward(x["summary"], x["prompts"][0], temperature=0.7)
 
     df["pm_answer_summ"] = df.progress_apply(
-        lambda x: generate_pm_answer_summ(x), axis=1
+        lambda x: primary_model.forward(
+            x["doc_summ"], x["prompts"][0], temperature=0.7
+        ),
+        axis=1,
     )
 
+    # Compare the summary answers and full answers using the reward model
+    reward_model = GPTRewardModel()
+    df["selection"] = df.progress_apply(
+        lambda x: reward_model.forward(
+            x["doc_orig"],
+            x["pm_answer_full"],
+            x["pm_answer_summ"],
+            x["prompts"][0],
+            temperature=0.7,
+        ),
+        axis=1,
+    )
+    num_full_selected = len(df[df["selection"] == "full"])
+    percent_full_selected = num_full_selected / len(df)
+    print(
+        f"Percent of full docs selected: {percent_full_selected} | {num_full_selected} / {len(df)}"
+    )
     print()
 
 

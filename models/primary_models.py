@@ -1,5 +1,4 @@
-from openai import OpenAI
-
+from utils import cached_openai_call
 
 class PrimaryModel:
     def __init__(self):
@@ -12,16 +11,13 @@ class PrimaryModel:
 
 class GPTPrimaryModel(PrimaryModel):
     def __init__(self):
-        self.client = OpenAI()
+        pass
 
-    def forward(self, document, prompt, temperature, model="gpt-4"):
-        lm_input=f"Memorize the following document and then follow the instructions below:\n\n{document}\n\nInstructions: {prompt}"
-        completion = self.client.chat.completions.create(
+    def forward(self, document: str, prompt: str, temperature: float, model="gpt-4"):
+        lm_input = f"Memorize the following document and then follow the instructions below:\n\n{document}\n\nInstructions: {prompt}"
+        completion = cached_openai_call(
+            lm_input,
             model=model,
-            messages=[
-
-                {"role": "user", "content": lm_input},
-            ],
             n=1,
             temperature=temperature,
         )
