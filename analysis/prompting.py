@@ -4,7 +4,7 @@ import pandas as pd
 import json
 from models.summarization_models import GPTSummarizer
 from prompt_generator_models import GPTPromptGenerator
-from primary_models import GPTPrimaryModel
+from primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from reward_models import GPTRewardModel
 from tqdm import tqdm
 import click
@@ -12,6 +12,7 @@ import numpy as np
 
 
 @click.command()
+@click.option("--pm_name", default="llama2", help="Name of the primary model to use")
 @click.option("--n_prompts", default=1, help="Number of prompts to generate")
 @click.option(
     "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation"
@@ -23,7 +24,8 @@ import numpy as np
     type=int,
     help="Use at most this many rows of the dataset",
 )
-def main(n_prompts, prompt_gen_temperature, use_cache, downsample_size):
+def main(pm_name, n_prompts, prompt_gen_temperature, use_cache, downsample_size):
+    assert pm_name in ["gpt4", "llama2"]
     tqdm.pandas()
     np.random.seed(42)
 
@@ -52,22 +54,24 @@ def main(n_prompts, prompt_gen_temperature, use_cache, downsample_size):
     )
 
     # Run the primary task
-    primary_model = GPTPrimaryModel()
+    if pm_name == "gpt4":
+        primary_model = GPTPrimaryModel()
+    elif pm_name == "llama2":
+        primary_model = Llama2PrimaryModel()
+    else:
+        raise ValueError(f"Unknown primary model name {pm_name}")
     df["pm_answer_full"] = df.progress_apply(
-        lambda x: primary_model.forward(
-            x["doc_orig"], x["prompts"][0], temperature=0.7
-        ),
+        lambda x: primary_model.forward(x["doc_orig"], x["prompts"][0]),
         axis=1,
     )
 
     df["pm_answer_summ"] = df.progress_apply(
-        lambda x: primary_model.forward(
-            x["doc_summ"], x["prompts"][0], temperature=0.7
-        ),
+        lambda x: primary_model.forward(x["doc_summ"], x["prompts"][0]),
         axis=1,
     )
 
     # Compare the summary answers and full answers using the reward model
+    df.to_csv("llama2.csv")
     reward_model = GPTRewardModel()
     df["selection"] = df.progress_apply(
         lambda x: reward_model.forward(

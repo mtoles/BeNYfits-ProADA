@@ -17,4 +17,5 @@ Create a file called `.env` containing
 
 ```
 OPENAI_API_KEY=abc123
+HUGGINGFACE_API_KEY=def456
 ```

@@ -1,10 +1,12 @@
 transformers
 datasets
 sentencepiece
-torch
-seaborn
+pytorch-gpu==1.12.1
+# cudatoolkit=11.5seaborn
 matplotlib
 click
 openai
 ipykernel
 shelved-cache
+python-dotenv
+accelerate
