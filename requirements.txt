@@ -2,7 +2,8 @@ transformers
 datasets
 sentencepiece
 pytorch-gpu==1.12.1
-# cudatoolkit=11.5seaborn
+# cudatoolkit=11.5
+seaborn
 matplotlib
 click
 openai

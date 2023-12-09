@@ -71,7 +71,7 @@ def main(pm_name, n_prompts, prompt_gen_temperature, use_cache, downsample_size)
     )
 
     # Compare the summary answers and full answers using the reward model
-    df.to_csv("llama2.csv")
+    # df.to_csv("llama2.csv")
     reward_model = GPTRewardModel()
     df["selection"] = df.progress_apply(
         lambda x: reward_model.forward(
