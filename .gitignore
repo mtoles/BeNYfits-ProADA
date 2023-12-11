@@ -5,3 +5,5 @@ models.egg-info
 outputs/
 shelved_cache/
 .env
+google-cloud-sdk/
+full_data

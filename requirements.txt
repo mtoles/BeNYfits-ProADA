@@ -11,3 +11,5 @@ ipykernel
 shelved-cache
 python-dotenv
 accelerate
+google-cloud-bigquery
+db-dtypes

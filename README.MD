@@ -19,3 +19,6 @@ Create a file called `.env` containing
 OPENAI_API_KEY=abc123
 HUGGINGFACE_API_KEY=def456
 ```
+## Set up Google BigQuery
+Follow instructions here https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to
+When installing the gcloud CLI, https://cloud.google.com/sdk/docs/install#linux , hen prompted, select `[3] Enter a project ID` and enter `lunar-carving-267205` 
