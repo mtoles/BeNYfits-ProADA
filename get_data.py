@@ -85,15 +85,4 @@ for table in tqdm(tables):
 
 # concatenate all dataframes
 df = pd.concat(df_list)
-df.to_json("full_data/reddit_dataset.json", orient="records", lines=True)
-
-# from google.cloud import bigquery
-# client = bigquery.Client()
-# project = "bigquery-public-data"
-# dataset_id = "samples"
-
-# dataset_ref = bigquery.DatasetReference(project, dataset_id)
-# table_ref = dataset_ref.table("shakespeare")
-# table = client.get_table(table_ref)
-
-# df = client.list_rows(table).to_dataframe()
+df.to_json("full_data/reddit_dataset.jsonl", orient="records", lines=True)

@@ -5,6 +5,7 @@ import torch
 import os
 from dotenv import load_dotenv
 from huggingface_hub import login
+import pandas as pd
 
 load_dotenv()
 
@@ -17,6 +18,8 @@ class PrimaryModel:
     def forward(x):
         # subclass this method
         return x
+    def prepare_instruction(self, doc: str, prompt: str):
+            return self.prompt_template % (doc, prompt)
 
 
 class GPTPrimaryModel(PrimaryModel):
@@ -24,10 +27,9 @@ class GPTPrimaryModel(PrimaryModel):
         super().__init__()
         pass
 
-    def forward(self, document: str, prompt: str, temperature=0.7, model="gpt-4"):
-        # lm_input = f"Memorize the following document and then follow the instructions below:\n\n{document}\n\nInstructions: {prompt}"
+    def forward(self, instruction: str, temperature=0.7, model="gpt-4"):
         completion = cached_openai_call(
-            self.prompt_template % (document, prompt),
+            instruction,
             model=model,
             n=1,
             temperature=temperature,
@@ -61,11 +63,10 @@ class Llama2PrimaryModel(PrimaryModel):
         )
         self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
 
-    def forward(self, document: str, prompt: str):
-        lm_input = self.prompt_template % (document, prompt)
+    def forward(self, instruction: str):
         # wrap the prompt for llama2
         llama_formatted_input = (
-            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{lm_input} [/INST]"
+            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
         )
 
         sequences = self.pipeline(

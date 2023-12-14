@@ -7,3 +7,4 @@ shelved_cache/
 .env
 google-cloud-sdk/
 full_data
+results

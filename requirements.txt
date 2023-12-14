@@ -13,3 +13,4 @@ python-dotenv
 accelerate
 google-cloud-bigquery
 db-dtypes
+alpaca-eval

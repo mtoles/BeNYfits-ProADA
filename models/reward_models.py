@@ -1,6 +1,9 @@
 import random
 from utils import cached_openai_call
 import numpy as np
+from alpaca_eval import evaluate
+from typing import List, Dict, Tuple, Union, Optional
+import pandas as pd
 
 
 class RewardModel:
@@ -40,3 +43,42 @@ class GPTRewardModel(RewardModel):
         assert openai_output in ["a", "b"]
         selected_full_doc = (openai_output == "a") ^ randomize
         return "full" if selected_full_doc else "summ"
+
+
+def run_alpaca_eval(
+    model_outputs: pd.Series, reference_outputs: pd.Series, instruction: pd.Series
+) -> pd.Series:
+    """Run alpaca eval on the model outputs and reference outputs. Append a column containing the winner {1: model_outputs, 2: reference_outputs} to the model_outputs dataframe. Return the dataframe.}"""
+
+    # form a dataframe from model_outputs and instructions
+    model_outputs = pd.DataFrame({"output": model_outputs, "instruction": instruction})
+    reference_outputs = pd.DataFrame(
+        {"output": reference_outputs, "instruction": instruction}
+    )
+
+    # run alpaca_eval
+    df_leaderboard, annotations = evaluate(
+        model_outputs=model_outputs,
+        reference_outputs=reference_outputs,
+        is_return_instead_of_print=True,
+        output_path="alpaca_eval/",
+    )
+
+    # get the winner for each annotation
+    winners = []
+    for i in range(len(annotations)):
+        preference = annotations[i]["preference"]
+        if preference is None:
+            winners.append("None")
+            continue
+        choice_output = annotations[i][f"output_{preference}"]
+        output_1 = annotations[i]["output_1"]
+        output_2 = annotations[i]["output_2"]
+        if choice_output == output_1:
+            winning_model = 0
+        elif choice_output == output_2:
+            winning_model = 1
+        else:
+            raise ValueError("chosen output not found in input")
+        winners.append(winning_model)
+    return pd.Series(winners)
