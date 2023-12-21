@@ -1,4 +1,4 @@
-transformers
+transformers==4.35.2
 datasets
 sentencepiece
 pytorch-gpu==1.12.1
