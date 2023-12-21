@@ -40,7 +40,7 @@ class GPTPrimaryModel(PrimaryModel):
 
 
 class Llama2PrimaryModel(PrimaryModel):
-    def __init__(self, size="7b"):
+    def __init__(self, size):
         super().__init__()
         if size == "7b":
             self.model_name = "meta-llama/Llama-2-7b-chat-hf"

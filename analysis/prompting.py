@@ -15,6 +15,9 @@ import os
 @click.command()
 @click.option("--pm_name", default="llama2", help="Name of the primary model to use")
 @click.option(
+    "--pm_size", help="Size of the primary model to use, one of {7b, 13b, 70b}"
+)
+@click.option(
     "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation"
 )
 @click.option("--ds_path", help="Path to the dataset")
@@ -24,9 +27,19 @@ import os
     type=int,
     help="Use at most this many rows of the dataset",
 )
-@click.option("--ds_shift", default=0, type=int, help="Shift the dataset by this many rows")
+@click.option(
+    "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows"
+)
 @click.option("--use_cache", default=False, help="Use the GPT-4 shelved cache")
-def main(pm_name, prompt_gen_temperature, ds_path, ds_downsample, ds_shift, use_cache, ):
+def main(
+    pm_name,
+    pm_size,
+    prompt_gen_temperature,
+    ds_path,
+    ds_downsample,
+    ds_shift,
+    use_cache,
+):
     assert pm_name in ["gpt4", "llama2"]
     tqdm.pandas()
     np.random.seed(42)
@@ -63,7 +76,7 @@ def main(pm_name, prompt_gen_temperature, ds_path, ds_downsample, ds_shift, use_
     if pm_name == "gpt4":
         primary_model = GPTPrimaryModel()
     elif pm_name == "llama2":
-        primary_model = Llama2PrimaryModel()
+        primary_model = Llama2PrimaryModel(pm_size)
     else:
         raise ValueError(f"Unknown primary model name {pm_name}")
     # Prepare instructions for the full example
@@ -90,9 +103,11 @@ def main(pm_name, prompt_gen_temperature, ds_path, ds_downsample, ds_shift, use_
         df["pm_answer_full"],
         instruction=df["pm_instruction_full"],
     )
-    df["preference"] = alpaca_preferences.apply(lambda x: {0: "summ", 1: "full", "None": "None"}[x])
+    df["preference"] = alpaca_preferences.apply(
+        lambda x: {0: "summ", 1: "full", "None": "None"}[x]
+    )
 
-    results_path = f"results/{pm_name}_{ds_downsample}.json"
+    results_path = f"results/{pm_name}-{pm_size}_{ds_downsample}.json"
     if not os.path.exists("results"):
         os.makedirs("results")
     df.to_json(results_path)
