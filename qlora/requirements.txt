@@ -1,0 +1,8 @@
+transformers
+accelerate # this, and bitsandbytes needed for load_in_8bit
+scipy # bitsandbytes seems to need this or throws an error(?)
+bitsandbytes
+peft
+trl
+datasets
+python-dotenv
