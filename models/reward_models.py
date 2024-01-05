@@ -4,6 +4,7 @@ import numpy as np
 from alpaca_eval import evaluate
 from typing import List, Dict, Tuple, Union, Optional
 import pandas as pd
+import os
 
 
 class RewardModel:
@@ -36,7 +37,7 @@ class GPTRewardModel(RewardModel):
         completion = cached_openai_call(
             x=lm_input,
             model=model,
-            n=1,
+            # n=1,
             temperature=temperature,
         )
         openai_output = completion.choices[0].message.content.lower()[0]
@@ -62,9 +63,11 @@ def run_alpaca_eval(
         reference_outputs=reference_outputs,
         is_return_instead_of_print=True,
         output_path="alpaca_eval/",
+        annotators_config=os.path.join(os.getcwd(), "annotators_config.yaml"),
     )
 
-    # get the winner for each annotation
+    # get the winner for each annotation since I can't figure out
+    # how to disable random output ordering in alpaca eval
     winners = []
     for i in range(len(annotations)):
         preference = annotations[i]["preference"]
