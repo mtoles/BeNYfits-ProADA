@@ -1,4 +1,4 @@
-from utils import cached_openai_call
+from utils import *
 
 
 class PromptGeneratorModel:
@@ -11,14 +11,15 @@ class PromptGeneratorModel:
 
 
 class GPTPromptGenerator(PromptGeneratorModel):
-    def __init__(self):
-        pass
+    def __init__(self, use_cache):
+        self.use_cache = use_cache
 
     def forward(self, document_full: str, temperature: float, model="gpt-4"):
         # lm_input = f"Memorize the following document and then follow the instructions below:\n\n{document_full}\n\nInstructions: Generate an interesting question about the document and the speaker. Ideally the question extends to themes beyond the literal facts in the document."
         lm_input = f"Memorize the following document and then follow the instructions below:\n\n{document_full}\n\nInstructions: Generate an interesting question that requires the entire document in order to answer well."
-        completion = cached_openai_call(
+        completion = conditional_openai_call(
             lm_input,
+            use_cache=self.use_cache,
             temperature=temperature,
             model=model,
         )

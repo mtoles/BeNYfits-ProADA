@@ -70,12 +70,12 @@ def main(
         if ds_downsample is not None:
             df = df.head(ds_downsample)
         # summarize each item of the dataset to 50% of its original length
-        summarizer = GPTSummarizer()
+        summarizer = GPTSummarizer(use_cache)
 
         df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
 
         # Generate primary tasks
-        prompt_generator = GPTPromptGenerator()
+        prompt_generator = GPTPromptGenerator(use_cache)
 
         df["prompt"] = df["doc_orig"].progress_apply(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
@@ -83,7 +83,7 @@ def main(
 
         # Run the primary task
         if pm_name == "gpt4":
-            primary_model = GPTPrimaryModel()
+            primary_model = GPTPrimaryModel(use_cache)
         elif pm_name == "llama2":
             primary_model = Llama2PrimaryModel(pm_size)
         else:
@@ -99,15 +99,17 @@ def main(
             axis=1,
         )
         # Primary model inference on full
-        df["pm_answer_full"] = df.progress_apply(
-            lambda x: primary_model.forward(x["pm_instruction_full"]),
-            axis=1,
-        )
+        # df["pm_answer_full"] = df.progress_apply(
+        #     lambda x: primary_model.forward(x["pm_instruction_full"]),
+        #     axis=1,
+        # )
+        df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
         # Primary model inference on summary
-        df["pm_answer_summ"] = df.progress_apply(
-            lambda x: primary_model.forward(x["pm_instruction_summ"]),
-            axis=1,
-        )
+        # df["pm_answer_summ"] = df.progress_apply(
+        #     lambda x: primary_model.forward(x["pm_instruction_summ"]),
+        #     axis=1,
+        # )
+        df["pm_answer_summ"] = primary_model.process(df["pm_instruction_summ"])
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 
     # Evaluation
@@ -122,7 +124,7 @@ def main(
 
     # Compare the summary answers and full answers using the reward model
     df.to_csv("llama2.csv")
-    reward_model = GPTRewardModel()
+    reward_model = GPTRewardModel(use_cache)
     df["selection"] = df.progress_apply(
         lambda x: reward_model.forward(
             x["doc_orig"],

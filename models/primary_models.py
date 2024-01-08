@@ -1,4 +1,4 @@
-from utils import cached_openai_call
+from utils import *
 from transformers import AutoTokenizer
 import transformers
 import torch
@@ -23,20 +23,28 @@ class PrimaryModel:
 
 
 class GPTPrimaryModel(PrimaryModel):
-    def __init__(self):
+    def __init__(self, use_cache):
         super().__init__()
+        self.use_cache = use_cache
         pass
 
     def forward(self, instruction: str, temperature=0.7, model="gpt-4"):
-        completion = cached_openai_call(
+        completion = conditional_openai_call(
             instruction,
             model=model,
             n=1,
             temperature=temperature,
+            use_cache=self.use_cache,
         )
         openai_output = completion.choices[0].message.content
 
         return openai_output
+    
+    def process(self, instructions: pd.Series):
+        pm_output = instructions.progress_apply(
+            lambda x: self.forward(x)
+        )
+        return pm_output
 
 
 class Llama2PrimaryModel(PrimaryModel):
@@ -81,3 +89,18 @@ class Llama2PrimaryModel(PrimaryModel):
         # delete the prompt
         output = output[len(llama_formatted_input) :]
         return output
+    
+    def process(self, instructions: pd.Series):
+        llama_formatted_input = [f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]" for instruction in instructions]
+        sequences = self.pipeline(
+            llama_formatted_input,
+            # do_sample=True,
+            # top_k=10,
+            # num_return_sequences=1,
+            # eos_token_id=self.tokenizer.eos_token_id,
+            # max_length=300,
+        )
+        outputs = [sequence[0]["generated_text"] for sequence in sequences]
+        # delete the prompt
+        outputs = [output[len(llama_formatted_input) :] for output in outputs]
+        return outputs

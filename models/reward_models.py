@@ -1,5 +1,5 @@
 import random
-from utils import cached_openai_call
+from utils import *
 import numpy as np
 from alpaca_eval import evaluate
 from typing import List, Dict, Tuple, Union, Optional
@@ -16,8 +16,8 @@ class RewardModel:
 
 
 class GPTRewardModel(RewardModel):
-    def __init__(self):
-        pass
+    def __init__(self, use_cache):
+        self.use_cache = use_cache
 
     def forward(
         self,
@@ -33,8 +33,9 @@ class GPTRewardModel(RewardModel):
         answer_a = pm_answer_full if randomize == 0 else pm_answer_summ
         answer_b = pm_answer_summ if randomize == 0 else pm_answer_full
         lm_input = f"Which of the following answers is a better answer to the question? \n\nContext: {document_full} \n\n Question: {prompt} \n\n Answer A: {answer_a} \n\n Answer B: {answer_b}\n\n Which answer is better, A or B? Respond in JSON format, as in {{'choice': 'A'}}"
-        completion = cached_openai_call(
+        completion = conditional_openai_call(
             x=lm_input,
+            use_cache=self.use_cache,
             model=model,
             temperature=temperature,
             response_format="json"

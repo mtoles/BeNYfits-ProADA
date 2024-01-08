@@ -13,9 +13,14 @@ pc = PersistentCache(LRUCache, cache_filename, maxsize=10000)
 client = OpenAI()
 
 
-@cachetools.cached(pc)
-def cached_openai_call(
-    x: str,  model, response_format=None, temperature=0.7,
+# @cachetools.cached(pc)
+# def cached_openai_call(
+def openai_call(
+    x: str,
+    model,
+    use_cache,
+    response_format=None,
+    temperature=0.7,
 ):
     """Call OpenAI's API, but cache the results in a shelved cache"""
     assert response_format in [None, "json"]
@@ -31,6 +36,22 @@ def cached_openai_call(
         response_format=response_format,
     )
     return completion
+
+
+@cachetools.cached(pc)
+def cached_openai_call(*args, **kwargs):
+    return openai_call(*args, **kwargs)
+
+
+def uncached_openai_call(*args, **kwargs):
+    return openai_call(*args, **kwargs)
+
+
+def conditional_openai_call(*args, **kwargs):
+    if kwargs["use_cache"]:
+        return cached_openai_call(*args, **kwargs)
+    else:
+        return uncached_openai_call(*args, **kwargs)
 
 
 def df_to_md(df: pd.DataFrame, output_path: str):
