@@ -17,6 +17,7 @@ import os
 @click.option(
     "--pm_size", help="Size of the primary model to use, one of {7b, 13b, 70b}"
 )
+@click.option("--pm_batch_size", default=4, help="Batch size for the primary model")
 @click.option(
     "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation"
 )
@@ -39,6 +40,7 @@ import os
 def main(
     pm_name,
     pm_size,
+    pm_batch_size,
     prompt_gen_temperature,
     ds_path,
     ds_downsample,
@@ -85,7 +87,7 @@ def main(
         if pm_name == "gpt4":
             primary_model = GPTPrimaryModel(use_cache)
         elif pm_name == "llama2":
-            primary_model = Llama2PrimaryModel(pm_size)
+            primary_model = Llama2PrimaryModel(pm_size, pm_batch_size)
         else:
             raise ValueError(f"Unknown primary model name {pm_name}")
         # Prepare instructions for the full example
@@ -98,17 +100,8 @@ def main(
             lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
             axis=1,
         )
-        # Primary model inference on full
-        # df["pm_answer_full"] = df.progress_apply(
-        #     lambda x: primary_model.forward(x["pm_instruction_full"]),
-        #     axis=1,
-        # )
+        # Run the primary model
         df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
-        # Primary model inference on summary
-        # df["pm_answer_summ"] = df.progress_apply(
-        #     lambda x: primary_model.forward(x["pm_instruction_summ"]),
-        #     axis=1,
-        # )
         df["pm_answer_summ"] = primary_model.process(df["pm_instruction_summ"])
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 

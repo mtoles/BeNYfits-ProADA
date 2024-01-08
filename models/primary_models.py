@@ -18,8 +18,9 @@ class PrimaryModel:
     def forward(x):
         # subclass this method
         return x
+
     def prepare_instruction(self, doc: str, prompt: str):
-            return self.prompt_template % (doc, prompt)
+        return self.prompt_template % (doc, prompt)
 
 
 class GPTPrimaryModel(PrimaryModel):
@@ -39,61 +40,45 @@ class GPTPrimaryModel(PrimaryModel):
         openai_output = completion.choices[0].message.content
 
         return openai_output
-    
+
     def process(self, instructions: pd.Series):
-        pm_output = instructions.progress_apply(
-            lambda x: self.forward(x)
-        )
+        pm_output = instructions.progress_apply(lambda x: self.forward(x))
         return pm_output
 
 
 class Llama2PrimaryModel(PrimaryModel):
-    def __init__(self, size):
+    def __init__(self, model_size, batch_size):
         super().__init__()
-        if size == "7b":
+        if model_size == "7b":
             self.model_name = "meta-llama/Llama-2-7b-chat-hf"
-        elif size == "13b":
+        elif model_size == "13b":
             self.model_name = "meta-llama/Llama-2-13b-chat-hf"
-        elif size == "70b":
+        elif model_size == "70b":
             self.model_name = "meta-llama/Llama-2-70b-chat-hf"
         else:
-            raise ValueError(f"Unknown llama2 model size {size}")
+            raise ValueError(f"Unknown llama2 model size {model_size}")
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name, token=self.hf_api_key
-        )
+
         self.pipeline = transformers.pipeline(
             "text-generation",
             model=self.model_name,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.bfloat16,
             device_map="auto",
         )
+        self.pipeline.tokenizer.pad_token_id = 0
+        self.pipeline.tokenizer.padding_side = "left"
         self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
+        self.batch_size = batch_size
 
-    def forward(self, instruction: str):
-        # wrap the prompt for llama2
-        llama_formatted_input = (
-            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
-        )
-
-        sequences = self.pipeline(
-            llama_formatted_input,
-            # do_sample=True,
-            # top_k=10,
-            # num_return_sequences=1,
-            # eos_token_id=self.tokenizer.eos_token_id,
-            # max_length=300,
-        )
-        output = sequences[0]["generated_text"]
-        # delete the prompt
-        output = output[len(llama_formatted_input) :]
-        return output
-    
     def process(self, instructions: pd.Series):
-        llama_formatted_input = [f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]" for instruction in instructions]
+        llama_formatted_input = [
+            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
+            for instruction in instructions
+        ]
         sequences = self.pipeline(
             llama_formatted_input,
+            batch_size=self.batch_size,
             # do_sample=True,
             # top_k=10,
             # num_return_sequences=1,
