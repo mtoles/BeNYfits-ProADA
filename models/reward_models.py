@@ -5,8 +5,7 @@ from alpaca_eval import evaluate
 from typing import List, Dict, Tuple, Union, Optional
 import pandas as pd
 import os
-
-
+from json import loads
 class RewardModel:
     def __init__(self):
         pass
@@ -27,22 +26,22 @@ class GPTRewardModel(RewardModel):
         pm_answer_summ: str,
         prompt: str,
         temperature: float,
-        model="gpt-4",
+        model="gpt-4-1106-preview",
     ):
         # randomly shuffle the order of the answers to avoid bias
         randomize = bool(np.random.randint(2))
         answer_a = pm_answer_full if randomize == 0 else pm_answer_summ
         answer_b = pm_answer_summ if randomize == 0 else pm_answer_full
-        lm_input = f"Which of the following answers is a better answer to the question? \n\nContext: {document_full} \n\n Question: {prompt} \n\n Answer A: {answer_a} \n\n Answer B: {answer_b}\n\n Which answer is better, A or B? "
+        lm_input = f"Which of the following answers is a better answer to the question? \n\nContext: {document_full} \n\n Question: {prompt} \n\n Answer A: {answer_a} \n\n Answer B: {answer_b}\n\n Which answer is better, A or B? Respond in JSON format, as in {{'choice': 'A'}}"
         completion = cached_openai_call(
             x=lm_input,
             model=model,
-            # n=1,
             temperature=temperature,
+            response_format="json"
         )
-        openai_output = completion.choices[0].message.content.lower()[0]
-        assert openai_output in ["a", "b"]
-        selected_full_doc = (openai_output == "a") ^ randomize
+        openai_output = loads(completion.choices[0].message.content.lower())["choice"].upper()
+        assert openai_output in ["A", "B"]
+        selected_full_doc = (openai_output == "A") ^ randomize
         return "full" if selected_full_doc else "summ"
 
 

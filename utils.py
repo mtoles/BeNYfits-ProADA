@@ -4,6 +4,7 @@ from cachetools import LRUCache
 import cachetools
 from dotenv import load_dotenv
 import pandas as pd
+from openai._types import NotGiven
 
 load_dotenv()
 
@@ -13,14 +14,21 @@ client = OpenAI()
 
 
 @cachetools.cached(pc)
-def cached_openai_call(x: str, temperature=0.7, model="gpt-4"):
+def cached_openai_call(
+    x: str,  model, response_format=None, temperature=0.7,
+):
     """Call OpenAI's API, but cache the results in a shelved cache"""
+    assert response_format in [None, "json"]
+    response_format = (
+        {"type": "json_object"} if response_format == "json" else NotGiven()
+    )
     completion = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": x},
         ],
         temperature=temperature,
+        response_format=response_format,
     )
     return completion
 
