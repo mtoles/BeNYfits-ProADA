@@ -64,6 +64,7 @@ def main(
             df = pd.read_csv(ds_path)
         if "selftext" in df.columns:
             df["doc_orig"] = df["selftext"].astype(str)
+            df = df.drop(columns=["selftext"])
         # Shuffle the datast
         df = df.sample(frac=1).reset_index(drop=True)
         # Shift the dataset
@@ -73,12 +74,12 @@ def main(
             df = df.head(ds_downsample)
         # summarize each item of the dataset to 50% of its original length
         summarizer = GPTSummarizer(use_cache)
-
+        print("summarizing...")
         df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
 
         # Generate primary tasks
         prompt_generator = GPTPromptGenerator(use_cache)
-
+        print("generating prompts...")
         df["prompt"] = df["doc_orig"].progress_apply(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
@@ -101,7 +102,9 @@ def main(
             axis=1,
         )
         # Run the primary model
+        print("running primary model (full)...")
         df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
+        print("running primary model (summ)...")
         df["pm_answer_summ"] = primary_model.process(df["pm_instruction_summ"])
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 
@@ -118,6 +121,7 @@ def main(
     # Compare the summary answers and full answers using the reward model
     df.to_csv("llama2.csv")
     reward_model = GPTRewardModel(use_cache)
+    print("running reward model...")
     df["selection"] = df.progress_apply(
         lambda x: reward_model.forward(
             x["doc_orig"],
