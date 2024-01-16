@@ -110,7 +110,7 @@ def main(tldr: str):
         tldr_block = (
             "AND (\n"
             + " OR \n".join(
-                [f'(selftext LIKE "%{x.upper()}%")' for x in tldr_versions]
+                [f'(LOWER(selftext) LIKE "%{x.lower()}%")' for x in tldr_versions]
             )
             + "\n)\n"
         )
@@ -126,6 +126,7 @@ def main(tldr: str):
                 AND not over_18
                 AND LENGTH(selftext) > {min_text_length}
                 AND LENGTH(selftext) < {max_text_length}
+                AND LOWER(selftext) LIKE '% i %'
             ) as ranked
             WHERE rn <= {top_k}
         ;
