@@ -20,17 +20,6 @@ class OracleModel:
         # subclass this method
         return self.split_doc_to_sentences(document)[0]
 
-    # def split_doc_to_sentences(self, document: str) -> List[str]:
-    #     """
-    #     Split a document into sentences using nltk.
-    #     Parameters:
-    #         document (str): the document to split
-    #     Returns:
-    #         List[str]: the list of sentences
-    #     """
-    #     return nltk.sent_tokenize(document)
-
-
 class GPTOracleModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
@@ -82,5 +71,5 @@ if __name__ == "__main__":
     print(model.forward(document, question1, 0.7))
     print(model.forward(document, question2, 0.7))
     print(model.forward(document, question3, 0.7))
-    
+
 
