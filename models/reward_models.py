@@ -52,7 +52,7 @@ class GPTRewardModel(RewardModel):
         randomize = bool(np.random.randint(2))
         answer_a = pm_answer_full if randomize == 0 else pm_answer_summ
         answer_b = pm_answer_summ if randomize == 0 else pm_answer_full
-        lm_input = f"Which of the following answers is a better answer to the question? \n\nContext: {document_full} \n\n Question: {prompt} \n\n Answer A: {answer_a} \n\n Answer B: {answer_b}\n\n Which answer is better, A or B? Consider how helpful, specific, and factually correct the response is. Respond in JSON format, as in {{'choice': 'A'}}"
+        lm_input = f"Which of the following answers is a better answer to the question? \n\nContext: {document_full} \n\n Question: {prompt} \n\n Answer A: {answer_a} \n\n Answer B: {answer_b}\n\n Which answer is better, A or B? Consider how helpful, specific, and factually correct the response is with respect to the original document. Respond in JSON format, as in {{'choice': 'A'}}"
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,

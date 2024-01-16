@@ -22,6 +22,7 @@ def openai_call(
     model: str,
     response_format: Optional[str] = None,
     temperature: float = 0.7,
+    use_cache: bool = False,  # unused, here for convenience
 ):
     """
     Call OpenAI's API, but cache the results in a shelved cache

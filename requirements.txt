@@ -14,6 +14,7 @@ accelerate
 google-cloud-bigquery
 db-dtypes
 alpaca-eval
+nltk
 
 # qlora
 scipy # bitsandbytes seems to need this or throws an error(?)
