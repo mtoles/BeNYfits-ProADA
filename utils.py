@@ -86,23 +86,41 @@ def df_to_md(df: pd.DataFrame, output_path: str):
     """
     # delete the existing file and create a new one
     with open(output_path, "w") as f:
+        col_to_header = {
+            "subreddit": "subreddit",
+            "doc_orig": "original document",
+            "doc_summ": "summary document",
+            "prompt": "prompt",
+            "pm_answer_full": "full answer",
+            "pm_answer_summ": "summary answer",
+            "cq": "clarifying question",
+            "selection": "selection",
+        }
+        # substrs = [
+        #     f"## subreddit",
+        #     row["subreddit"],
+        #     f"## doc_orig",
+        #     row["doc_orig"],
+        #     f"## doc_summ",
+        #     row["doc_summ"],
+        #     f"## prompt",
+        #     row["prompt"],
+        #     f"## pm_answer_full",
+        #     row["pm_answer_full"],
+        #     f"## pm_answer_summ",
+        #     row["pm_answer_summ"],
+        #     f"## clarifying question",
+        #     row["cq"],
+        #     f"selection: {row['selection']}",
+        #     f"\n\n{'='*50}\n\n",
+        # ]
+        substrs = []
+        for col, header in col_to_header.items():
+            if col in df.columns:
+                substrs.append(f"## {header}")
+                substrs.append(df[col])
+        substrs.append(f"\n\n{'='*50}\n\n")
+        # only include each substrs pair if the column exists in the dataframe
         for row in df.iloc:
-            md_row = "\n\n".join(
-                [
-                    f"## subreddit",
-                    row["subreddit"],
-                    f"## doc_orig",
-                    row["doc_orig"],
-                    f"## doc_summ",
-                    row["doc_summ"],
-                    f"## prompt",
-                    row["prompt"],
-                    f"## pm_answer_full",
-                    row["pm_answer_full"],
-                    f"## pm_answer_summ",
-                    row["pm_answer_summ"],
-                    f"selection: {row['selection']}",
-                    f"\n\n{'='*50}\n\n",
-                ]
-            )
+            md_row = "\n\n".join(substrs)
             f.write(md_row)
