@@ -29,6 +29,7 @@ import os
     type=int,
     help="Use at most this many rows of the dataset",
 )
+@click.option("--n_clarifying_questions", default=1, help="Number of clarifying questions to generate")
 @click.option(
     "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows"
 )
@@ -45,6 +46,7 @@ def main(
     prompt_gen_temperature,
     ds_path,
     ds_downsample,
+    n_clarifying_questions,
     ds_shift,
     use_cache,
     intermediate_results_path,
@@ -106,9 +108,12 @@ def main(
         cq_model = GPTClarifyingQuestionModel(use_cache)
         print("running cq model...")
         df["cq"] = df.progress_apply(
-            lambda x: cq_model.forward(x["doc_summ"], x["prompt"]), axis=1
+            lambda x: cq_model.forward(x["doc_summ"], x["prompt"], n_clarifying_questions), axis=1
         )
 
+        # Ask the clarifying question to the oracle
+
+    
         # run primary models
         print("running primary model (full)...")
         df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
