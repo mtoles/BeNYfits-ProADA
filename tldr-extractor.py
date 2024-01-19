@@ -56,10 +56,11 @@ def additional_constraint_and_parsing(content, summary):
     # If post is of the format - [Content-Part1(tldr)Summary \n\n Content-Part2] i.e. contains new line in summary
     # Then we are concatenating content part1 and part2 to form complete content and portion 
     newlines_index_in_summary = summary.find('\n\n')
+
     if newlines_index_in_summary != -1:
-        summary = summary[:newlines_index_in_summary]
         content_second_part = summary[newlines_index_in_summary:]
-        content += content_second_part
+        summary = summary[:newlines_index_in_summary]
+        content = content + content_second_part        
 
     # The summary length is less than 10% of length of total post then only consider the same
     if len(summary) > 0.10 * len(selftext):
@@ -67,8 +68,8 @@ def additional_constraint_and_parsing(content, summary):
     
     result.append({
         'subreddit': subreddit,
-        'content': content.strip(),
-        'summary': summary.strip(),
+        'doc_orig': content.strip(),
+        'doc_summ': summary.strip(),
         'score': score
     })
 
@@ -115,7 +116,7 @@ with open(jsonl_file_path, 'r') as file:
                 content = selftext[:tldr_index]
                 summary = selftext[tldr_index + len(final_tldr_version):]
 
-                additional_constraint_and_parsing(content, summary)                
+                additional_constraint_and_parsing(content, summary)    
 
 with open(output_jsonl_file, 'w') as outfile:
     for row in result:
