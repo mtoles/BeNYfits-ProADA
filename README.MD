@@ -24,4 +24,4 @@ Follow instructions here https://cloud.google.com/docs/authentication/provide-cr
 When installing the gcloud CLI, https://cloud.google.com/sdk/docs/install#linux , hen prompted, select `[3] Enter a project ID` and enter `lunar-carving-267205` 
 
 ## Download Data
-`python3 get_data.py`
+`python3 get_data.py` for normal reddit data or `python3 get_data.py --tldr` for the tldr dataset
