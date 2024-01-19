@@ -28,23 +28,24 @@ class GPTOracleModel(OracleModel):
     def forward(
         self,
         document: str,
-        question: str,
+        questions: List[str],
         temperature: float,
         model="gpt-4-1106-preview",
     ) -> str:
         """
-        Use the OpenAI API to answer a question given a document. Return the selected sentence.
+        Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
 
         Parameters:
             document (str): the full document
-            question (str): the question
+            questions (List[str]): the questions
             temperature (float): the temperature to use for the GPT model
             model (str): the name of the OpenAI model to use
 
         Returns:
-            str: the selected sentence
+            List[str]: the selected sentence
         """
-        lm_input = f"Context: {document}\n\nQuestion:{question}\n\nWhich single sentence from the document best answers the question? Return the sentence itself, exactly, in JSON format, as in {{'answer': 'The sentence.'}}"
+        nn="\n\n"
+        lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nWhich single sentence from the document best answers each question? Return the sentences sentences together in a JSON list, as in {{'answers': ['The first sentence.', 'The second sentence']}}"
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -53,13 +54,19 @@ class GPTOracleModel(OracleModel):
             response_format="json",
         )
         # Tokenize the answer and return the first sentence
-        answer = nltk.sent_tokenize(
-            loads(completion.choices[0].message.content)["answer"]
-        )[0]
+        # answer = nltk.sent_tokenize(
+        #     loads(completion.choices[0].message.content)["answers"]
+        # )[0]
+        answers = loads(completion.choices[0].message.content)["answers"]
+        answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
         # Check that the answer is actually a sentence in the document
-        if answer.lower() not in document.lower():
-            answer = self.no_answer_str
-        return answer
+        actual_answers = []
+        for a in answers:
+            if a.lower() not in document.lower():
+                actual_answers.append(self.no_answer_str)
+            else:
+                actual_answers.append(a)
+        return actual_answers
 
 # testing
 if __name__ == "__main__":
