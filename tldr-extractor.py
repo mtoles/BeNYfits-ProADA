@@ -56,10 +56,12 @@ def additional_constraint_and_parsing(content, summary):
     # If post is of the format - [Content-Part1(tldr)Summary \n\n Content-Part2] i.e. contains new line in summary
     # Then we are concatenating content part1 and part2 to form complete content and portion 
     newlines_index_in_summary = summary.find('\n\n')
+
     if newlines_index_in_summary != -1:
-        summary = summary[:newlines_index_in_summary]
         content_second_part = summary[newlines_index_in_summary:]
-        content += content_second_part
+        summary = summary[:newlines_index_in_summary]
+        content = content + content_second_part        
+        # print(summary.strip())
 
     # The summary length is less than 10% of length of total post then only consider the same
     if len(summary) > 0.10 * len(selftext):
@@ -67,8 +69,8 @@ def additional_constraint_and_parsing(content, summary):
     
     result.append({
         'subreddit': subreddit,
-        'content': content.strip(),
-        'summary': summary.strip(),
+        'doc_orig': content.strip(),
+        'doc_summ': summary.strip(),
         'score': score
     })
 
@@ -77,6 +79,7 @@ with open(jsonl_file_path, 'r') as file:
         data = json.loads(line)
 
         selftext = data.get('selftext', '')
+        # selftext = "Oh my word. [This](https:\/\/www.reddit.com\/r\/JUSTNOMIL\/comments\/3urf0n\/christmas_drama_already\/) was the original post. TL;DR, mom didn't want to share Christmas, wanted us to drive 4 hours.\n\nSO, mom decided that because she and dad adopted a puppy, she wanted to bring it and just put it in a kennel at the house for the whole time they were here. My niece is terrified of dogs (and she's only about a year and a half old), and my sister's fianc\u00e9 is allergic. So my sister said point blank \"No. If the dog is going to stay in the kennel that long, leave it at your house. I don't want my kiddo screaming through the holidays\". Mom consulted with dad, they both said never mind, enjoy your holidays without us. She proceeded to get on Facebook posting pictures of her grandchildren and whining about how much she missed them and hated this holiday season. Bitch, please. You could have boarded the dog, asked us to meet halfway for dinner, ANYTHING. Then dad calls on Christmas, complains that we only texted him (FYI they only texted us to say Merry Christmas). I had laryngitis over the holidays, and almost no voice. I listened while my dad said my sister \"shut them down\" from visiting, how he they weren't just going to leave their dog at home because \"the dog is like family\". My sister unleashed. And I was so proud of her. She (very respectfully, which amazed me) told them they had other options, they shut themselves down, and her daughter (and their TWO pregnant daughters) should hold more importance then their dog during the holidays. She followed up by saying she refused to be guilt tripped for acting in her family's best interest. She shut my dad DOWN. So proud. And we proceeded to eat cupcakes and give no fucks. WIN FOR US GIRLS!"
         subreddit = data.get('subreddit', '')
         score = data.get('score', '')
 
@@ -115,7 +118,8 @@ with open(jsonl_file_path, 'r') as file:
                 content = selftext[:tldr_index]
                 summary = selftext[tldr_index + len(final_tldr_version):]
 
-                additional_constraint_and_parsing(content, summary)                
+                additional_constraint_and_parsing(content, summary)    
+        # break            
 
 with open(output_jsonl_file, 'w') as outfile:
     for row in result:
