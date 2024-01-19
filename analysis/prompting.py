@@ -6,6 +6,7 @@ from models.summarization_models import GPTSummarizer
 from prompt_generator_models import GPTPromptGenerator
 from primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from reward_models import GPTRewardModel, run_alpaca_eval
+from cq_models import GPTClarifyingQuestionModel
 from tqdm import tqdm
 import click
 import numpy as np
@@ -28,6 +29,7 @@ import os
     type=int,
     help="Use at most this many rows of the dataset",
 )
+@click.option("--n_clarifying_questions", default=1, help="Number of clarifying questions to generate")
 @click.option(
     "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows"
 )
@@ -44,6 +46,7 @@ def main(
     prompt_gen_temperature,
     ds_path,
     ds_downsample,
+    n_clarifying_questions,
     ds_shift,
     use_cache,
     intermediate_results_path,
@@ -101,7 +104,17 @@ def main(
             lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
             axis=1,
         )
-        # Run the primary model
+        # Run the cq model
+        cq_model = GPTClarifyingQuestionModel(use_cache)
+        print("running cq model...")
+        df["cq"] = df.progress_apply(
+            lambda x: cq_model.forward(x["doc_summ"], x["prompt"], n_clarifying_questions), axis=1
+        )
+
+        # Ask the clarifying question to the oracle
+
+    
+        # run primary models
         print("running primary model (full)...")
         df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
         print("running primary model (summ)...")
@@ -119,7 +132,6 @@ def main(
     # )
 
     # Compare the summary answers and full answers using the reward model
-    df.to_csv("llama2.csv")
     reward_model = GPTRewardModel(use_cache)
     print("running reward model...")
     df["selection"] = df.progress_apply(
