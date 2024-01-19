@@ -16,6 +16,9 @@ db-dtypes
 alpaca-eval
 nltk
 
+# entailment pipeline
+pysbd==0.3.4
+
 # qlora
 scipy # bitsandbytes seems to need this or throws an error(?)
 bitsandbytes
