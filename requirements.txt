@@ -1,7 +1,9 @@
+# core
 transformers==4.35.2
 datasets
 sentencepiece
-pytorch-gpu==1.12.1
+# pytorch-gpu==1.12.1
+# pytorch-gpu
 # cudatoolkit=11.5
 seaborn
 matplotlib
