@@ -45,7 +45,7 @@ class GPTOracleModel(OracleModel):
             List[str]: the selected sentence
         """
         nn="\n\n"
-        lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nWhich single sentence from the document best answers each question? Return the sentences sentences together in a JSON list, as in {{'answers': ['The first sentence.', 'The second sentence']}}"
+        lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nWhich single sentence from the document best answers each question? Return the sentences together in a JSON list, as in {{'answers': ['The first sentence.', 'The second sentence']}}"
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -68,15 +68,57 @@ class GPTOracleModel(OracleModel):
                 actual_answers.append(a)
         return actual_answers
 
+class GPTOracleAbstractiveModel(OracleModel):
+    def __init__(self, use_cache):
+        self.use_cache = use_cache
+
+    def forward(
+        self,
+        document: str,
+        questions: List[str],
+        temperature: float,
+        model="gpt-4-1106-preview",
+    ) -> str:
+        """
+        Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
+
+        Parameters:
+            document (str): the full document
+            questions (List[str]): the questions
+            temperature (float): the temperature to use for the GPT model
+            model (str): the name of the OpenAI model to use
+
+        Returns:
+            List[str]: the selected sentence
+        """
+        nn="\n\n"
+        lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions in less than 20 characters per question. Use only the information given in context and do not add any additional information. Return only one answer per question together in a JSON list with key as 'answers'."
+        completion = conditional_openai_call(
+            x=lm_input,
+            use_cache=self.use_cache,
+            model=model,
+            temperature=temperature,
+            response_format="json",
+        )
+        # Tokenize the answer and return the first sentence
+        # answer = nltk.sent_tokenize(
+        #     loads(completion.choices[0].message.content)["answers"]
+        # )[0]
+        answers = loads(completion.choices[0].message.content)["answers"]
+        answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
+        return answers
+
 # testing
 if __name__ == "__main__":
     document = "My name is Matt. I wrote this code. I am a student at Columbia University."
     question1 = "What is my name?"
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
-    model = GPTOracleModel(use_cache=False)
-    print(model.forward(document, question1, 0.7))
-    print(model.forward(document, question2, 0.7))
-    print(model.forward(document, question3, 0.7))
 
+    # model = GPTOracleModel(use_cache=False)
+    # print(model.forward(document, [question1], 0.7))
+    # print(model.forward(document, [question2], 0.7))
+    # print(model.forward(document, [question3], 0.7))
 
+    abs_model = GPTOracleAbstractiveModel(use_cache=False)
+    print(abs_model.forward(document, [question1, question2, question3], 0.7))
