@@ -42,7 +42,7 @@ class Llama2PrimaryModel:
         self.pipeline.tokenizer.pad_token_id = 0
         self.pipeline.tokenizer.padding_side = "left"
         # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
-        self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document. If you do not have enough information to answer the question, ask a clarifying question instead."
+        self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document. If you do not have enough information to answer the question, ask a clarifying question instead. If you answer the question, do not ask a clarifying question. If you ask a clarifying question, do not answer the question."
 
         self.batch_size = batch_size
 
@@ -136,12 +136,15 @@ def main(
         df = pd.read_json(intermediate_results_path)
     else:
         raise NotImplementedError("dont do this")
+    
+    if ds_downsample is not None:
+        df = df.head(ds_downsample)
 
     pm = Llama2PrimaryModel(pm_size, pm_batch_size)
     df["vibes"] = pm.process(
         documents=df["doc_summ"], tasks=df["prompt"], answers=pd.Series([""] * len(df))
     )
-    # df_to_md(df, "vibes.md")
+    df_to_md(df, "vibes.md")
     df.to_csv("vibes.tsv", sep="\t")
     print
 
