@@ -85,7 +85,7 @@ def df_to_md(df: pd.DataFrame, output_path: str):
         output_path (str): the path to save the markdown file
     """
     # delete the existing file and create a new one
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         col_to_header = {
             "subreddit": "subreddit",
             "doc_orig": "original document",
