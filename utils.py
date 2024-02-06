@@ -85,7 +85,7 @@ def df_to_md(df: pd.DataFrame, output_path: str):
         output_path (str): the path to save the markdown file
     """
     # delete the existing file and create a new one
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         col_to_header = {
             "subreddit": "subreddit",
             "doc_orig": "original document",
@@ -100,10 +100,16 @@ def df_to_md(df: pd.DataFrame, output_path: str):
         # only include each substrs pair if the column exists in the dataframe
         for row in df.iloc:
             substrs = []
-            for col, header in col_to_header.items():
-                if col in df.columns:
-                    substrs.append(f"## {header}")
-                    substrs.append(row[col])
+            for col_name, val in row.items():
+                if col_name in col_to_header:
+                    substrs.append(f"## {col_to_header[col_name]}")
+                else:
+                    substrs.append(f"## {col_name}")
+                substrs.append(str(val))
+            # for col, header in col_to_header.items():
+            #     if col in df.columns:
+            #         substrs.append(f"## {header}")
+            #         substrs.append(row[col])
             substrs.append(f"\n\n{'='*50}\n\n")
             md_row = "\n\n".join(substrs)
             f.write(md_row)

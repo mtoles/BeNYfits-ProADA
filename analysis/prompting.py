@@ -3,10 +3,10 @@ from openai import OpenAI
 import pandas as pd
 import json
 from models.summarization_models import GPTSummarizer
-from prompt_generator_models import GPTPromptGenerator
-from primary_models import GPTPrimaryModel, Llama2PrimaryModel
-from reward_models import GPTRewardModel, run_alpaca_eval
-from cq_models import GPTClarifyingQuestionModel
+from models.prompt_generator_models import GPTPromptGenerator
+from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
+from models.reward_models import GPTRewardModel, run_alpaca_eval
+from models.cq_models import GPTClarifyingQuestionModel
 from tqdm import tqdm
 import click
 import numpy as np
@@ -78,7 +78,10 @@ def main(
         # summarize each item of the dataset to 50% of its original length
         summarizer = GPTSummarizer(use_cache)
         print("summarizing...")
-        df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
+        if "doc_summ" not in df.columns:
+            df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
+        else:
+            print("Skipping summarization because doc_summ is already present")
 
         # Generate primary tasks
         prompt_generator = GPTPromptGenerator(use_cache)

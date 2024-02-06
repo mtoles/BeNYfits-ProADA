@@ -7,6 +7,11 @@ Install Python libraries with
 pip install -r requirements.txt
 ```
 
+Install pytorch (Linux)
+```
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
+
 Install local modules with 
 ```
 pip install -e .
