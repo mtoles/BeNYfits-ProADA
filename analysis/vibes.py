@@ -141,7 +141,7 @@ def main(
     df["vibes"] = pm.process(
         documents=df["doc_summ"], tasks=df["prompt"], answers=pd.Series([""] * len(df))
     )
-    df_to_md(df, "vibes.md")
+    df_to_md(df[["doc_summ", "doc_orig", "prompt", "vibes"]], "vibes.md")
     # df.to_csv("vibes.tsv", sep="\t")
     print
 
