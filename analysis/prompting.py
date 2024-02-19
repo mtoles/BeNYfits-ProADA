@@ -120,7 +120,7 @@ def main(
         oracle_extractive_model = GPTOracleModel(use_cache=False)
 
         df["cq_extractive_answer"] = df.apply(
-            lambda x: oracle_extractive_model.forward(x["doc_summ"], x["cq"], 0.7),
+            lambda x: oracle_extractive_model.forward(x["doc_orig"], x["cq"], 0.7),
             axis=1,
         )
 
@@ -128,7 +128,7 @@ def main(
         oracle_abs_model = GPTOracleAbstractiveModel(use_cache=False)
 
         df["cq_abstractive_answer"] = df.apply(
-            lambda x: oracle_abs_model.forward(x["doc_summ"], x["cq"], 0.7),
+            lambda x: oracle_abs_model.forward(x["doc_orig"], x["cq"], 0.7),
             axis=1,
         )
     

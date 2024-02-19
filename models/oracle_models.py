@@ -92,7 +92,7 @@ class GPTOracleAbstractiveModel(OracleModel):
             List[str]: the selected sentence
         """
         nn="\n\n"
-        lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions in less than 20 characters per question. Use only the information given in context and do not add any additional information. Return only one answer per question together in a JSON list with key as 'answers'."
+        lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Return only one answer per question together in a JSON list with key as 'answers'."
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
