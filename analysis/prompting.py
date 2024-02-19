@@ -78,7 +78,10 @@ def main(
         # summarize each item of the dataset to 50% of its original length
         summarizer = GPTSummarizer(use_cache)
         print("summarizing...")
-        df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
+        if "doc_summ" not in df.columns:
+            df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
+        else:
+            print("Skipping summarization because doc_summ is already present")
 
         # Generate primary tasks
         prompt_generator = GPTPromptGenerator(use_cache)
