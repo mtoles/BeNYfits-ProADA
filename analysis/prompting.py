@@ -124,11 +124,11 @@ def main(
             axis=1,
         )
 
-        oracle_model = GPTOracleModel(use_cache=use_cache)
-        # Ask the clarifying question to the oracle
-        df["ca"] = df.progress_apply(
-            lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
-        )
+        # oracle_model = GPTOracleModel(use_cache=use_cache)
+        # # Ask the clarifying question to the oracle
+        # df["ca"] = df.progress_apply(
+        #     lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
+        # )
 
         # run primary models
         print("running primary model (full)...")
@@ -148,24 +148,24 @@ def main(
     # )
 
     # Compare the summary answers and full answers using the reward model
-    reward_model = GPTRewardModel(use_cache)
-    print("running reward model...")
-    df["selection"] = df.progress_apply(
-        lambda x: reward_model.forward(
-            x["doc_orig"],
-            x["pm_answer_full"],
-            x["pm_answer_summ"],
-            x["prompt"][0],
-            temperature=0.7,
-        ),
-        axis=1,
-    )
-    num_full_selected = len(df[df["selection"] == "full"])
-    percent_full_selected = num_full_selected / len(df)
-    print(
-        f"Percent of full docs selected: {percent_full_selected} | {num_full_selected} / {len(df)}"
-    )
-    print()
+    # reward_model = GPTRewardModel(use_cache)
+    # print("running reward model...")
+    # df["selection"] = df.progress_apply(
+    #     lambda x: reward_model.forward(
+    #         x["doc_orig"],
+    #         x["pm_answer_full"],
+    #         x["pm_answer_summ"],
+    #         x["prompt"][0],
+    #         temperature=0.7,
+    #     ),
+    #     axis=1,
+    # )
+    # num_full_selected = len(df[df["selection"] == "full"])
+    # percent_full_selected = num_full_selected / len(df)
+    # print(
+    #     f"Percent of full docs selected: {percent_full_selected} | {num_full_selected} / {len(df)}"
+    # )
+    # print()
     results_path = f"results/{pm_name}-{pm_size}_{ds_downsample}.json"
     if not os.path.exists("results"):
         os.makedirs("results")
