@@ -6,7 +6,7 @@ import pandas as pd
 import os
 from json import loads
 import nltk
-
+nltk.download('punkt')
 
 class OracleModel:
     """
@@ -100,10 +100,6 @@ class GPTOracleAbstractiveModel(OracleModel):
             temperature=temperature,
             response_format="json",
         )
-        # Tokenize the answer and return the first sentence
-        # answer = nltk.sent_tokenize(
-        #     loads(completion.choices[0].message.content)["answers"]
-        # )[0]
         answers = loads(completion.choices[0].message.content)["answers"]
         answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
         return answers
@@ -115,10 +111,10 @@ if __name__ == "__main__":
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
 
-    # model = GPTOracleModel(use_cache=False)
-    # print(model.forward(document, [question1], 0.7))
-    # print(model.forward(document, [question2], 0.7))
-    # print(model.forward(document, [question3], 0.7))
+    model = GPTOracleModel(use_cache=False)
+    print(model.forward(document, [question1], 0.7))
+    print(model.forward(document, [question2], 0.7))
+    print(model.forward(document, [question3], 0.7))
 
     abs_model = GPTOracleAbstractiveModel(use_cache=False)
     print(abs_model.forward(document, [question1, question2, question3], 0.7))

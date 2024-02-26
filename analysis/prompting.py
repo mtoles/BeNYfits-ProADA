@@ -7,7 +7,6 @@ from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from models.reward_models import GPTRewardModel, run_alpaca_eval
 from models.cq_models import GPTClarifyingQuestionModel
-from models.oracle_models import GPTOracleAbstractiveModel, GPTOracleModel
 from tqdm import tqdm
 import click
 import numpy as np
@@ -116,21 +115,7 @@ def main(
         )
 
         # Ask the clarifying question to the oracle
-        print("running oracle extractive model...")
-        oracle_extractive_model = GPTOracleModel(use_cache=False)
 
-        df["cq_extractive_answer"] = df.apply(
-            lambda x: oracle_extractive_model.forward(x["doc_orig"], x["cq"], 0.7),
-            axis=1,
-        )
-
-        print("running oracle abstractive model...")
-        oracle_abs_model = GPTOracleAbstractiveModel(use_cache=False)
-
-        df["cq_abstractive_answer"] = df.apply(
-            lambda x: oracle_abs_model.forward(x["doc_orig"], x["cq"], 0.7),
-            axis=1,
-        )
     
         # run primary models
         print("running primary model (full)...")
