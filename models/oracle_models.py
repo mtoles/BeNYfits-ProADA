@@ -71,7 +71,6 @@ class GPTOracleModel(OracleModel):
                 actual_answers.append(self.no_answer_str)
         return actual_answers
 
-<<<<<<< HEAD
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
@@ -107,8 +106,6 @@ class GPTOracleAbstractiveModel(OracleModel):
         answers = loads(completion.choices[0].message.content)["answers"]
         answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
         return answers
-=======
->>>>>>> main
 
 # testing
 if __name__ == "__main__":
@@ -118,7 +115,6 @@ if __name__ == "__main__":
     question1 = "What is my name?"
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
-<<<<<<< HEAD
 
     model = GPTOracleModel(use_cache=False)
     print(model.forward(document, [question1], 0.7))
@@ -127,9 +123,3 @@ if __name__ == "__main__":
 
     abs_model = GPTOracleAbstractiveModel(use_cache=False)
     print(abs_model.forward(document, [question1, question2, question3], 0.7))
-=======
-    model = GPTOracleModel(use_cache=False)
-    print(model.forward(document, question1, 0.7))
-    print(model.forward(document, question2, 0.7))
-    print(model.forward(document, question3, 0.7))
->>>>>>> main
