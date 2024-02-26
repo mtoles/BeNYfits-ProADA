@@ -7,6 +7,7 @@ from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from models.reward_models import GPTRewardModel, run_alpaca_eval
 from models.cq_models import GPTClarifyingQuestionModel
+from models.oracle_models import GPTOracleModel
 from tqdm import tqdm
 import click
 import numpy as np
@@ -29,7 +30,11 @@ import os
     type=int,
     help="Use at most this many rows of the dataset",
 )
-@click.option("--n_clarifying_questions", default=1, help="Number of clarifying questions to generate")
+@click.option(
+    "--n_clarifying_questions",
+    default=1,
+    help="Number of clarifying questions to generate",
+)
 @click.option(
     "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows"
 )
@@ -79,7 +84,9 @@ def main(
         summarizer = GPTSummarizer(use_cache)
         print("summarizing...")
         if "doc_summ" not in df.columns:
-            df["doc_summ"] = df["doc_orig"].progress_apply(lambda x: summarizer.forward(x))
+            df["doc_summ"] = df["doc_orig"].progress_apply(
+                lambda x: summarizer.forward(x)
+            )
         else:
             print("Skipping summarization because doc_summ is already present")
 
@@ -90,7 +97,7 @@ def main(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
 
-        # Run the primary task
+        # Load the primary model
         if pm_name == "gpt4":
             primary_model = GPTPrimaryModel(use_cache)
         elif pm_name == "llama2":
@@ -111,12 +118,18 @@ def main(
         cq_model = GPTClarifyingQuestionModel(use_cache)
         print("running cq model...")
         df["cq"] = df.progress_apply(
-            lambda x: cq_model.forward(x["doc_summ"], x["prompt"], n_clarifying_questions), axis=1
+            lambda x: cq_model.forward(
+                x["doc_summ"], x["prompt"], n_clarifying_questions
+            ),
+            axis=1,
         )
 
+        oracle_model = GPTOracleModel(use_cache=use_cache)
         # Ask the clarifying question to the oracle
+        df["ca"] = df.progress_apply(
+            lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
+        )
 
-    
         # run primary models
         print("running primary model (full)...")
         df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
