@@ -104,6 +104,7 @@ class GPTOracleAbstractiveModel(OracleModel):
             response_format="json",
         )
         answers = loads(completion.choices[0].message.content)["answers"]
+        answers = [value for value in answers.values()]
         answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
         return answers
 
@@ -120,6 +121,7 @@ if __name__ == "__main__":
     print(model.forward(document, [question1], 0.7))
     print(model.forward(document, [question2], 0.7))
     print(model.forward(document, [question3], 0.7))
+    print(model.forward(document, [question1, question2, question3], 0.7))
 
     abs_model = GPTOracleAbstractiveModel(use_cache=False)
     print(abs_model.forward(document, [question1, question2, question3], 0.7))
