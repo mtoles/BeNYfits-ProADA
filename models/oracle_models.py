@@ -20,6 +20,7 @@ class OracleModel:
         # subclass this method
         return self.split_doc_to_sentences(document)[0]
 
+
 class GPTOracleModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
@@ -29,7 +30,7 @@ class GPTOracleModel(OracleModel):
         self,
         document: str,
         questions: List[str],
-        temperature: float,
+        temperature: float = 0.7,
         model="gpt-4-1106-preview",
     ) -> str:
         """
@@ -44,8 +45,8 @@ class GPTOracleModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
-        nn="\n\n"
-        lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nWhich single sentence from the document best answers each question? Return the sentences together in a JSON list, as in {{'answers': ['The first sentence.', 'The second sentence']}}"
+        nn = "\n\n"
+        lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nFor each question, return a single sentence, verbatim, from the context, that answers the question. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Question not answerable'. Return the sentences sentences together in a JSON list, as in {{'answers': ['The first answer', 'The second answer']}}"
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -62,12 +63,15 @@ class GPTOracleModel(OracleModel):
         # Check that the answer is actually a sentence in the document
         actual_answers = []
         for a in answers:
-            if a.lower() not in document.lower():
-                actual_answers.append(self.no_answer_str)
-            else:
+            if (a.lower() in document.lower()) or (
+                a.lower() == "question not answerable"
+            ):
                 actual_answers.append(a)
+            else:
+                actual_answers.append(self.no_answer_str)
         return actual_answers
 
+<<<<<<< HEAD
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
@@ -103,13 +107,18 @@ class GPTOracleAbstractiveModel(OracleModel):
         answers = loads(completion.choices[0].message.content)["answers"]
         answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
         return answers
+=======
+>>>>>>> main
 
 # testing
 if __name__ == "__main__":
-    document = "My name is Matt. I wrote this code. I am a student at Columbia University."
+    document = (
+        "My name is Matt. I wrote this code. I am a student at Columbia University."
+    )
     question1 = "What is my name?"
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
+<<<<<<< HEAD
 
     model = GPTOracleModel(use_cache=False)
     print(model.forward(document, [question1], 0.7))
@@ -118,3 +127,9 @@ if __name__ == "__main__":
 
     abs_model = GPTOracleAbstractiveModel(use_cache=False)
     print(abs_model.forward(document, [question1, question2, question3], 0.7))
+=======
+    model = GPTOracleModel(use_cache=False)
+    print(model.forward(document, question1, 0.7))
+    print(model.forward(document, question2, 0.7))
+    print(model.forward(document, question3, 0.7))
+>>>>>>> main
