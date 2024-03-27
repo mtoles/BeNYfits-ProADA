@@ -79,7 +79,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         self,
         document: str,
         questions: List[str],
-        temperature: float,
+        temperature: float = 0.7,
         model="gpt-4-1106-preview",
     ) -> str:
         """
@@ -95,7 +95,7 @@ class GPTOracleAbstractiveModel(OracleModel):
             List[str]: the selected sentence
         """
         nn="\n\n"
-        lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Return only one answer per question together in a JSON list with key as 'answers'."
+        lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -104,9 +104,14 @@ class GPTOracleAbstractiveModel(OracleModel):
             response_format="json",
         )
         answers = loads(completion.choices[0].message.content)["answers"]
-        answers = [value for value in answers.values()]
-        answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
-        return answers
+
+        actual_answers = []
+        for answer in answers:
+            if isinstance(answer, str):
+                actual_answers.append(nltk.sent_tokenize(answer)[0])
+            else:
+                actual_answers.append(self.no_answer_str)
+        return actual_answers
 
 # testing
 if __name__ == "__main__":
