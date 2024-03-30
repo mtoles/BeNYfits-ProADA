@@ -5,6 +5,12 @@ from typing import List, Dict, Tuple, Union, Optional
 import pandas as pd
 import os
 from json import loads
+from huggingface_hub import login
+import transformers
+import torch
+from tqdm import tqdm
+import json
+
 import nltk
 nltk.download('punkt')
 
@@ -74,7 +80,8 @@ class GPTOracleModel(OracleModel):
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
-
+        self.no_answer_str = "GPT-4 did not return a valid sentence"
+        
     def forward(
         self,
         document: str,
@@ -117,6 +124,98 @@ class GPTOracleAbstractiveModel(OracleModel):
                 actual_answers.append(self.no_answer_str)
         return actual_answers
 
+class Llama2OracleModel(OracleModel):
+    """
+        Llama2 Oracle Model. 
+    """
+    def __init__(self, model_size, batch_size = 5):
+        self.no_answer_str = "LLAMA did not return a valid sentence"
+
+        if model_size == "7b":
+            self.model_name = "meta-llama/Llama-2-7b-chat-hf"
+        elif model_size == "13b":
+            self.model_name = "meta-llama/Llama-2-13b-chat-hf"
+        elif model_size == "70b":
+            self.model_name = "meta-llama/Llama-2-70b-chat-hf"
+        else:
+            raise ValueError(f"Unknown llama2 model size {model_size}")
+        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        login(token=self.hf_api_key)
+
+        self.pipeline = transformers.pipeline(
+            "text-generation",
+            model=self.model_name,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        self.pipeline.tokenizer.pad_token_id = 0
+        self.pipeline.tokenizer.padding_side = "left"
+
+        self.system_prompt = "Based on the context provided below, answer the questions listed. Use only the information from the context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the content. Combine your answers into a single JSON object with a key named 'answers' and the value as a list of strings, where each string is a response to the corresponding question in the order they are asked. Return only this JSON object as the final output without any additional whitespaces."
+        self.user_prompt = "Context: {user_input}\n\nQuestions: {questions_string}"
+
+        self.batch_size = batch_size
+
+    def forward_batch(
+        self,
+        documents: List[str],
+        questions_list: List[List[str]]
+    ) -> List[str]:
+        formatted_user_prompts = [
+            self.user_prompt.format(user_input=doc, questions_string="\n\n".join(questions))
+            for doc, questions in zip(documents, questions_list)
+        ]
+
+        llama_formatted_inputs = [
+            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{prompt} [/INST]"
+            for prompt in formatted_user_prompts
+        ]
+
+        sequences = self.pipeline(llama_formatted_inputs)
+        outputs = []
+        for seq, llama_formatted_input in zip(sequences, llama_formatted_inputs):
+            llama_parsed_output = seq[0]["generated_text"]
+            llama_parsed_output = llama_parsed_output[len(llama_formatted_input):]
+
+            # Further processing of LLAMA output if needed            
+            # processed_output = self.no_answer_str
+
+            # start_braces = llama_parsed_output.find("{")
+            # end_braces = llama_parsed_output.rfind("}")
+
+            # if start_braces != -1 and end_braces != -1 and start_braces < end_braces:
+            #     llama_parsed_output = llama_parsed_output[start_braces:end_braces+1]
+
+            #     try:
+            #         output_dict = json.loads(llama_parsed_output)
+            #         processed_output = output_dict.get('answers', [])
+            #     except json.JSONDecodeError as e:
+            #         print("Error decoding JSON:", e)
+        
+            outputs.append(llama_parsed_output)
+
+        return outputs
+    
+    def forward(
+        self,
+        documents: List[str],
+        questions: List[List[str]]
+    ) -> List[str]:
+        if len(documents) != len(questions):
+            raise ValueError("The length of the documents list must be equal to the length of the questions list.")
+
+        results = []
+        n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
+
+        for i in tqdm(range(n_batches)):
+            batch_documents = documents[i*self.batch_size:(i+1)*self.batch_size]
+            batch_questions_list = questions[i*self.batch_size:(i+1)*self.batch_size]
+
+            batch_results = self.forward_batch(batch_documents, batch_questions_list)
+            results.extend(batch_results)
+
+        return results
+
 # testing
 if __name__ == "__main__":
     document = (
@@ -126,11 +225,14 @@ if __name__ == "__main__":
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
 
-    model = GPTOracleModel(use_cache=False)
-    print(model.forward(document, [question1], 0.7))
-    print(model.forward(document, [question2], 0.7))
-    print(model.forward(document, [question3], 0.7))
-    print(model.forward(document, [question1, question2, question3], 0.7))
+    # model = GPTOracleModel(use_cache=False)
+    # print(model.forward(document, [question1], 0.7))
+    # print(model.forward(document, [question2], 0.7))
+    # print(model.forward(document, [question3], 0.7))
+    # print(model.forward(document, [question1, question2, question3], 0.7))
 
-    abs_model = GPTOracleAbstractiveModel(use_cache=False)
-    print(abs_model.forward(document, [question1, question2, question3], 0.7))
+    # abs_model = GPTOracleAbstractiveModel(use_cache=False)
+    # print(abs_model.forward(document, [question1, question2, question3], 0.7))
+
+    llama_model = Llama2OracleModel("7b")
+    print(llama_model.forward([document, document, document], [question1, question2, question3]))
