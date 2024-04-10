@@ -111,18 +111,22 @@ class GPTOracleAbstractiveModel(OracleModel):
             response_format="json",
         )
         answers = loads(completion.choices[0].message.content)["answers"]
+        
+        # # print(f"Answers: {answers}")
 
-        actual_answers = []
-        for answer in answers:
-            if isinstance(answer, str):
-                tokenized_answer = nltk.sent_tokenize(answer)
-                if len(tokenized_answer) > 0:
-                    actual_answers.append(tokenized_answer[0])
-                else:
-                    actual_answers.append(self.no_answer_str)
-            else:
-                actual_answers.append(self.no_answer_str)
-        return actual_answers
+        # # actual_answers = []
+        # # for answer in answers:
+        # #     if isinstance(answer, str):
+        # #         tokenized_answer = nltk.sent_tokenize(answer)
+
+        # #         if len(tokenized_answer) > 0:
+        # #             actual_answers.append(tokenized_answer[0])
+        # #         else:
+        # #             actual_answers.append(self.no_answer_str)
+        # #     else:
+        # #         actual_answers.append(self.no_answer_str)
+        # return actual_answers
+        return answers
 
 class Llama2OracleModel(OracleModel):
     """
@@ -231,8 +235,8 @@ if __name__ == "__main__":
     # print(model.forward(document, [question3], 0.7))
     # print(model.forward(document, [question1, question2, question3], 0.7))
 
-    # abs_model = GPTOracleAbstractiveModel(use_cache=False)
-    # print(abs_model.forward(document, [question1, question2, question3], 0.7))
+    abs_model = GPTOracleAbstractiveModel(use_cache=False)
+    print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    llama_model = Llama2OracleModel("7b")
-    print(llama_model.forward([document, document, document], [question1, question2, question3]))
+    # llama_model = Llama2OracleModel("7b")
+    # print(llama_model.forward([document, document, document], [question1, question2, question3]))

@@ -13,6 +13,13 @@ import click
 import numpy as np
 import os
 
+def extract_first_element_from_gpt_response(response):
+    try:
+        print(response[0])
+        ans = response[0]
+        return ans
+    except:
+        return ""
 
 @click.command()
 @click.option("--pm_name", default="llama2", help="Name of the primary model to use")
@@ -132,17 +139,17 @@ def main(
 
         print("Running Oracle Now")
 
-        llama_oracle_model = Llama2OracleModel("7b")
+        # llama_oracle_model = Llama2OracleModel("7b")
 
-        df["llama_answers"] = llama_oracle_model.forward(
-            documents=df["doc_summ"].tolist(),
-            questions=df['cq'].apply(lambda x: [x]).tolist()
-        )
+        # df["llama_answers"] = llama_oracle_model.forward(
+        #     documents=df["doc_summ"].tolist(),
+        #     questions=df['cq'].apply(lambda x: [x]).tolist()
+        # )
 
         oracle_model = GPTOracleAbstractiveModel(use_cache=use_cache)
         # # Ask the clarifying question to the oracle
-        df["answers"] = df.progress_apply(
-            lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
+        df["gpt_answers"] = df.progress_apply(
+            lambda x: extract_first_element_from_gpt_response(oracle_model.forward(x["doc_orig"], x["cq"])), axis=1
         )
 
         # Write the results to a csv
