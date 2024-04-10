@@ -104,19 +104,8 @@ class GPTOracleAbstractiveModel(OracleModel):
             response_format="json",
         )
         answers = loads(completion.choices[0].message.content)["answers"]
-
-        actual_answers = []
-        for answer in answers:
-            if isinstance(answer, str):
-                tokenized_answer = nltk.sent_tokenize(answer)
-                if len(tokenized_answer) > 0:
-                    actual_answers.append(tokenized_answer[0])
-                else:
-                    actual_answers.append(self.no_answer_str)
-            else:
-                actual_answers.append(self.no_answer_str)
-        return actual_answers
-
+        return answers
+        
 # testing
 if __name__ == "__main__":
     document = (
