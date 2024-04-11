@@ -101,7 +101,6 @@ class GPTOracleAbstractiveModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
-        print(f"Questions: {questions}")
         nn="\n\n"
         lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the Reddit post. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
         completion = conditional_openai_call(
@@ -111,9 +110,7 @@ class GPTOracleAbstractiveModel(OracleModel):
             temperature=temperature,
             response_format="json",
         )
-        answers = loads(completion.choices[0].message.content)["answers"]
-        
-        print(f"Answers: {answers}")
+        answers = loads(completion.choices[0].message.content)["answers"]        
         return answers
     
     def forward(
@@ -135,10 +132,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
-        print(f"Question: {question}")
-        # nn="\n\n"
         lm_input = f"Context: {document}\n\nQuestion: {question}\n\nUse the context to provide an answer. Rely solely on the information provided in the context without incorporating any additional details. Respond in the first person, mirroring the tone and perspective of the original Reddit post author. Return the response in a JSON format, with a key named 'answer' and the value being a string representation of the answer."
-        # lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the Reddit post. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -146,9 +140,7 @@ class GPTOracleAbstractiveModel(OracleModel):
             temperature=temperature,
             response_format="json",
         )
-        answer = loads(completion.choices[0].message.content)["answer"]
-        
-        print(f"Answer: {answer}")
+        answer = loads(completion.choices[0].message.content)["answer"]        
         return answer
 
 class Llama2OracleModel(OracleModel):
