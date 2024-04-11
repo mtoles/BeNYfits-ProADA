@@ -82,7 +82,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         self.use_cache = use_cache
         self.no_answer_str = "GPT-4 did not return a valid sentence"
         
-    def forward(
+    def forward_multiple(
         self,
         document: str,
         questions: List[str],
@@ -101,6 +101,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
+        print(f"Questions: {questions}")
         nn="\n\n"
         lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the Reddit post. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
         completion = conditional_openai_call(
@@ -112,7 +113,42 @@ class GPTOracleAbstractiveModel(OracleModel):
         )
         answers = loads(completion.choices[0].message.content)["answers"]
         
-        # # print(f"Answers: {answers}")
+        print(f"Answers: {answers}")
+        return answers
+    
+    def forward(
+        self,
+        document: str,
+        question: str,
+        temperature: float = 0.7,
+        model="gpt-4-1106-preview",
+    ) -> str:
+        """
+        Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
+
+        Parameters:
+            document (str): the full document
+            questions (List[str]): the questions
+            temperature (float): the temperature to use for the GPT model
+            model (str): the name of the OpenAI model to use
+
+        Returns:
+            List[str]: the selected sentence
+        """
+        print(f"Question: {question}")
+        # nn="\n\n"
+        lm_input = f"Context: {document}\n\nQuestion: {question}\n\nUse the context to provide an answer. Rely solely on the information provided in the context without incorporating any additional details. Respond in the first person, mirroring the tone and perspective of the original Reddit post author. Return the response in a JSON format, with a key named 'answer' and the value being a string representation of the answer."
+        # lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the Reddit post. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
+        completion = conditional_openai_call(
+            x=lm_input,
+            use_cache=self.use_cache,
+            model=model,
+            temperature=temperature,
+            response_format="json",
+        )
+        answer = loads(completion.choices[0].message.content)["answer"]
+        
+        print(f"Answer: {answer}")
 
         # # actual_answers = []
         # # for answer in answers:
@@ -126,7 +162,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         # #     else:
         # #         actual_answers.append(self.no_answer_str)
         # return actual_answers
-        return answers
+        return answer
 
 class Llama2OracleModel(OracleModel):
     """
@@ -155,19 +191,20 @@ class Llama2OracleModel(OracleModel):
         self.pipeline.tokenizer.pad_token_id = 0
         self.pipeline.tokenizer.padding_side = "left"
 
-        self.system_prompt = "Based on the context provided below, answer the questions listed. Use only the information from the context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the content. Combine your answers into a single JSON object with a key named 'answers' and the value as a list of strings, where each string is a response to the corresponding question in the order they are asked. Return only this JSON object as the final output without any additional whitespaces."
-        self.user_prompt = "Context: {user_input}\n\nQuestions: {questions_string}"
+        # self.system_prompt = "Based on the context provided below, answer the questions listed. Use only the information from the context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the content. Combine your answers into a single JSON object with a key named 'answers' and the value as a list of strings, where each string is a response to the corresponding question in the order they are asked. Return only this JSON object as the final output without any additional whitespaces."
+        self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any JSON formatting or additional text."
+        self.user_prompt = "Context: {user_input}\n\nQuestion: {question_string}"
 
         self.batch_size = batch_size
 
     def forward_batch(
         self,
         documents: List[str],
-        questions_list: List[List[str]]
+        questions: List[str]
     ) -> List[str]:
         formatted_user_prompts = [
-            self.user_prompt.format(user_input=doc, questions_string="\n\n".join(questions))
-            for doc, questions in zip(documents, questions_list)
+            self.user_prompt.format(user_input=doc, question_string=question)
+            for doc, question in zip(documents, questions)
         ]
 
         llama_formatted_inputs = [
@@ -180,6 +217,7 @@ class Llama2OracleModel(OracleModel):
         for seq, llama_formatted_input in zip(sequences, llama_formatted_inputs):
             llama_parsed_output = seq[0]["generated_text"]
             llama_parsed_output = llama_parsed_output[len(llama_formatted_input):]
+            llama_parsed_output = llama_parsed_output.strip()
 
             # Further processing of LLAMA output if needed            
             # processed_output = self.no_answer_str
@@ -203,7 +241,7 @@ class Llama2OracleModel(OracleModel):
     def forward(
         self,
         documents: List[str],
-        questions: List[List[str]]
+        questions: List[str]
     ) -> List[str]:
         if len(documents) != len(questions):
             raise ValueError("The length of the documents list must be equal to the length of the questions list.")
@@ -213,9 +251,9 @@ class Llama2OracleModel(OracleModel):
 
         for i in tqdm(range(n_batches)):
             batch_documents = documents[i*self.batch_size:(i+1)*self.batch_size]
-            batch_questions_list = questions[i*self.batch_size:(i+1)*self.batch_size]
+            batch_questions = questions[i*self.batch_size:(i+1)*self.batch_size]
 
-            batch_results = self.forward_batch(batch_documents, batch_questions_list)
+            batch_results = self.forward_batch(batch_documents, batch_questions)
             results.extend(batch_results)
 
         return results
@@ -235,8 +273,8 @@ if __name__ == "__main__":
     # print(model.forward(document, [question3], 0.7))
     # print(model.forward(document, [question1, question2, question3], 0.7))
 
-    abs_model = GPTOracleAbstractiveModel(use_cache=False)
-    print(abs_model.forward(document, [question1, question2, question3], 0.7))
+    # abs_model = GPTOracleAbstractiveModel(use_cache=False)
+    # print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    # llama_model = Llama2OracleModel("7b")
-    # print(llama_model.forward([document, document, document], [question1, question2, question3]))
+    llama_model = Llama2OracleModel("7b")
+    print(llama_model.forward([document, document, document], [question1, question2, question3]))
