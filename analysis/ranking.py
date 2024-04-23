@@ -1,7 +1,5 @@
 # Setup
-from openai import OpenAI
 import pandas as pd
-import json
 from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
@@ -11,7 +9,6 @@ from models.ranking_models import GPTRankingModel
 from tqdm import tqdm
 import click
 import numpy as np
-import os
 
 
 @click.command()
@@ -138,60 +135,8 @@ def main(
             lambda x: ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["ca"]), axis=1
         )
 
-        """
-        forward(
-        self,
-        doc_summ: str,
-        task: str,
-        cq: list[str],
-        ca: list[str],
-        question: str=None,
-        answer: str=None,
-        temperature: float = 0.7
-    )"""
-
-
-
-        # run primary models
-        # print("running primary model (full)...")
-        # df["pm_answer_full"] = primary_model.process(df["pm_instruction_full"])
-        # print("running primary model (summ)...")
-        # df["pm_answer_summ"] = primary_model.process(df["pm_instruction_summ"])
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
-    #
-    # # Evaluation
-    # # alpaca_preferences = run_alpaca_eval(
-    # #     df["pm_answer_summ"],
-    # #     df["pm_answer_full"],
-    # #     instruction=df["pm_instruction_full"],
-    # # )
-    # # df["preference"] = alpaca_preferences.apply(
-    # #     lambda x: {0: "summ", 1: "full", "None": "None"}[x]
-    # # )
-    #
-    # # Compare the summary answers and full answers using the reward model
-    # # reward_model = GPTRewardModel(use_cache)
-    # # print("running reward model...")
-    # # df["selection"] = df.progress_apply(
-    # #     lambda x: reward_model.forward(
-    # #         x["doc_orig"],
-    # #         x["pm_answer_full"],
-    # #         x["pm_answer_summ"],
-    # #         x["prompt"][0],
-    # #         temperature=0.7,
-    # #     ),
-    # #     axis=1,
-    # # )
-    # # num_full_selected = len(df[df["selection"] == "full"])
-    # # percent_full_selected = num_full_selected / len(df)
-    # # print(
-    # #     f"Percent of full docs selected: {percent_full_selected} | {num_full_selected} / {len(df)}"
-    # # )
-    # # print()
-    # results_path = f"results/{pm_name}-{pm_size}_{ds_downsample}.json"
-    # if not os.path.exists("results"):
-    #     os.makedirs("results")
-    # df.to_json(results_path)
+
 
 
 if __name__ == "__main__":
