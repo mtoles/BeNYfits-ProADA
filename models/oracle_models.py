@@ -143,21 +143,21 @@ class GPTOracleAbstractiveModel(OracleModel):
         answer = loads(completion.choices[0].message.content)["answer"]        
         return answer
 
-class Llama2OracleModel(OracleModel):
+class LlamaOracleModel(OracleModel):
     """
-        Llama2 Oracle Model. 
+        Llama Oracle Model. 
     """
     def __init__(self, model_size, batch_size = 5):
         self.no_answer_str = "LLAMA did not return a valid sentence"
 
-        if model_size == "7b":
+        if model_size == "llama-2-7b":
             self.model_name = "meta-llama/Llama-2-7b-chat-hf"
-        elif model_size == "13b":
+        elif model_size == "llama-2-13b":
             self.model_name = "meta-llama/Llama-2-13b-chat-hf"
-        elif model_size == "70b":
+        elif model_size == "llama-2-70b":
             self.model_name = "meta-llama/Llama-2-70b-chat-hf"
         else:
-            raise ValueError(f"Unknown llama2 model size {model_size}")
+            raise ValueError(f"Unknown llama model size {model_size}")
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
 
@@ -253,5 +253,5 @@ if __name__ == "__main__":
     # abs_model = GPTOracleAbstractiveModel(use_cache=False)
     # print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    llama_model = Llama2OracleModel("7b")
+    llama_model = LlamaOracleModel("llama-2-7b")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
