@@ -221,8 +221,7 @@ class Llama2OracleModel(OracleModel):
         documents: List[str],
         questions: List[str]
     ) -> List[str]:
-        if len(documents) != len(questions):
-            raise ValueError("The length of the documents list must be equal to the length of the questions list.")
+        assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
@@ -241,9 +240,9 @@ if __name__ == "__main__":
     document = (
         "My name is Matt. I wrote this code. I am a student at Columbia University."
     )
-    question1 = "What is my name?"
-    question2 = "What did I write?"
-    question3 = "Where do I go to school?"
+    question1 = "What is your name?"
+    question2 = "What did you write?"
+    question3 = "Where do you go to school?"
 
     # model = GPTOracleModel(use_cache=False)
     # print(model.forward(document, [question1], 0.7))
