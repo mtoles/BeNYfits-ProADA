@@ -52,7 +52,9 @@ class GPTRankingModel(RankingModel):
             information_list = [str(i + 1) + '. ' + doc_summ + ' ' + clarifying_answer for i, clarifying_answer in enumerate(ca)]
 
             nn = "\n\n"
-            lm_input = f"Context: {doc_summ}\n\nTask: {task}\n\nAdditional Information:\n\n{nn.join(information_list)}\n\nReturn an ordering of these pieces of information in terms of their usefulness to the task at hand, starting with the most useful one. Return a list of indices, where each index in the list corresponds to the information piece associated with that number under Additional Information. For example, if the additional information is\n\n1. I go to highschool. I like to play guitar.\n\n2. I go to highschool. I am a boy.\n\n and the task is \"What is the narrators' gender?\", then tne second piece of information is more important than the first one. Therfore, return [2, 1] in this case.\n\nPlease return only a json object with only one key \"response\" and its value as a list with square brackets, where each element is an integer. For example, {{\"response\": [3, 4, 2, 1]}} is a valid json list."
+            lm_input = f"Context: {doc_summ}\n\nTask: {task}\n\nAdditional Information:\n\n{nn.join(information_list)}\n\nReturn an ordering of these pieces of information in terms of their usefulness to the task at hand, starting with the most useful one. Return a list of indices, where each index in the list corresponds to the information piece associated with that number under Additional Information. For example, if the additional information is\n\n1. I go to highschool. I like to play guitar.\n\n2. I go to highschool. I am a boy.\n\n and the task is \"What is the narrators' gender?\", then tne second piece of information is more important than the first one. Therfore, return [2, 1] in this case.\n\nPlease return only a json object with only one key \"response\" and its value as a list with square brackets, where each element is an integer. For example, {{\"response\": [3, 4, 2, 1]}} is a valid json response."
+
+            print(lm_input)
 
             completion = conditional_openai_call(
                 x=lm_input,
