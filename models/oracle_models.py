@@ -156,6 +156,10 @@ class LlamaOracleModel(OracleModel):
             self.model_name = "meta-llama/Llama-2-13b-chat-hf"
         elif model_size == "llama-2-70b":
             self.model_name = "meta-llama/Llama-2-70b-chat-hf"
+        elif model_size == "llama-3-8b":
+            self.model_name = "meta-llama/Meta-Llama-3-8B"
+        elif model_size == "llama-3-70b":
+            self.model_name = "meta-llama/Meta-Llama-3-70B"
         else:
             raise ValueError(f"Unknown llama model size {model_size}")
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
@@ -253,5 +257,5 @@ if __name__ == "__main__":
     # abs_model = GPTOracleAbstractiveModel(use_cache=False)
     # print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    llama_model = LlamaOracleModel("llama-2-7b")
+    llama_model = LlamaOracleModel("llama-3-8b")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
