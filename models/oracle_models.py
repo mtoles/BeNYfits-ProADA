@@ -170,7 +170,7 @@ class LlamaOracleModel(OracleModel):
         self.pipeline.tokenizer.pad_token_id = 0
         self.pipeline.tokenizer.padding_side = "left"
 
-        self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any JSON formatting or additional text."
+        self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text."
         self.user_prompt = "Context: {user_input}\n\nQuestion: {question_string}"
 
         self.batch_size = batch_size
