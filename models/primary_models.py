@@ -76,7 +76,6 @@ class GPTPrimaryModel(PrimaryModel):
         completion = conditional_openai_call(
             instruction,
             model=model,
-            n=1,
             temperature=temperature,
             use_cache=self.use_cache,
         )
