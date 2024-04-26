@@ -2,10 +2,10 @@
 import pandas as pd
 from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
-from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
+from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel, PrimaryModel
 from models.cq_models import GPTClarifyingQuestionModel
 from models.oracle_models import GPTOracleAbstractiveModel
-from models.ranking_models import GPTRankingModel
+from models.ranking_models import GPTClarifyingAnswersRankingModel, GPTPrimaryModelOutputRankingModel
 from tqdm import tqdm
 import click
 import numpy as np
@@ -128,14 +128,57 @@ def main(
             lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
         )
 
-        ranking_model = GPTRankingModel(use_cache=use_cache)
+        clarifying_answers_ranking_model = GPTClarifyingAnswersRankingModel(use_cache=use_cache)
+        primary_model_output_ranking_model = GPTPrimaryModelOutputRankingModel(use_cache=use_cache)
+
         print("running ranking model to order clarifying questions...")
         # Ask the clarifying question to the oracle
-        df["ordered_cq"] = df.progress_apply(
-            lambda x: ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["ca"]), axis=1
+        df["ordered_cq_on_ca"] = df.progress_apply(
+            lambda x: clarifying_answers_ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["ca"]), axis=1
         )
 
+        print("preparing instructions for joint summ + ca contexts to be fed to the primary model")
+
+        df["joint_summ_ca_instructions"] = df.progress_apply(
+            lambda x: prepare_ca_instructions(x["doc_summ"], x["ca"], x["prompt"], primary_model), axis=1
+        )
+
+        print("preparing instructions for joint summ + ca contexts")
+
+        df["joint_summ_ca_instructions"] = df.progress_apply(
+            lambda x: prepare_ca_instructions(x["doc_summ"], x["ca"], x["prompt"], primary_model), axis=1
+        )
+
+        print("running primary models for for joint summ + ca contexts")
+
+        #TODO: Modify this to make parallel calls for Llama
+        df["joint_summ_ca_pm_outputs"] = df.progress_apply(
+            lambda x: primary_model.process(pd.Series(x["joint_summ_ca_instructions"])).to_list(), axis=1
+        )
+
+        # Save the primary model's output for summary
+        df["summ_pm_output"] = primary_model.process(df["pm_instruction_summ"])
+
+        # Save the primary model's output for original context
+        df["full_pm_output"] = primary_model.process(df["pm_instruction_full"])
+
+        df["ordered_cq_on_pm_outputs"] = df.progress_apply(
+            lambda x: primary_model_output_ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["joint_summ_ca_pm_outputs"], x["full_pm_output"]), axis=1
+        )
+
+        # Save your results
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
+
+
+def prepare_ca_instructions(doc_summ: str, ca: list[str], prompt: str, primary_model: PrimaryModel):
+
+    instructions = []
+
+    for clarifying_answer in ca:
+        instructions.append(primary_model.prepare_instruction('\n\n'.join([doc_summ, clarifying_answer]), prompt))
+
+    return instructions
+
 
 
 if __name__ == "__main__":
