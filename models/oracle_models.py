@@ -143,21 +143,21 @@ class GPTOracleAbstractiveModel(OracleModel):
         answer = loads(completion.choices[0].message.content)["answer"]        
         return answer
 
-class Llama2OracleModel(OracleModel):
+class LlamaOracleModel(OracleModel):
     """
-        Llama2 Oracle Model. 
+        Llama Oracle Model. 
     """
     def __init__(self, model_size, batch_size = 5):
         self.no_answer_str = "LLAMA did not return a valid sentence"
 
-        if model_size == "7b":
+        if model_size == "llama-2-7b":
             self.model_name = "meta-llama/Llama-2-7b-chat-hf"
-        elif model_size == "13b":
+        elif model_size == "llama-2-13b":
             self.model_name = "meta-llama/Llama-2-13b-chat-hf"
-        elif model_size == "70b":
+        elif model_size == "llama-2-70b":
             self.model_name = "meta-llama/Llama-2-70b-chat-hf"
         else:
-            raise ValueError(f"Unknown llama2 model size {model_size}")
+            raise ValueError(f"Unknown llama model size {model_size}")
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
 
@@ -170,7 +170,7 @@ class Llama2OracleModel(OracleModel):
         self.pipeline.tokenizer.pad_token_id = 0
         self.pipeline.tokenizer.padding_side = "left"
 
-        self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any JSON formatting or additional text."
+        self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text."
         self.user_prompt = "Context: {user_input}\n\nQuestion: {question_string}"
 
         self.batch_size = batch_size
@@ -221,8 +221,7 @@ class Llama2OracleModel(OracleModel):
         documents: List[str],
         questions: List[str]
     ) -> List[str]:
-        if len(documents) != len(questions):
-            raise ValueError("The length of the documents list must be equal to the length of the questions list.")
+        assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
@@ -241,9 +240,9 @@ if __name__ == "__main__":
     document = (
         "My name is Matt. I wrote this code. I am a student at Columbia University."
     )
-    question1 = "What is my name?"
-    question2 = "What did I write?"
-    question3 = "Where do I go to school?"
+    question1 = "What is your name?"
+    question2 = "What did you write?"
+    question3 = "Where do you go to school?"
 
     # model = GPTOracleModel(use_cache=False)
     # print(model.forward(document, [question1], 0.7))
@@ -254,5 +253,5 @@ if __name__ == "__main__":
     # abs_model = GPTOracleAbstractiveModel(use_cache=False)
     # print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    llama_model = Llama2OracleModel("7b")
+    llama_model = LlamaOracleModel("llama-2-7b")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
