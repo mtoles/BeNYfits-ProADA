@@ -132,6 +132,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
+
         lm_input = f"Context: {document}\n\nQuestion: {question}\n\nUse the context to provide an answer. Rely solely on the information provided in the context without incorporating any additional details. Respond in the first person, mirroring the tone and perspective of the original Reddit post author. Return the response in a JSON format, with a key named 'answer' and the value being a string representation of the answer."
         completion = conditional_openai_call(
             x=lm_input,
@@ -191,6 +192,7 @@ class LlamaOracleModel(OracleModel):
         ]
 
         sequences = self.pipeline(llama_formatted_inputs)
+        
         outputs = []
         for seq, llama_formatted_input in zip(sequences, llama_formatted_inputs):
             llama_parsed_output = seq[0]["generated_text"]
@@ -222,6 +224,91 @@ class LlamaOracleModel(OracleModel):
         questions: List[str]
     ) -> List[str]:
         assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
+<<<<<<< HEAD
+
+        results = []
+        n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
+
+        for i in tqdm(range(n_batches)):
+            batch_documents = documents[i*self.batch_size:(i+1)*self.batch_size]
+            batch_questions = questions[i*self.batch_size:(i+1)*self.batch_size]
+
+            batch_results = self.forward_batch(batch_documents, batch_questions)
+            results.extend(batch_results)
+
+        return results
+
+class Llama3OracleModel(OracleModel):
+    """
+        Llama3 Oracle Model. 
+    """
+    def __init__(self, model_size, batch_size = 5):
+        self.no_answer_str = "LLAMA did not return a valid sentence"
+
+        if model_size == "llama-3-8b-instruct":
+            self.model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+        elif model_size == "llama-3-70b-instruct":
+            self.model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
+        else:
+            raise ValueError(f"Unknown llama model size {model_size}")
+
+        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        login(token=self.hf_api_key)
+
+        self.pipeline = transformers.pipeline(
+            "text-generation",
+            model=self.model_name,
+            model_kwargs={"torch_dtype": torch.bfloat16},
+            device_map="auto",
+        )
+
+        self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text. \n\n Context: {user_input}"
+        self.user_prompt = "{question_string}"
+
+        self.batch_size = batch_size
+
+    def forward_batch(
+        self,
+        documents: List[str],
+        questions: List[str]
+    ) -> List[str]:
+        formatted_user_messages = [
+            [
+                {"role": "system", "content": self.system_prompt.format(user_input=doc)},
+                {"role": "user", "content": self.user_prompt.format(question_string=question)},
+            ]
+            for doc, question in zip(documents, questions)
+        ]
+
+        llama_formatted_prompts = [
+            self.pipeline.tokenizer.apply_chat_template(
+                    prompt, 
+                    tokenize=False, 
+                    add_generation_prompt=True
+            )
+            for prompt in formatted_user_messages
+        ]
+
+        sequences = self.pipeline(llama_formatted_prompts)
+        
+        outputs = []
+        for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
+            llama_parsed_output = seq[0]["generated_text"]
+            llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt):]
+            llama_parsed_output = llama_parsed_output.strip()
+        
+            outputs.append(llama_parsed_output)
+
+        return outputs
+    
+    def forward(
+        self,
+        documents: List[str],
+        questions: List[str]
+    ) -> List[str]:
+        assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
+=======
+>>>>>>> main
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
@@ -253,5 +340,8 @@ if __name__ == "__main__":
     # abs_model = GPTOracleAbstractiveModel(use_cache=False)
     # print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    llama_model = LlamaOracleModel("llama-2-7b")
+    # llama_model = Llama2OracleModel("llama-2-7b")
+    # print(llama_model.forward([document, document, document], [question1, question2, question3]))
+
+    llama_model = Llama3OracleModel("llama-3-8b-instruct")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
