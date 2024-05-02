@@ -337,10 +337,8 @@ if __name__ == "__main__":
     # abs_model = GPTOracleAbstractiveModel(use_cache=False)
     # print(abs_model.forward(document, [question1, question2, question3], 0.7))
 
-    llama_model = Llama2OracleModel("llama-2-7b")
-    print(llama_model.forward([document, document, document], [question1, question2, question3]))
-
-    print("=====")
+    # llama_model = Llama2OracleModel("llama-2-7b")
+    # print(llama_model.forward([document, document, document], [question1, question2, question3]))
 
     llama_model = Llama3OracleModel("llama-3-8b-instruct")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
