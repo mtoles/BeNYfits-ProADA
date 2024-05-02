@@ -132,6 +132,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
+
         lm_input = f"Context: {document}\n\nQuestion: {question}\n\nUse the context to provide an answer. Rely solely on the information provided in the context without incorporating any additional details. Respond in the first person, mirroring the tone and perspective of the original Reddit post author. Return the response in a JSON format, with a key named 'answer' and the value being a string representation of the answer."
         completion = conditional_openai_call(
             x=lm_input,
@@ -339,7 +340,7 @@ if __name__ == "__main__":
     llama_model = Llama2OracleModel("llama-2-7b")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
 
-    # print("=====")
+    print("=====")
 
     llama_model = Llama3OracleModel("llama-3-8b-instruct")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
