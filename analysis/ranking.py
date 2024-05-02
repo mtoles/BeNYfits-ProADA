@@ -94,6 +94,9 @@ def main(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
 
+        if pm_size == None:
+            pm_size = "standard"
+
         # Load the primary model
         if pm_name == "gpt4":
             primary_model = GPTPrimaryModel(use_cache)
@@ -167,6 +170,8 @@ def main(
         )
 
         # Save your results
+        df.to_csv(f"results/ranked_dataset.csv", index=False)
+
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 
 
