@@ -144,9 +144,9 @@ class GPTOracleAbstractiveModel(OracleModel):
         answer = loads(completion.choices[0].message.content)["answer"]        
         return answer
 
-class Llama2OracleModel(OracleModel):
+class LlamaOracleModel(OracleModel):
     """
-        Llama2 Oracle Model. 
+        Llama Oracle Model. 
     """
     def __init__(self, model_size, batch_size = 5):
         self.no_answer_str = "LLAMA did not return a valid sentence"
@@ -224,6 +224,7 @@ class Llama2OracleModel(OracleModel):
         questions: List[str]
     ) -> List[str]:
         assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
+<<<<<<< HEAD
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
@@ -306,6 +307,8 @@ class Llama3OracleModel(OracleModel):
         questions: List[str]
     ) -> List[str]:
         assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
+=======
+>>>>>>> main
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
