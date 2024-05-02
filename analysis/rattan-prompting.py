@@ -7,7 +7,7 @@ from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from models.reward_models import GPTRewardModel, run_alpaca_eval
 from models.cq_models import GPTClarifyingQuestionModel
-from models.oracle_models import GPTOracleModel, GPTOracleAbstractiveModel, LlamaOracleModel
+from models.oracle_models import GPTOracleModel, GPTOracleAbstractiveModel, Llama3OracleModel
 from tqdm import tqdm
 import click
 import numpy as np
@@ -139,7 +139,7 @@ def main(
 
         print("Running Oracle Now")
 
-        llama_oracle_model = LlamaOracleModel("llama-3-8b")
+        llama_oracle_model = Llama3OracleModel("llama-3-8b-instruct")
         df["llama_answers"] = llama_oracle_model.forward(
             documents=df["doc_orig"].tolist(),
             questions=df['cq'].tolist()
@@ -151,12 +151,12 @@ def main(
         #     lambda x: extract_first_element_from_gpt_response(oracle_model.forward_multiple(x["doc_orig"], [x["cq"]])), axis=1
         # )
 
-        # df["gpt_answers"] = df.progress_apply(
-        #     lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
-        # )
+        df["gpt_answers"] = df.progress_apply(
+            lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
+        )
 
         # Write the results to a csv
-        df.to_csv(f"results/clarifying_qa_llama3.csv")
+        df.to_csv(f"results/clarifying_qa_all.csv")
 
 
         # run primary models

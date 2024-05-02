@@ -291,8 +291,6 @@ class Llama3OracleModel(OracleModel):
         
         outputs = []
         for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
-            print(seq)
-            print("=====================================")
             llama_parsed_output = seq[0]["generated_text"]
             llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt):]
             llama_parsed_output = llama_parsed_output.strip()
@@ -341,7 +339,7 @@ if __name__ == "__main__":
     llama_model = Llama2OracleModel("llama-2-7b")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
 
-    print("=====")
+    # print("=====")
 
     llama_model = Llama3OracleModel("llama-3-8b-instruct")
     print(llama_model.forward([document, document, document], [question1, question2, question3]))
