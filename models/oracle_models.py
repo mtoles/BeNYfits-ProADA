@@ -224,7 +224,6 @@ class LlamaOracleModel(OracleModel):
         questions: List[str]
     ) -> List[str]:
         assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
-<<<<<<< HEAD
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
@@ -307,8 +306,6 @@ class Llama3OracleModel(OracleModel):
         questions: List[str]
     ) -> List[str]:
         assert len(documents) == len(questions), "The length of the documents list must be equal to the length of the questions list."
-=======
->>>>>>> main
 
         results = []
         n_batches = len(documents) // self.batch_size + (0 if len(documents) % self.batch_size == 0 else 1)
