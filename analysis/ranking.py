@@ -9,6 +9,7 @@ from models.ranking_models import GPTClarifyingAnswersRankingModel, GPTPrimaryMo
 from tqdm import tqdm
 import click
 import numpy as np
+import random
 
 
 @click.command()
@@ -94,6 +95,9 @@ def main(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
 
+        if pm_size == None:
+            pm_size = "standard"
+
         # Load the primary model
         if pm_name == "gpt4":
             primary_model = GPTPrimaryModel(use_cache)
@@ -166,7 +170,27 @@ def main(
             lambda x: primary_model_output_ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["joint_summ_ca_pm_outputs"], x["full_pm_output"]), axis=1
         )
 
+        def get_preference(row):
+            if random.uniform(a=0, b=1) < 0.5:
+                model_preference = "First"
+            else:
+                model_preference = "Second"
+
+            return model_preference
+
+        df["model_preference"] = df.progress_apply(get_preference, axis=1)
+
+        def adjust_according_to_preference(row):
+            if row["model_preference"] == "First":
+                return "1. " + row["ordered_cq_on_pm_outputs"][0] + "\n\n2. " + row["ordered_cq_on_pm_outputs"][-1]
+            else:
+                return "1. " + row["ordered_cq_on_pm_outputs"][-1] + "\n\n2. " + row["ordered_cq_on_pm_outputs"][0]
+
+        df["preference_eval_cq"] = df.progress_apply(adjust_according_to_preference, axis=1)
+
         # Save your results
+        df.to_csv(f"results/ranked_dataset.csv", index=False)
+
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 
 

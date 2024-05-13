@@ -20,7 +20,7 @@ class RankingModel:
 
 
 class GPTClarifyingAnswersRankingModel(RankingModel):
-    def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
+    def __init__(self, use_cache, model_name="gpt-4-turbo-preview"):
         self.use_cache = use_cache
         self.no_answer_str = "GPT-4 did not return a valid sentence"
         self.model_name = model_name
@@ -71,7 +71,7 @@ class GPTClarifyingAnswersRankingModel(RankingModel):
         return ordered_cq
 
 class GPTPrimaryModelOutputRankingModel(RankingModel):
-    def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
+    def __init__(self, use_cache, model_name="gpt-4-turbo-preview"):
         self.use_cache = use_cache
         self.no_answer_str = "GPT-4 did not return a valid sentence"
         self.model_name = model_name

@@ -9,3 +9,5 @@ google-cloud-sdk/
 full_data
 results
 data/
+mini_data/
+alpaca_eval/
