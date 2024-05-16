@@ -79,6 +79,7 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
         Returns:
             List[str]: the selected sentence
         """
+        # todo: unify with the llama mode
         lm_input = f"Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{'s' if n_clarifying_questions > 1 else ''} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Return the questions as a list in JSON format, as in {{'questions': ['The first question?', 'The second question?']}}"
         completion = conditional_openai_call(
             x=lm_input,
@@ -89,6 +90,13 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
         )
         # Tokenize the answer and return the first sentence
         questions = loads(completion.choices[0].message.content)["questions"]
+        # assert len(questions) == n_clarifying_questions
+        if len(questions) > n_clarifying_questions:
+            questions = questions[:n_clarifying_questions]
+        elif len(questions) < n_clarifying_questions:
+            questions += self.forward(
+                document, task, n_clarifying_questions - len(questions)
+            )
         return questions
 
     # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
@@ -100,6 +108,7 @@ class Llama2PrimaryModel(Clarifying_Question_Model):
     """
 
     def __init__(self, model_size, batch_size):
+        raise NotImplementedError # This model still needs a prompt template
         super().__init__()
         if model_size == "7b":
             self.model_name = "meta-llama/Llama-2-7b-chat-hf"

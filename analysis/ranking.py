@@ -5,7 +5,10 @@ from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel, PrimaryModel
 from models.cq_models import GPTClarifyingQuestionModel
 from models.oracle_models import GPTOracleAbstractiveModel
-from models.ranking_models import GPTClarifyingAnswersRankingModel, GPTPrimaryModelOutputRankingModel
+from models.ranking_models import (
+    GPTClarifyingAnswersRankingModel,
+    GPTPrimaryModelOutputRankingModel,
+)
 from tqdm import tqdm
 import click
 import numpy as np
@@ -13,9 +16,11 @@ import random
 
 
 @click.command()
-@click.option("--pm_name", default="llama2", help="Name of the primary model to use")
+@click.option("--pm_name", default="llama2", help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'")
 @click.option(
-    "--pm_size", help="Size of the primary model to use, one of {7b, 13b, 70b}"
+    "--pm_size",
+    default="7b",
+    help="Size of the primary model to use, one of {7b, 13b, 70b}",
 )
 @click.option("--pm_batch_size", default=4, help="Batch size for the primary model")
 @click.option(
@@ -54,7 +59,7 @@ def main(
     use_cache,
     intermediate_results_path,
 ):
-    assert pm_name in ["gpt4", "llama2"]
+    assert pm_name in ["gpt4", "llama2", "gpt-3.5-turbo"]
     tqdm.pandas()
     np.random.seed(42)
     if intermediate_results_path is not None:
@@ -95,12 +100,9 @@ def main(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
 
-        if pm_size == None:
-            pm_size = "standard"
-
         # Load the primary model
-        if pm_name == "gpt4":
-            primary_model = GPTPrimaryModel(use_cache)
+        if "gpt" in pm_name.lower():
+            primary_model = GPTPrimaryModel(pm_name, use_cache)
         elif pm_name == "llama2":
             primary_model = Llama2PrimaryModel(pm_size, pm_batch_size)
         else:
@@ -132,32 +134,51 @@ def main(
             lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
         )
 
-        clarifying_answers_ranking_model = GPTClarifyingAnswersRankingModel(use_cache=use_cache)
-        primary_model_output_ranking_model = GPTPrimaryModelOutputRankingModel(use_cache=use_cache)
+        clarifying_answers_ranking_model = GPTClarifyingAnswersRankingModel(
+            use_cache=use_cache
+        )
+        primary_model_output_ranking_model = GPTPrimaryModelOutputRankingModel(
+            use_cache=use_cache
+        )
 
         print("running ranking model to order clarifying questions...")
         # Ask the clarifying question to the oracle
         df["ordered_cq_on_ca"] = df.progress_apply(
-            lambda x: clarifying_answers_ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["ca"]), axis=1
+            lambda x: clarifying_answers_ranking_model.forward(
+                x["doc_summ"], x["prompt"], x["cq"], x["ca"]
+            ),
+            axis=1,
         )
 
-        print("preparing instructions for joint summ + ca contexts to be fed to the primary model")
+        print(
+            "preparing instructions for joint summ + ca contexts to be fed to the primary model"
+        )
 
         df["joint_summ_ca_instructions"] = df.progress_apply(
-            lambda x: prepare_ca_instructions(x["doc_summ"], x["ca"], x["prompt"], primary_model), axis=1
+            lambda x: prepare_ca_instructions(
+                x["doc_summ"], x["ca"], x["prompt"], primary_model
+            ),
+            axis=1,
         )
 
-        print("preparing instructions for joint summ + ca contexts")
+        # print("preparing instructions for joint summ + ca contexts")
 
-        df["joint_summ_ca_instructions"] = df.progress_apply(
-            lambda x: prepare_ca_instructions(x["doc_summ"], x["ca"], x["prompt"], primary_model), axis=1
-        )
+        # df["joint_summ_ca_instructions"] = df.progress_apply(
+        #     lambda x: prepare_ca_instructions(
+        #         x["doc_summ"], x["ca"], x["prompt"], primary_model
+        #     ),
+        #     axis=1,
+        # )
 
         print("running primary models for for joint summ + ca contexts")
 
-        #TODO: Modify this to make parallel calls for Llama
-        df["joint_summ_ca_pm_outputs"] = df.progress_apply(
-            lambda x: primary_model.process(pd.Series(x["joint_summ_ca_instructions"])).to_list(), axis=1
+        # TODO: Modify this to make parallel calls for Llama
+        # joint_summ_ca_pm_outputs = df.progress_apply(
+        #     lambda x: primary_model.process(pd.Series(x["joint_summ_ca_instructions"])),
+        #     axis=1,
+        # )
+        df["joint_summ_ca_pm_outputs"] = primary_model.process_list(
+            df["joint_summ_ca_instructions"]
         )
 
         # Save the primary model's output for summary
@@ -167,7 +188,14 @@ def main(
         df["full_pm_output"] = primary_model.process(df["pm_instruction_full"])
 
         df["ordered_cq_on_pm_outputs"] = df.progress_apply(
-            lambda x: primary_model_output_ranking_model.forward(x["doc_summ"], x["prompt"], x["cq"], x["joint_summ_ca_pm_outputs"], x["full_pm_output"]), axis=1
+            lambda x: primary_model_output_ranking_model.forward(
+                x["doc_summ"],
+                x["prompt"],
+                x["cq"],
+                x["joint_summ_ca_pm_outputs"],
+                x["full_pm_output"],
+            ),
+            axis=1,
         )
 
         def get_preference(row):
@@ -182,11 +210,23 @@ def main(
 
         def adjust_according_to_preference(row):
             if row["model_preference"] == "First":
-                return "1. " + row["ordered_cq_on_pm_outputs"][0] + "\n\n2. " + row["ordered_cq_on_pm_outputs"][-1]
+                return (
+                    "1. "
+                    + row["ordered_cq_on_pm_outputs"][0]
+                    + "\n\n2. "
+                    + row["ordered_cq_on_pm_outputs"][-1]
+                )
             else:
-                return "1. " + row["ordered_cq_on_pm_outputs"][-1] + "\n\n2. " + row["ordered_cq_on_pm_outputs"][0]
+                return (
+                    "1. "
+                    + row["ordered_cq_on_pm_outputs"][-1]
+                    + "\n\n2. "
+                    + row["ordered_cq_on_pm_outputs"][0]
+                )
 
-        df["preference_eval_cq"] = df.progress_apply(adjust_according_to_preference, axis=1)
+        df["preference_eval_cq"] = df.progress_apply(
+            adjust_according_to_preference, axis=1
+        )
 
         # Save your results
         df.to_csv(f"results/ranked_dataset.csv", index=False)
@@ -194,15 +234,20 @@ def main(
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 
 
-def prepare_ca_instructions(doc_summ: str, ca: list[str], prompt: str, primary_model: PrimaryModel):
+def prepare_ca_instructions(
+    doc_summ: str, ca: list[str], prompt: str, primary_model: PrimaryModel
+):
 
     instructions = []
 
     for clarifying_answer in ca:
-        instructions.append(primary_model.prepare_instruction('\n\n'.join([doc_summ, clarifying_answer]), prompt))
+        instructions.append(
+            primary_model.prepare_instruction(
+                "\n\n".join([doc_summ, clarifying_answer]), prompt
+            )
+        )
 
     return instructions
-
 
 
 if __name__ == "__main__":

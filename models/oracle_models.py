@@ -2,7 +2,9 @@ from utils import *
 from typing import List, Dict, Tuple, Union, Optional
 from json import loads
 import nltk
-nltk.download('punkt')
+
+nltk.download("punkt")
+
 
 class OracleModel:
     """
@@ -17,7 +19,7 @@ class OracleModel:
         return self.split_doc_to_sentences(document)[0]
 
 
-class GPTOracleModel(OracleModel):
+class GPTExtractiveOracleModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
         self.no_answer_str = "GPT-4 did not return a valid sentence"
@@ -67,6 +69,7 @@ class GPTOracleModel(OracleModel):
                 actual_answers.append(self.no_answer_str)
         return actual_answers
 
+
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, use_cache):
         self.use_cache = use_cache
@@ -90,7 +93,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         Returns:
             List[str]: the selected sentence
         """
-        nn="\n\n"
+        nn = "\n\n"
         lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the Reddit post. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
         completion = conditional_openai_call(
             x=lm_input,
@@ -113,6 +116,7 @@ class GPTOracleAbstractiveModel(OracleModel):
                 actual_answers.append(self.no_answer_str)
         return actual_answers
 
+
 # testing
 if __name__ == "__main__":
     document = (
@@ -122,7 +126,7 @@ if __name__ == "__main__":
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
 
-    model = GPTOracleModel(use_cache=False)
+    model = GPTExtractiveOracleModel(use_cache=False)
     print(model.forward(document, [question1], 0.7))
     print(model.forward(document, [question2], 0.7))
     print(model.forward(document, [question3], 0.7))

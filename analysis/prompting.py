@@ -7,7 +7,7 @@ from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from models.reward_models import GPTRewardModel, run_alpaca_eval
 from models.cq_models import GPTClarifyingQuestionModel
-from models.oracle_models import GPTOracleModel
+from models.oracle_models import GPTExtractiveOracleModel
 from tqdm import tqdm
 import click
 import numpy as np

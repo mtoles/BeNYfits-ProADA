@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from huggingface_hub import login
 import pandas as pd
 from tqdm import tqdm
+from typing import List
 
 load_dotenv()
 
@@ -58,12 +59,13 @@ class PrimaryModel:
 
 
 class GPTPrimaryModel(PrimaryModel):
-    def __init__(self, use_cache):
+    def __init__(self, model_name, use_cache):
         super().__init__()
+        self.model_name = model_name
         self.use_cache = use_cache
         pass
 
-    def forward(self, instruction: str, temperature=0.7, model="gpt-4") -> str:
+    def forward(self, instruction: str, temperature=0.7) -> str:
         """
         Parameters:
             instruction (str): the input instruction
@@ -75,16 +77,23 @@ class GPTPrimaryModel(PrimaryModel):
         """
         completion = conditional_openai_call(
             instruction,
-            model=model,
+            model=self.model_name,
             temperature=temperature,
             use_cache=self.use_cache,
         )
         openai_output = completion.choices[0].message.content
 
         return openai_output
+    
+    def forward_list(self, instructions: List[str], temperature=0.7) -> List[str]:
+        """helper method to call forward when the input is a list of instructions"""
+        outputs = []
+        for instruction in instructions:
+            outputs.append(self.forward(instruction, temperature))
+        return outputs
 
-    def process(self, instructions: pd.Series) -> pd.Series:
-        pm_output = instructions.progress_apply(lambda x: self.forward(x))
+    def process_list(self, instructions: pd.Series) -> pd.Series:
+        pm_output = instructions.progress_apply(lambda x: self.forward_list(x))
         return pm_output
 
 
@@ -141,5 +150,14 @@ class Llama2PrimaryModel(PrimaryModel):
         outputs = [sequence[0]["generated_text"] for sequence in sequences]
         # delete the prompt
         # outputs = [output[len(llama_formatted_input) :] for output in outputs]
-        outputs = [x[len(y) :] for x, y in zip(outputs, llama_formatted_input)]
+        outputs = pd.Series([x[len(y) :] for x, y in zip(outputs, llama_formatted_input)])
         return outputs
+    
+    def process_list(self, instructions: pd.Series) -> pd.Series:
+        list_len = len(instructions[0])
+        flat_instructions = instructions.explode()
+        model_outputs = self.process(flat_instructions)
+        # unexplode
+        model_outputs = model_outputs.groupby(level=0).apply(list)
+        return model_outputs
+
