@@ -14,72 +14,72 @@ class OracleModel:
     def __init__(self):
         pass
 
-    def forward(self, document: str, question: str) -> str:
+    def forward_list(self, document: str, question: str) -> str:
         # subclass this method
         return self.split_doc_to_sentences(document)[0]
 
 
-class GPTExtractiveOracleModel(OracleModel):
-    def __init__(self, use_cache):
-        self.use_cache = use_cache
-        self.no_answer_str = "GPT-4 did not return a valid sentence"
+# class GPTExtractiveOracleModel(OracleModel):
+#     def __init__(self, use_cache):
+#         self.use_cache = use_cache
+#         self.no_answer_str = "GPT-4 did not return a valid sentence"
 
-    def forward(
-        self,
-        document: str,
-        questions: List[str],
-        temperature: float = 0.7,
-        model="gpt-4-1106-preview",
-    ) -> str:
-        """
-        Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
+#     def forward(
+#         self,
+#         document: str,
+#         questions: List[str],
+#         temperature: float = 0.7,
+#         model="gpt-4-1106-preview",
+#     ) -> str:
+#         """
+#         Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
 
-        Parameters:
-            document (str): the full document
-            questions (List[str]): the questions
-            temperature (float): the temperature to use for the GPT model
-            model (str): the name of the OpenAI model to use
+#         Parameters:
+#             document (str): the full document
+#             questions (List[str]): the questions
+#             temperature (float): the temperature to use for the GPT model
+#             model (str): the name of the OpenAI model to use
 
-        Returns:
-            List[str]: the selected sentence
-        """
-        nn = "\n\n"
-        lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nFor each question, return a single sentence, verbatim, from the context, that answers the question. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Question not answerable'. Return the sentences sentences together in a JSON list, as in {{'answers': ['The first answer', 'The second answer']}}"
-        completion = conditional_openai_call(
-            x=lm_input,
-            use_cache=self.use_cache,
-            model=model,
-            temperature=temperature,
-            response_format="json",
-        )
-        # Tokenize the answer and return the first sentence
-        # answer = nltk.sent_tokenize(
-        #     loads(completion.choices[0].message.content)["answers"]
-        # )[0]
-        answers = loads(completion.choices[0].message.content)["answers"]
-        answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
-        # Check that the answer is actually a sentence in the document
-        actual_answers = []
-        for a in answers:
-            if (a.lower() in document.lower()) or (
-                a.lower() == "question not answerable"
-            ):
-                actual_answers.append(a)
-            else:
-                actual_answers.append(self.no_answer_str)
-        return actual_answers
+#         Returns:
+#             List[str]: the selected sentence
+#         """
+#         nn = "\n\n"
+#         lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nFor each question, return a single sentence, verbatim, from the context, that answers the question. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return the sentences sentences together in a JSON list, as in {{'answers': ['The first answer', 'The second answer']}}"
+#         completion = conditional_openai_call(
+#             x=lm_input,
+#             use_cache=self.use_cache,
+#             model=model,
+#             temperature=temperature,
+#             response_format="json",
+#         )
+#         # Tokenize the answer and return the first sentence
+#         # answer = nltk.sent_tokenize(
+#         #     loads(completion.choices[0].message.content)["answers"]
+#         # )[0]
+#         answers = loads(completion.choices[0].message.content)["answers"]
+#         answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
+#         # Check that the answer is actually a sentence in the document
+#         actual_answers = []
+#         for a in answers:
+#             if (a.lower() in document.lower()) or (
+#                 a.lower() == "question not answerable"
+#             ):
+#                 actual_answers.append(a)
+#             else:
+#                 actual_answers.append(self.no_answer_str)
+#         return actual_answers
 
 
 class GPTOracleAbstractiveModel(OracleModel):
-    def __init__(self, use_cache):
+    def __init__(self, model_name, use_cache):
+        self.model_name = model_name
         self.use_cache = use_cache
 
-    def forward(
+    def forward_list(
         self,
         document: str,
         questions: List[str],
         temperature: float = 0.7,
-        model="gpt-4-1106-preview",
     ) -> str:
         """
         Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
@@ -94,27 +94,30 @@ class GPTOracleAbstractiveModel(OracleModel):
             List[str]: the selected sentence
         """
         nn = "\n\n"
-        lm_input = f"Context: {document}\n\nQuestions:{nn.join(questions)}\n\nUse the context to answer the questions. Use only the information given in context and do not add any additional information. Answer each question in the first person, as if you are the original writer of the Reddit post. Return only one answer per question together in a JSON list with key as 'answers' and value of type string."
+        lm_input = f"Context: {document}\n\nQuestion{'s' if len(questions) > 1 else ''}:{nn.join(questions)}\n\nUse the context to answer the question{'s' if len(questions) > 1 else ''}. Use only the information given in context and do not add any additional information. Answer {'the' if len(questions) > 1 else 'each'} question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return only one answer per question in a JSON list under the key 'answers', i.e. {{'answers': []}}."
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
-            model=model,
+            model=self.model_name,
             temperature=temperature,
             response_format="json",
         )
         answers = loads(completion.choices[0].message.content)["answers"]
+        assert len(answers) == len(questions)
 
-        actual_answers = []
-        for answer in answers:
-            if isinstance(answer, str):
-                tokenized_answer = nltk.sent_tokenize(answer)
-                if len(tokenized_answer) > 0:
-                    actual_answers.append(tokenized_answer[0])
-                else:
-                    actual_answers.append(self.no_answer_str)
-            else:
-                actual_answers.append(self.no_answer_str)
-        return actual_answers
+        # actual_answers = []
+        # for answer in answers:
+        #     if isinstance(answer, str):
+        #         tokenized_answer = nltk.sent_tokenize(answer)
+        #         if len(tokenized_answer) > 0:
+        #             actual_answers.append(tokenized_answer[0])
+        #         else:
+        #             actual_answers.append(self.no_answer_str)
+        #     else:
+        #         actual_answers.append(self.no_answer_str)
+        return answers
+
+    def forward_single()
 
 
 # testing
@@ -126,11 +129,10 @@ if __name__ == "__main__":
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
 
-    model = GPTExtractiveOracleModel(use_cache=False)
+    model = GPTAbstractiveOracleModel(use_cache=False)
     print(model.forward(document, [question1], 0.7))
     print(model.forward(document, [question2], 0.7))
     print(model.forward(document, [question3], 0.7))
     print(model.forward(document, [question1, question2, question3], 0.7))
-
     abs_model = GPTOracleAbstractiveModel(use_cache=False)
     print(abs_model.forward(document, [question1, question2, question3], 0.7))

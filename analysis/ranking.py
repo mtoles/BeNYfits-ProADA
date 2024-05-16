@@ -16,7 +16,16 @@ import random
 
 
 @click.command()
-@click.option("--pm_name", default="llama2", help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'")
+@click.option(
+    "--pm_name",
+    default="gpt-3.5-turbo",
+    help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo', 'llama2'",
+)
+@click.option(
+    "--oracle_name",
+    default="gpt-3.5-turbo",
+    help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'",
+)
 @click.option(
     "--pm_size",
     default="7b",
@@ -49,6 +58,7 @@ import random
 )
 def main(
     pm_name,
+    oracle_name,
     pm_size,
     pm_batch_size,
     prompt_gen_temperature,
@@ -59,7 +69,7 @@ def main(
     use_cache,
     intermediate_results_path,
 ):
-    assert pm_name in ["gpt4", "llama2", "gpt-3.5-turbo"]
+    assert pm_name in ["gpt4", "llama2", "gpt-3.5-turbo", "gpt-4-turbo"]
     tqdm.pandas()
     np.random.seed(42)
     if intermediate_results_path is not None:
@@ -127,11 +137,11 @@ def main(
             axis=1,
         )
 
-        oracle_model = GPTOracleAbstractiveModel(use_cache=use_cache)
+        oracle_model = GPTOracleAbstractiveModel(model_name=oracle_name ,use_cache=use_cache)
         print("running abstractive oracle model to answer clarifying questions...")
         # Ask the clarifying question to the oracle
         df["ca"] = df.progress_apply(
-            lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
+            lambda x: oracle_model.forward_list(x["doc_orig"], x["cq"]), axis=1
         )
 
         clarifying_answers_ranking_model = GPTClarifyingAnswersRankingModel(

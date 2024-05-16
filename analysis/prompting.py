@@ -7,7 +7,7 @@ from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel
 from models.reward_models import GPTRewardModel, run_alpaca_eval
 from models.cq_models import GPTClarifyingQuestionModel
-from models.oracle_models import GPTExtractiveOracleModel
+from models.oracle_models import *
 from tqdm import tqdm
 import click
 import numpy as np
@@ -30,7 +30,7 @@ import os
     type=int,
     help="Use at most this many rows of the dataset",
 )
-@click.option(
+@click.option(  
     "--n_clarifying_questions",
     default=1,
     help="Number of clarifying questions to generate",
