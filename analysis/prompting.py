@@ -30,7 +30,7 @@ import os
     type=int,
     help="Use at most this many rows of the dataset",
 )
-@click.option(  
+@click.option(
     "--n_clarifying_questions",
     default=1,
     help="Number of clarifying questions to generate",
@@ -71,7 +71,7 @@ def main(
         elif ds_path.lower().endswith(".csv"):
             df = pd.read_csv(ds_path)
         if "selftext" in df.columns:
-            df["doc_orig"] = df["selftext"].astype(str)
+            df["doc_full"] = df["selftext"].astype(str)
             df = df.drop(columns=["selftext"])
         # Shuffle the datast
         df = df.sample(frac=1).reset_index(drop=True)
@@ -84,7 +84,7 @@ def main(
         summarizer = GPTSummarizer(use_cache)
         print("summarizing...")
         if "doc_summ" not in df.columns:
-            df["doc_summ"] = df["doc_orig"].progress_apply(
+            df["doc_summ"] = df["doc_full"].progress_apply(
                 lambda x: summarizer.forward(x)
             )
         else:
@@ -93,7 +93,7 @@ def main(
         # Generate primary tasks
         prompt_generator = GPTPromptGenerator(use_cache)
         print("generating prompts...")
-        df["prompt"] = df["doc_orig"].progress_apply(
+        df["prompt"] = df["doc_full"].progress_apply(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
 
@@ -106,7 +106,7 @@ def main(
             raise ValueError(f"Unknown primary model name {pm_name}")
         # Prepare instructions for the full example
         df["pm_instruction_full"] = df.apply(
-            lambda x: primary_model.prepare_instruction(x["doc_orig"], x["prompt"]),
+            lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
             axis=1,
         )
         # Prepare instructions for the summary example
@@ -127,7 +127,7 @@ def main(
         # oracle_model = GPTOracleModel(use_cache=use_cache)
         # # Ask the clarifying question to the oracle
         # df["ca"] = df.progress_apply(
-        #     lambda x: oracle_model.forward(x["doc_orig"], x["cq"]), axis=1
+        #     lambda x: oracle_model.forward(x["doc_full"], x["cq"]), axis=1
         # )
 
         # run primary models
@@ -152,7 +152,7 @@ def main(
     # print("running reward model...")
     # df["selection"] = df.progress_apply(
     #     lambda x: reward_model.forward(
-    #         x["doc_orig"],
+    #         x["doc_full"],
     #         x["pm_answer_full"],
     #         x["pm_answer_summ"],
     #         x["prompt"][0],

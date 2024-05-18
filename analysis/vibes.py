@@ -136,7 +136,7 @@ def main(
         df = pd.read_json(intermediate_results_path)
     else:
         raise NotImplementedError("dont do this")
-    
+
     if ds_downsample is not None:
         df = df.head(ds_downsample)
 
@@ -144,7 +144,7 @@ def main(
     df["vibes"] = pm.process(
         documents=df["doc_summ"], tasks=df["prompt"], answers=pd.Series([""] * len(df))
     )
-    df_to_md(df[["doc_summ", "doc_orig", "prompt", "vibes"]], "vibes.md")
+    df_to_md(df[["doc_summ", "doc_full", "prompt", "vibes"]], "vibes.md")
     # df.to_csv("vibes.tsv", sep="\t")
     print
 

@@ -7,7 +7,7 @@ from models.cq_models import GPTClarifyingQuestionModel
 from models.oracle_models import GPTOracleAbstractiveModel
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
-    GPTPrimaryModelOutputRankingModel,
+    GPTPMOutputRankingModel,
 )
 from tqdm import tqdm
 import click
@@ -84,7 +84,7 @@ def main(
         elif ds_path.lower().endswith(".csv"):
             df = pd.read_csv(ds_path)
         if "selftext" in df.columns:
-            df["doc_orig"] = df["selftext"].astype(str)
+            df["doc_full"] = df["selftext"].astype(str)
             df = df.drop(columns=["selftext"])
         # Shuffle the datast
         df = df.sample(frac=1).reset_index(drop=True)
@@ -97,7 +97,7 @@ def main(
         summarizer = GPTSummarizer(use_cache)
         print("summarizing...")
         if "doc_summ" not in df.columns:
-            df["doc_summ"] = df["doc_orig"].progress_apply(
+            df["doc_summ"] = df["doc_full"].progress_apply(
                 lambda x: summarizer.forward(x)
             )
         else:
@@ -106,7 +106,7 @@ def main(
         # Generate primary tasks
         prompt_generator = GPTPromptGenerator(use_cache)
         print("generating prompts...")
-        df["prompt"] = df["doc_orig"].progress_apply(
+        df["prompt"] = df["doc_full"].progress_apply(
             lambda x: prompt_generator.forward(x, prompt_gen_temperature)
         )
 
@@ -119,7 +119,7 @@ def main(
             raise ValueError(f"Unknown primary model name {pm_name}")
         # Prepare instructions for the full example
         df["pm_instruction_full"] = df.apply(
-            lambda x: primary_model.prepare_instruction(x["doc_orig"], x["prompt"]),
+            lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
             axis=1,
         )
         # Prepare instructions for the summary example
@@ -137,73 +137,52 @@ def main(
             axis=1,
         )
 
-        oracle_model = GPTOracleAbstractiveModel(model_name=oracle_name ,use_cache=use_cache)
+        oracle_model = GPTOracleAbstractiveModel(
+            model_name=oracle_name, use_cache=use_cache
+        )
         print("running abstractive oracle model to answer clarifying questions...")
         # Ask the clarifying question to the oracle
         df["ca"] = df.progress_apply(
-            lambda x: oracle_model.forward_list(x["doc_orig"], x["cq"]), axis=1
+            lambda x: oracle_model.forward_list(x["doc_full"], x["cq"]), axis=1
         )
 
-        clarifying_answers_ranking_model = GPTClarifyingAnswersRankingModel(
-            use_cache=use_cache
-        )
-        primary_model_output_ranking_model = GPTPrimaryModelOutputRankingModel(
-            use_cache=use_cache
-        )
-
-        print("running ranking model to order clarifying questions...")
-        # Ask the clarifying question to the oracle
-        df["ordered_cq_on_ca"] = df.progress_apply(
-            lambda x: clarifying_answers_ranking_model.forward(
-                x["doc_summ"], x["prompt"], x["cq"], x["ca"]
-            ),
-            axis=1,
-        )
 
         print(
             "preparing instructions for joint summ + ca contexts to be fed to the primary model"
         )
 
-        df["joint_summ_ca_instructions"] = df.progress_apply(
+        df["instructions_summ_ca"] = df.progress_apply(
             lambda x: prepare_ca_instructions(
                 x["doc_summ"], x["ca"], x["prompt"], primary_model
             ),
             axis=1,
         )
 
-        # print("preparing instructions for joint summ + ca contexts")
-
-        # df["joint_summ_ca_instructions"] = df.progress_apply(
-        #     lambda x: prepare_ca_instructions(
-        #         x["doc_summ"], x["ca"], x["prompt"], primary_model
-        #     ),
-        #     axis=1,
-        # )
-
         print("running primary models for for joint summ + ca contexts")
 
-        # TODO: Modify this to make parallel calls for Llama
-        # joint_summ_ca_pm_outputs = df.progress_apply(
-        #     lambda x: primary_model.process(pd.Series(x["joint_summ_ca_instructions"])),
-        #     axis=1,
-        # )
-        df["joint_summ_ca_pm_outputs"] = primary_model.process_list(
-            df["joint_summ_ca_instructions"]
+        # get answered, summary, and original outputs
+        df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
+        df["summ_pm_output"] = primary_model.process_single(df["pm_instruction_summ"])
+        df["summ_ca_pm_outputs"] = primary_model.process_list(
+            df["instructions_summ_ca"]
         )
 
-        # Save the primary model's output for summary
-        df["summ_pm_output"] = primary_model.process(df["pm_instruction_summ"])
+        # create a shuffled order of the outputs
+        def shuffle_outputs(row) -> str:
+            pm_outputs_list = [row["summ_pm_output"], row["full_pm_output"]] + row["summ_ca_pm_outputs"]
+            ordering = np.random.permutation(len(pm_outputs_list))
+            shuffled_outputs = [pm_outputs_list[i] for i in ordering]
+            return ordering, shuffled_outputs
+        df["pm_output_candidates"], df["order"] = zip(*df.progress_apply(shuffle_outputs, axis=1))
 
-        # Save the primary model's output for original context
-        df["full_pm_output"] = primary_model.process(df["pm_instruction_full"])
+        pm_output_ranking_model = GPTPMOutputRankingModel(use_cache=use_cache)
 
-        df["ordered_cq_on_pm_outputs"] = df.progress_apply(
-            lambda x: primary_model_output_ranking_model.forward(
-                x["doc_summ"],
+        # get the preferences of the SHUFFLED candidates
+        df["preference_ordering"] = df.progress_apply(
+            lambda x: pm_output_ranking_model.forward(
+                x["doc_full"],
                 x["prompt"],
-                x["cq"],
-                x["joint_summ_ca_pm_outputs"],
-                x["full_pm_output"],
+                x["pm_output_candidates"],
             ),
             axis=1,
         )

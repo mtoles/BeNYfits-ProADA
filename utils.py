@@ -81,14 +81,14 @@ def df_to_md(df: pd.DataFrame, output_path: str):
     Convert a dataframe to a markdown table and save to disk.
 
     Parameters:
-        df (pd.DataFrame): the dataframe to convert. Must have columns "subreddit", "doc_orig", "doc_summ", "prompt", "pm_answer_full", "pm_answer_summ", "selection"
+        df (pd.DataFrame): the dataframe to convert. Must have columns "subreddit", "doc_full", "doc_summ", "prompt", "pm_answer_full", "pm_answer_summ", "selection"
         output_path (str): the path to save the markdown file
     """
     # delete the existing file and create a new one
     with open(output_path, "w", encoding="utf-8") as f:
         col_to_header = {
             "subreddit": "subreddit",
-            "doc_orig": "original document",
+            "doc_full": "original document",
             "doc_summ": "summary document",
             "prompt": "prompt",
             "pm_answer_full": "full answer",

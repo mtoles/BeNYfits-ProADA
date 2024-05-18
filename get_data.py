@@ -5,7 +5,7 @@ import click
 import json
 import re
 
-doc_orig_col_name = "doc_orig"
+doc_full_col_name = "doc_full"
 doc_summ_col_name = "doc_summ"
 tldr_versions = [
     "tl dr",
@@ -255,7 +255,7 @@ def parse_and_apply_constraints(selftext, content, summary, df_row):
     if len(summary) > 0.10 * len(selftext):
         return None
 
-    df_row[doc_orig_col_name] = content.strip()
+    df_row[doc_full_col_name] = content.strip()
     df_row[doc_summ_col_name] = summary.strip()
 
     return df_row

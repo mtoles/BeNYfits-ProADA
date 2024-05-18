@@ -30,6 +30,7 @@ class PrimaryModel:
         Returns:
             str: the output of the primary model
         """
+        raise NotImplementedError
         return x
 
     def prepare_instruction(self, doc: str, prompt: str) -> str:
@@ -55,6 +56,7 @@ class PrimaryModel:
         Returns:
             pd.Series: the output of the primary model
         """
+        raise NotImplementedError
         pass
 
 
@@ -65,7 +67,7 @@ class GPTPrimaryModel(PrimaryModel):
         self.use_cache = use_cache
         pass
 
-    def forward(self, instruction: str, temperature=0.7) -> str:
+    def forward(self, instruction: str, temperature=0.0) -> str:
         """
         Parameters:
             instruction (str): the input instruction
@@ -85,7 +87,7 @@ class GPTPrimaryModel(PrimaryModel):
 
         return openai_output
     
-    def forward_list(self, instructions: List[str], temperature=0.7) -> List[str]:
+    def forward_list(self, instructions: List[str], temperature=0.0) -> List[str]:
         """helper method to call forward when the input is a list of instructions"""
         outputs = []
         for instruction in instructions:
@@ -93,8 +95,14 @@ class GPTPrimaryModel(PrimaryModel):
         return outputs
 
     def process_list(self, instructions: pd.Series) -> pd.Series:
+        "call forward on each item of a series where the item is a ***list***"
         pm_output = instructions.progress_apply(lambda x: self.forward_list(x))
         return pm_output
+    def process_single(self, instructions: pd.Series) -> pd.Series:
+        "call forward on each item of a series where the item is a ***string***"
+        pm_output = instructions.progress_apply(lambda x: self.forward(x))
+        return pm_output
+    
 
 
 class Llama2PrimaryModel(PrimaryModel):

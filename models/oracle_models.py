@@ -81,29 +81,42 @@ class GPTOracleAbstractiveModel(OracleModel):
         questions: List[str],
         temperature: float = 0.7,
     ) -> str:
-        """
-        Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
-
-        Parameters:
-            document (str): the full document
-            questions (List[str]): the questions
-            temperature (float): the temperature to use for the GPT model
-            model (str): the name of the OpenAI model to use
-
-        Returns:
-            List[str]: the selected sentence
-        """
+        answers = []
         nn = "\n\n"
-        lm_input = f"Context: {document}\n\nQuestion{'s' if len(questions) > 1 else ''}:{nn.join(questions)}\n\nUse the context to answer the question{'s' if len(questions) > 1 else ''}. Use only the information given in context and do not add any additional information. Answer {'the' if len(questions) > 1 else 'each'} question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return only one answer per question in a JSON list under the key 'answers', i.e. {{'answers': []}}."
-        completion = conditional_openai_call(
-            x=lm_input,
-            use_cache=self.use_cache,
-            model=self.model_name,
-            temperature=temperature,
-            response_format="json",
-        )
-        answers = loads(completion.choices[0].message.content)["answers"]
-        assert len(answers) == len(questions)
+        for question in questions:
+            lm_input = f"Context: {document}\n\nUse the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}.\n\nQuestion:\n\n{nn.join(question)}"
+            completion = conditional_openai_call(
+                x=lm_input,
+                use_cache=self.use_cache,
+                model=self.model_name,
+                temperature=temperature,
+                response_format="json",
+            )
+            answers.append(loads(completion.choices[0].message.content)["answer"])
+        # fails since there is no guarantee gpt returns the right number of answers
+        # """
+        # Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
+
+        # Parameters:
+        #     document (str): the full document
+        #     questions (List[str]): the questions
+        #     temperature (float): the temperature to use for the GPT model
+        #     model (str): the name of the OpenAI model to use
+
+        # Returns:
+        #     List[str]: the selected sentence
+        # """
+        # nn = "\n\n"
+        # lm_input = f"Context: {document}\n\nQuestion{'s' if len(questions) > 1 else ''}:{nn.join(questions)}\n\nUse the context to answer the question{'s' if len(questions) > 1 else ''}. Use only the information given in context and do not add any additional information. Answer {'the' if len(questions) > 1 else 'each'} question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return only one answer per question in a JSON list under the key 'answers', i.e. {{'answers': []}}."
+        # completion = conditional_openai_call(
+        #     x=lm_input,
+        #     use_cache=self.use_cache,
+        #     model=self.model_name,
+        #     temperature=temperature,
+        #     response_format="json",
+        # )
+        # answers = loads(completion.choices[0].message.content)["answers"]
+        # assert len(answers) == len(questions)
 
         # actual_answers = []
         # for answer in answers:
@@ -117,7 +130,7 @@ class GPTOracleAbstractiveModel(OracleModel):
         #         actual_answers.append(self.no_answer_str)
         return answers
 
-    def forward_single()
+    # def forward_single()
 
 
 # testing
@@ -129,7 +142,7 @@ if __name__ == "__main__":
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
 
-    model = GPTAbstractiveOracleModel(use_cache=False)
+    model = GPTOracleAbstractiveModel(use_cache=False)
     print(model.forward(document, [question1], 0.7))
     print(model.forward(document, [question2], 0.7))
     print(model.forward(document, [question3], 0.7))
