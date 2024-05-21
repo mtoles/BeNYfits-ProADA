@@ -146,7 +146,6 @@ def main(
             lambda x: oracle_model.forward_list(x["doc_full"], x["cq"]), axis=1
         )
 
-
         print(
             "preparing instructions for joint summ + ca contexts to be fed to the primary model"
         )
@@ -169,58 +168,78 @@ def main(
 
         # create a shuffled order of the outputs
         def shuffle_outputs(row) -> str:
-            pm_outputs_list = [row["summ_pm_output"], row["full_pm_output"]] + row["summ_ca_pm_outputs"]
+            # worst to best
+            pm_outputs_list = (
+                [row["summ_pm_output"]]
+                + row["summ_ca_pm_outputs"]
+                + [row["full_pm_output"]]
+            )
             ordering = np.random.permutation(len(pm_outputs_list))
             shuffled_outputs = [pm_outputs_list[i] for i in ordering]
             return ordering, shuffled_outputs
-        df["pm_output_candidates"], df["order"] = zip(*df.progress_apply(shuffle_outputs, axis=1))
+
+        df["order"], df["pm_output_candidates"] = zip(
+            *df.progress_apply(shuffle_outputs, axis=1)
+        )
 
         pm_output_ranking_model = GPTPMOutputRankingModel(use_cache=use_cache)
 
         # get the preferences of the SHUFFLED candidates
-        df["preference_ordering"] = df.progress_apply(
+        df["ranking"] = df.progress_apply(
             lambda x: pm_output_ranking_model.forward(
-                x["doc_full"],
-                x["prompt"],
-                x["pm_output_candidates"],
+                x["doc_full"], x["prompt"], x["pm_output_candidates"], x["order"]
             ),
             axis=1,
         )
 
-        def get_preference(row):
-            if random.uniform(a=0, b=1) < 0.5:
-                model_preference = "First"
-            else:
-                model_preference = "Second"
+        # df["preference_ordering"] = df.progress_apply(
+        #     lambda x: reconstruct(x["preference_ordering_shuffled"], x["order"]),
+        # )
 
-            return model_preference
-
-        df["model_preference"] = df.progress_apply(get_preference, axis=1)
-
-        def adjust_according_to_preference(row):
-            if row["model_preference"] == "First":
-                return (
-                    "1. "
-                    + row["ordered_cq_on_pm_outputs"][0]
-                    + "\n\n2. "
-                    + row["ordered_cq_on_pm_outputs"][-1]
-                )
-            else:
-                return (
-                    "1. "
-                    + row["ordered_cq_on_pm_outputs"][-1]
-                    + "\n\n2. "
-                    + row["ordered_cq_on_pm_outputs"][0]
-                )
-
-        df["preference_eval_cq"] = df.progress_apply(
-            adjust_according_to_preference, axis=1
-        )
-
-        # Save your results
-        df.to_csv(f"results/ranked_dataset.csv", index=False)
-
+        # dump preferences to a json
         df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
+
+        # calculate percent time option 1 is best
+        option_0_mean_position = df["ranking"].apply(lambda x: x.index(0)).mean()
+        option_4_mean_position = df["ranking"].apply(lambda x: x.index(4)).mean()
+        print(f"Option 0 (summ) mean position: {option_0_mean_position}")
+        print(f"Option 4 (full) mean position: {option_4_mean_position}")
+        print
+
+        # def get_preference(row):
+        #     if random.uniform(a=0, b=1) < 0.5:
+        #         model_preference = "First"
+        #     else:
+        #         model_preference = "Second"
+
+        #     return model_preference
+
+        # df["model_preference"] = df.progress_apply(get_preference, axis=1)
+
+        # def adjust_according_to_preference(row):
+        #     if row["model_preference"] == "First":
+        #         return (
+        #             "1. "
+        #             + row["ordered_cq_on_pm_outputs"][0]
+        #             + "\n\n2. "
+        #             + row["ordered_cq_on_pm_outputs"][-1]
+        #         )
+        #     else:
+        #         return (
+        #             "1. "
+        #             + row["ordered_cq_on_pm_outputs"][-1]
+        #             + "\n\n2. "
+        #             + row["ordered_cq_on_pm_outputs"][0]
+        #         )
+
+        # df["preference_eval_cq"] = df.progress_apply(
+        #     adjust_according_to_preference, axis=1
+        # )
+
+        # # Save your results
+        # df.to_csv(f"results/ranked_dataset.csv", index=False)
+
+        # df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
 
 
 def prepare_ca_instructions(

@@ -96,6 +96,7 @@ class GPTPMOutputRankingModel(RankingModel):
         task: str,
         # cq: list[str],
         pm_outputs: list[str],
+        order: list[int],
         # gold_pm_output: str,
         # question: str = None,
         # answer: str = None,
@@ -117,7 +118,7 @@ class GPTPMOutputRankingModel(RankingModel):
         # if question is None:
         pm_output_list = "\n\n".join(
             [
-                "Candidate Answer " + str(i + 1) + ". \n" + doc_full + " " + pm_output
+                "Candidate Answer " + str(i + 1) + ". \n" + pm_output
                 for i, pm_output in enumerate(pm_outputs)
             ]
         )
@@ -125,7 +126,7 @@ class GPTPMOutputRankingModel(RankingModel):
         # nn = "\n\n"
         # lm_input = f'Context: {doc_full}\n\nTask: {task}\n\nPossible Answers:\n\n{pm_output_list}\n\nReference Answer:\n\n{gold_pm_output}\n\nReturn an ordering of these answers in terms of their closeness to the reference answer, starting with the one that most closely resembles the reference answer. Return a list of indices, where each index in the list corresponds to the answer associated with that number under Possible Answers. For example, if the possible answers are\n\n1. The narrator plays guitar.\n\n2. The narrator is a boy.\n\n and the task is "What is the narrators\' gender?" when the reference answer is "The narrator\'s gender is male.", then tne second possible answer resembles the reference answer better than the first one. Therefore, return [2, 1] in this case.\n\nPlease return only a json object with only one key "response" and its value as a list with square brackets, where each element is an integer. For example, {{"response": [2, 1]}} is a valid json response.'
         # lm_input = f"Reference answer: {gold_pm_output}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers is most similar to the reference answer? Return a list of indices from most to least similar in JSON format. For example {{'response': [3, 1, 2]}}."
-        lm_input = f"Task: {task} \n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers is most similar to the task? Return a list of indices from most to least similar in JSON format. For example {{'response': [3, 1, 2]}}."
+        lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers best answers the task? Return a list of indices from worst to best in JSON format. For example {{'response': [3, 1, 2]}}."
 
         completion = conditional_openai_call(
             x=lm_input,
@@ -138,10 +139,26 @@ class GPTPMOutputRankingModel(RankingModel):
         # answer = nltk.sent_tokenize(
         #     loads(completion.choices[0].message.content)["answers"]
         # )
-        ordering = loads(completion.choices[0].message.content)["response"]
+        nominal_ranking = [
+            x - 1 for x in loads(completion.choices[0].message.content)["response"]
+        ]
+        # undo shuffling based on the `ordering` parameter
+        assert len(nominal_ranking) == len(pm_outputs)
+        assert set(nominal_ranking) == set(range(len(pm_outputs)))
         # ordered_cq = [cq[i - 1] for i in ordering]
+        ranking_of_each_candidate = [-1] * len(pm_outputs)
+        for i, j in enumerate(order):
+            ranking_of_each_candidate[i] = nominal_ranking[j]
 
-        return ordering
+        return ranking_of_each_candidate
+
+    # remap the preferences to the original order
+    def reconstruct(shuffled_list, order):
+        reconstructed_list = []
+        for i in range(len(order)):
+            j = order.index(i)
+            reconstructed_list.append(shuffled_list[j])
+        return reconstructed_list
 
 
 # def format_as_ordered_list(items: List[str], prefix: str) -> str:
