@@ -2,8 +2,14 @@ from utils import *
 from typing import List, Dict, Tuple, Union, Optional
 from json import loads
 import nltk
+from tqdm import tqdm
+import os
+import torch
+import transformers
+
 
 nltk.download("punkt")
+nn = "\n\n"
 
 
 class OracleModel:
@@ -12,68 +18,26 @@ class OracleModel:
     """
 
     def __init__(self):
-        pass
+        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.'"
 
     def forward_list(self, document: str, question: str) -> str:
         # subclass this method
-        return self.split_doc_to_sentences(document)[0]
-
-
-# class GPTExtractiveOracleModel(OracleModel):
-#     def __init__(self, use_cache):
-#         self.use_cache = use_cache
-#         self.no_answer_str = "GPT-4 did not return a valid sentence"
-
-#     def forward(
-#         self,
-#         document: str,
-#         questions: List[str],
-#         temperature: float = 0.7,
-#         model="gpt-4-1106-preview",
-#     ) -> str:
-#         """
-#         Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
-
-#         Parameters:
-#             document (str): the full document
-#             questions (List[str]): the questions
-#             temperature (float): the temperature to use for the GPT model
-#             model (str): the name of the OpenAI model to use
-
-#         Returns:
-#             List[str]: the selected sentence
-#         """
-#         nn = "\n\n"
-#         lm_input = f"Context: {document}\n\nQuestions:\n\n{nn.join(questions)}\n\nFor each question, return a single sentence, verbatim, from the context, that answers the question. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return the sentences sentences together in a JSON list, as in {{'answers': ['The first answer', 'The second answer']}}"
-#         completion = conditional_openai_call(
-#             x=lm_input,
-#             use_cache=self.use_cache,
-#             model=model,
-#             temperature=temperature,
-#             response_format="json",
-#         )
-#         # Tokenize the answer and return the first sentence
-#         # answer = nltk.sent_tokenize(
-#         #     loads(completion.choices[0].message.content)["answers"]
-#         # )[0]
-#         answers = loads(completion.choices[0].message.content)["answers"]
-#         answers = [nltk.sent_tokenize(answer)[0] for answer in answers]
-#         # Check that the answer is actually a sentence in the document
-#         actual_answers = []
-#         for a in answers:
-#             if (a.lower() in document.lower()) or (
-#                 a.lower() == "question not answerable"
-#             ):
-#                 actual_answers.append(a)
-#             else:
-#                 actual_answers.append(self.no_answer_str)
-#         return actual_answers
+        raise NotImplementedError
 
 
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, model_name, use_cache):
         self.model_name = model_name
         self.use_cache = use_cache
+        super().__init__()
+
+    def lm_input_template(self, document, question):
+        json_instruction = (
+            "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+            if "gpt" in self.model_name.lower()
+            else ""
+        )
+        return f"Context: {document}\n\n{self.main_instruction} {json_instruction}\n\nQuestion:\n\n{question}"
 
     def forward_list(
         self,
@@ -82,9 +46,8 @@ class GPTOracleAbstractiveModel(OracleModel):
         temperature: float = 0.7,
     ) -> str:
         answers = []
-        nn = "\n\n"
         for question in questions:
-            lm_input = f"Context: {document}\n\nUse the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}.\n\nQuestion:\n\n{nn.join(question)}"
+            lm_input = self.lm_input_template(document, question)
             completion = conditional_openai_call(
                 x=lm_input,
                 use_cache=self.use_cache,
@@ -93,44 +56,95 @@ class GPTOracleAbstractiveModel(OracleModel):
                 response_format="json",
             )
             answers.append(loads(completion.choices[0].message.content)["answer"])
-        # fails since there is no guarantee gpt returns the right number of answers
-        # """
-        # Use the OpenAI API to answer questions given a document. Return a list of selected sentences, one per question.
-
-        # Parameters:
-        #     document (str): the full document
-        #     questions (List[str]): the questions
-        #     temperature (float): the temperature to use for the GPT model
-        #     model (str): the name of the OpenAI model to use
-
-        # Returns:
-        #     List[str]: the selected sentence
-        # """
-        # nn = "\n\n"
-        # lm_input = f"Context: {document}\n\nQuestion{'s' if len(questions) > 1 else ''}:{nn.join(questions)}\n\nUse the context to answer the question{'s' if len(questions) > 1 else ''}. Use only the information given in context and do not add any additional information. Answer {'the' if len(questions) > 1 else 'each'} question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.' Return only one answer per question in a JSON list under the key 'answers', i.e. {{'answers': []}}."
-        # completion = conditional_openai_call(
-        #     x=lm_input,
-        #     use_cache=self.use_cache,
-        #     model=self.model_name,
-        #     temperature=temperature,
-        #     response_format="json",
-        # )
-        # answers = loads(completion.choices[0].message.content)["answers"]
-        # assert len(answers) == len(questions)
-
-        # actual_answers = []
-        # for answer in answers:
-        #     if isinstance(answer, str):
-        #         tokenized_answer = nltk.sent_tokenize(answer)
-        #         if len(tokenized_answer) > 0:
-        #             actual_answers.append(tokenized_answer[0])
-        #         else:
-        #             actual_answers.append(self.no_answer_str)
-        #     else:
-        #         actual_answers.append(self.no_answer_str)
         return answers
 
     # def forward_single()
+
+
+class Llama3OracleModel(OracleModel):
+    """
+    Llama3 Oracle Model.
+    """
+
+    def __init__(self, model_size, batch_size=5):
+        self.no_answer_str = "LLAMA did not return a valid sentence"
+        # self.llama_system_prompt = 'Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with "Sorry, I\'m not sure." Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text. \n\n Context: {user_input}'
+
+
+        if model_size == "llama-3-8b-instruct":
+            self.model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+        elif model_size == "llama-3-70b-instruct":
+            self.model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
+        else:
+            raise ValueError(f"Unknown llama model size {model_size}")
+        self.system_prompt = self.llama_system_prompt
+
+        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        login(token=self.hf_api_key)
+
+        self.pipeline = transformers.pipeline(
+            "text-generation",
+            model=self.model_name,
+            model_kwargs={"torch_dtype": torch.bfloat16},
+            device_map="auto",
+        )
+
+        # self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text. \n\n Context: {user_input}"
+        self.user_prompt = "{question_string}"
+
+        self.batch_size = batch_size
+    def forward_batch(self, documents: List[str], questions: List[str]) -> List[str]:
+        formatted_user_messages = [
+            [
+                {
+                    "role": "system",
+                    "content": f"{self.main_instruction}\n\nContext:\n\n{document}\n\n{self.main_instruction}",
+                },
+                {
+                    "role": "user",
+                    "content": self.user_prompt.format(question_string=question),
+                },
+            ]
+            for doc, question in zip(documents, questions)
+        ]
+
+        llama_formatted_prompts = [
+            self.pipeline.tokenizer.apply_chat_template(
+                prompt, tokenize=False, add_generation_prompt=True
+            )
+            for prompt in formatted_user_messages
+        ]
+
+        sequences = self.pipeline(llama_formatted_prompts)
+
+        outputs = []
+        for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
+            llama_parsed_output = seq[0]["generated_text"]
+            llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+            llama_parsed_output = llama_parsed_output.strip()
+
+            outputs.append(llama_parsed_output)
+
+        return outputs
+
+    def forward(self, documents: List[str], questions: List[str]) -> List[str]:
+        assert len(documents) == len(
+            questions
+        ), "The length of the documents list must be equal to the length of the questions list."
+
+        results = []
+        n_batches = len(documents) // self.batch_size + (
+            0 if len(documents) % self.batch_size == 0 else 1
+        )
+
+        for i in tqdm(range(n_batches)):
+            batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
+            batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
+
+            batch_results = self.forward_batch(batch_documents, batch_questions)
+            results.extend(batch_results)
+
+        return results
 
 
 # testing
