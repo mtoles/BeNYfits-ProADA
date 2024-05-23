@@ -6,7 +6,7 @@ from tqdm import tqdm
 import os
 import torch
 import transformers
-
+from huggingface_hub import login
 
 nltk.download("punkt")
 nn = "\n\n"
@@ -18,18 +18,19 @@ class OracleModel:
     """
 
     def __init__(self):
-        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.'"
+        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.'"
 
     def forward_list(self, document: str, question: str) -> str:
         # subclass this method
         raise NotImplementedError
+        return self.split_doc_to_sentences(document)[0]
 
 
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, model_name, use_cache):
+        super().__init__()
         self.model_name = model_name
         self.use_cache = use_cache
-        super().__init__()
 
     def lm_input_template(self, document, question):
         json_instruction = (
@@ -66,18 +67,17 @@ class Llama3OracleModel(OracleModel):
     Llama3 Oracle Model.
     """
 
-    def __init__(self, model_size, batch_size=5):
-        self.no_answer_str = "LLAMA did not return a valid sentence"
+    def __init__(self, model_size, batch_size):
+        super().__init__()
         # self.llama_system_prompt = 'Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with "Sorry, I\'m not sure." Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text. \n\n Context: {user_input}'
 
-
-        if model_size == "llama-3-8b-instruct":
+        if model_size == "8b":
             self.model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
-        elif model_size == "llama-3-70b-instruct":
+        elif model_size == "70b":
             self.model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
         else:
             raise ValueError(f"Unknown llama model size {model_size}")
-        self.system_prompt = self.llama_system_prompt
+        # self.system_prompt = self.llama_system_prompt
 
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
@@ -93,12 +93,13 @@ class Llama3OracleModel(OracleModel):
         self.user_prompt = "{question_string}"
 
         self.batch_size = batch_size
+
     def forward_batch(self, documents: List[str], questions: List[str]) -> List[str]:
         formatted_user_messages = [
             [
                 {
                     "role": "system",
-                    "content": f"{self.main_instruction}\n\nContext:\n\n{document}\n\n{self.main_instruction}",
+                    "content": f"{self.main_instruction}\n\nContext:\n\n{doc}",
                 },
                 {
                     "role": "user",
@@ -145,6 +146,9 @@ class Llama3OracleModel(OracleModel):
             results.extend(batch_results)
 
         return results
+
+    def forward_list(self, document: str, questions: List[str]) -> List[str]:
+        return self.forward([document] * len(questions), questions)
 
 
 # testing
