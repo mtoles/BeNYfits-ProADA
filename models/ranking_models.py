@@ -123,7 +123,8 @@ class GPTPMOutputRankingModel(RankingModel):
             ]
         )
 
-        lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers best answers the task? Return a list of indices from worst to best in JSON format. For example {{'response': [3, 1, 2]}}."
+        # lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers best answers the task? Return a list of indices from worst to best in JSON format. For example {{'response': [3, 1, 2]}}." # ranking prompt
+        lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers is more helpful in answering the task? Return your answer in json, e.g. {{'answer': 1}}."
 
         completion = conditional_openai_call(
             x=lm_input,
@@ -133,18 +134,23 @@ class GPTPMOutputRankingModel(RankingModel):
             response_format="json",
         )
 
-        nominal_ranking = [
-            x - 1 for x in loads(completion.choices[0].message.content)["response"]
-        ]
+        # nominal_ranking = [
+        #     x - 1 for x in loads(completion.choices[0].message.content)["response"]
+        # ]
         # undo shuffling based on the `ordering` parameter
         # TODO: retry if the ordering is not valid
-        assert len(nominal_ranking) == len(pm_outputs)
-        assert set(nominal_ranking) == set(range(len(pm_outputs)))
+        # assert len(nominal_ranking) == len(pm_outputs)
+        # assert set(nominal_ranking) == set(range(len(pm_outputs)))
         # ordered_cq = [cq[i - 1] for i in ordering]
-        ranking_of_each_candidate = [-1] * len(pm_outputs)
-        for i, j in enumerate(order):
-            ranking_of_each_candidate[i] = nominal_ranking[j]
+        # ranking_of_each_candidate = [-1] * len(pm_outputs)
+        # for i, j in enumerate(order):
+        #     ranking_of_each_candidate[i] = nominal_ranking[j]
 
+        best_candidate = loads(completion.choices[0].message.content)["answer"] - 1
+        if best_candidate == 0:
+            ranking_of_each_candidate = [1, 0]
+        else:
+            ranking_of_each_candidate = [0, 1]
         return ranking_of_each_candidate
 
     # remap the preferences to the original order
