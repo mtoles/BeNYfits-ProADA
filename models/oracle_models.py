@@ -44,22 +44,28 @@ class GPTOracleAbstractiveModel(OracleModel):
         self,
         document: str,
         questions: List[str],
-        temperature: float = 0.7,
+        temperature: float = 0.0,
     ) -> str:
         answers = []
         for question in questions:
-            lm_input = self.lm_input_template(document, question)
-            completion = conditional_openai_call(
-                x=lm_input,
-                use_cache=self.use_cache,
-                model=self.model_name,
-                temperature=temperature,
-                response_format="json",
-            )
-            answers.append(loads(completion.choices[0].message.content)["answer"])
+            answers.append(self.forward_single(document, question, temperature))
         return answers
 
-    # def forward_single()
+    def forward_single(
+        self,
+        document: str,
+        question: str,
+        temperature: float = 0.0,
+    ) -> str:
+        lm_input = self.lm_input_template(document, question)
+        completion = conditional_openai_call(
+            x=lm_input,
+            use_cache=self.use_cache,
+            model=self.model_name,
+            temperature=temperature,
+            response_format="json",
+        )
+        return str(loads(completion.choices[0].message.content)["answer"])
 
 
 class Llama3OracleModel(OracleModel):

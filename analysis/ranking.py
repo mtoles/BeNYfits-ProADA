@@ -2,17 +2,23 @@
 import pandas as pd
 from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
-from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel, Llama3PrimaryModel, PrimaryModel
+from models.primary_models import (
+    GPTPrimaryModel,
+    Llama2PrimaryModel,
+    Llama3PrimaryModel,
+    PrimaryModel,
+)
 from models.cq_models import GPTClarifyingQuestionModel
 from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
     GPTPMOutputRankingModel,
+    GPTPMPairwiseRankingModel,
 )
 from tqdm import tqdm
 import click
 import numpy as np
-import random
+from utils import df_to_md
 
 
 @click.command()
@@ -123,25 +129,31 @@ def main(
             primary_model = Llama3PrimaryModel(pm_size, pm_batch_size)
         else:
             raise ValueError(f"Unknown primary model name {pm_name}")
-        # Prepare instructions for the full example
-        df["pm_instruction_full"] = df.apply(
-            lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
-            axis=1,
-        )
-        # Prepare instructions for the summary example
-        df["pm_instruction_summ"] = df.apply(
-            lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
-            axis=1,
-        )
+
+        ###### CQ STEP ######
+
         # Run the cq model
-        cq_model = GPTClarifyingQuestionModel(use_cache)
+        bm_cq_model = GPTClarifyingQuestionModel(use_cache)
         print("running cq model...")
-        df["cq"] = df.progress_apply(
-            lambda x: cq_model.forward(
+        benchmark_cqs = df.progress_apply(
+            lambda x: bm_cq_model.forward(
                 x["doc_summ"], x["prompt"], n_clarifying_questions
             ),
             axis=1,
         )
+        for i in range(n_clarifying_questions):
+            df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
+
+        # generate cq, ca, output for experimental model
+        ex_cq_model = GPTClarifyingQuestionModel(use_cache)
+        df[f"ex_cq"] = df.progress_apply(
+            lambda x: ex_cq_model.forward(x["doc_summ"], x["prompt"], 1)[0],
+            axis=1,
+        )
+        print("running experimental cq model...")
+
+        ###### ORACLE STEP ######
+
         if "gpt" in oracle_name.lower():
             oracle_model = GPTOracleAbstractiveModel(
                 model_name=oracle_name, use_cache=use_cache
@@ -152,17 +164,39 @@ def main(
             )
         print("running abstractive oracle model to answer clarifying questions...")
         # Ask the clarifying question to the oracle
-        df["ca"] = df.progress_apply(
-            lambda x: oracle_model.forward_list(x["doc_full"], x["cq"]), axis=1
+        for i in range(n_clarifying_questions):
+            df[f"bm_ca_{i}"] = df.progress_apply(
+                lambda x: oracle_model.forward_single(x["doc_full"], x[f"bm_cq_{i}"]),
+                axis=1,
+            )
+        df[f"ex_ca"] = df.progress_apply(
+            lambda x: oracle_model.forward_single(x["doc_full"], x["ex_cq"]), axis=1
         )
 
-        print(
-            "preparing instructions for joint summ + ca contexts to be fed to the primary model"
-        )
+        ###### PRIMARY MODEL STEP ######
 
-        df["instructions_summ_ca"] = df.progress_apply(
-            lambda x: prepare_ca_instructions(
-                x["doc_summ"], x["ca"], x["prompt"], primary_model
+        print("preparing instructions")
+        # Prepare instructions for the full example
+        df["pm_instruction_full"] = df.apply(
+            lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
+            axis=1,
+        )
+        # Prepare instructions for the summary example
+        df["pm_instruction_summ"] = df.apply(
+            lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
+            axis=1,
+        )
+        # Prepare instructions for the answer inputs
+        for i in range(n_clarifying_questions):
+            df[f"instructions_bm_ca_{i}"] = df.apply(
+                lambda x: primary_model.prepare_ca_instruction(
+                    x["doc_summ"], x[f"bm_ca_{i}"], x["prompt"]
+                ),
+                axis=1,
+            )
+        df["instructions_ex_ca"] = df.apply(
+            lambda x: primary_model.prepare_ca_instruction(
+                x["doc_summ"], x["ex_ca"], x["prompt"]
             ),
             axis=1,
         )
@@ -172,105 +206,41 @@ def main(
         # get answered, summary, and original outputs
         df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
         df["summ_pm_output"] = primary_model.process_single(df["pm_instruction_summ"])
-        df["summ_ca_pm_outputs"] = primary_model.process_list(
-            df["instructions_summ_ca"]
-        )
-
-        # create a shuffled order of the outputs
-        def shuffle_outputs(row) -> str:
-            # worst to best
-            pm_outputs_list = (
-                [row["summ_pm_output"]]
-                + row["summ_ca_pm_outputs"]
-                + [row["full_pm_output"]]
+        for i in range(n_clarifying_questions):
+            df[f"ca_{i}_pm_output"] = primary_model.process_single(
+                df[f"instructions_bm_ca_{i}"]
             )
-            ordering = np.random.permutation(len(pm_outputs_list))
-            shuffled_outputs = [pm_outputs_list[i] for i in ordering]
+        df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
 
-            # reduce to two random indices
-            ordering = np.random.choice(len(pm_outputs_list), 2, replace=False)
-            return ordering, shuffled_outputs
+        ranking_model = GPTPMPairwiseRankingModel(use_cache=use_cache)
+        opponents = [f"ca_{i}_pm_output" for i in range(n_clarifying_questions)] + [
+            # "full_pm_output",
+            # "summ_pm_output",
+        ]
+        for opponent in opponents:
+            assert opponent[-10:] == "_pm_output"
+            opp = opponent[:-10]
 
-        df["order"], df["pm_output_candidates"] = zip(
-            *df.progress_apply(shuffle_outputs, axis=1)
-        )
+            df[f"pref_{opp}"] = df.progress_apply(
+                lambda x: ranking_model.forward(
+                    x["prompt"], x["doc_full"], x["ca_ex_pm_output"], x[opponent]
+                ),
+                axis=1,
+            ).apply(lambda x: "ex" if x == 0 else "bm")
 
-        pm_output_ranking_model = GPTPMOutputRankingModel(use_cache=use_cache)
-
-        # get the preferences of the SHUFFLED candidates
-        df["ranking"] = df.progress_apply(
-            lambda x: pm_output_ranking_model.forward(
-                x["doc_full"], x["prompt"], x["pm_output_candidates"], x["order"]
-            ),
-            axis=1,
-        )
-
-        # df["preference_ordering"] = df.progress_apply(
-        #     lambda x: reconstruct(x["preference_ordering_shuffled"], x["order"]),
-        # )
-
+        # calculate total wins
+        wins = 0
+        for opponent in [f"ca_{i}_pm_output" for i in range(n_clarifying_questions)]:
+            opp = opponent[:-10]
+            wins += (df[f"pref_{opp}"] == "ex").sum()
+        win_rate_bm = wins / (len(df) * n_clarifying_questions)
+        # win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
+        print(win_rate_bm)
         # dump preferences to a json
+        df_to_md(df.iloc[:1], "tmp.md")
         df.to_json(
             f"results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
         )
-
-        # calculate percent time option 1 is best
-        # option_0_mean_position = df["ranking"].apply(lambda x: x.index(0)).mean()
-        # option_4_mean_position = df["ranking"].apply(lambda x: x.index(4)).mean()
-        # print(f"Option 0 (summ) mean position: {option_0_mean_position}")
-        # print(f"Option 4 (full) mean position: {option_4_mean_position}")
-        # print
-
-        # def get_preference(row):
-        #     if random.uniform(a=0, b=1) < 0.5:
-        #         model_preference = "First"
-        #     else:
-        #         model_preference = "Second"
-
-        #     return model_preference
-
-        # df["model_preference"] = df.progress_apply(get_preference, axis=1)
-
-        # def adjust_according_to_preference(row):
-        #     if row["model_preference"] == "First":
-        #         return (
-        #             "1. "
-        #             + row["ordered_cq_on_pm_outputs"][0]
-        #             + "\n\n2. "
-        #             + row["ordered_cq_on_pm_outputs"][-1]
-        #         )
-        #     else:
-        #         return (
-        #             "1. "
-        #             + row["ordered_cq_on_pm_outputs"][-1]
-        #             + "\n\n2. "
-        #             + row["ordered_cq_on_pm_outputs"][0]
-        #         )
-
-        # df["preference_eval_cq"] = df.progress_apply(
-        #     adjust_according_to_preference, axis=1
-        # )
-
-        # # Save your results
-        # df.to_csv(f"results/ranked_dataset.csv", index=False)
-
-        # df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
-
-
-def prepare_ca_instructions(
-    doc_summ: str, ca: list[str], prompt: str, primary_model: PrimaryModel
-):
-
-    instructions = []
-
-    for clarifying_answer in ca:
-        instructions.append(
-            primary_model.prepare_instruction(
-                "\n\n".join([doc_summ, clarifying_answer]), prompt
-            )
-        )
-
-    return instructions
 
 
 if __name__ == "__main__":

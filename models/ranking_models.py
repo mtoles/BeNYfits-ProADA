@@ -6,6 +6,7 @@ import os
 from json import loads
 from typing import List, Dict, Tuple, Union, Optional
 
+np.random.seed(0)
 
 class RankingModel:
     """
@@ -174,6 +175,40 @@ class GPTPMOutputRankingModel(RankingModel):
 #         str: the answers formatted as an ordered list
 #     """
 #     return "\n\n".join([f"{prefix} {i+1}. {item}" for i, item in enumerate(items)])
+
+class GPTPMPairwiseRankingModel():
+    def __init__(self, use_cache, model_name="gpt-4-turbo-preview"):
+        self.use_cache = use_cache
+        self.model_name = model_name 
+    def forward(
+        self,
+        task: str,
+        doc_full: str,
+        doc1: str,
+        doc2: str,
+        temperature: float = 0.0,
+    ) -> int:
+        is_reversed = np.random.choice([0, 1])
+        if is_reversed: 
+            doc1, doc2 = doc2, doc1
+        lm_input = f"Task: {task}\n\nContext:\n\n{doc_full}\n\nCandidate Answer 1:\n\n{doc1}\n\nCandidate Answer 2:\n\n{doc2}\n\nWhich of the candidate answers is more helpful in answering the task? If answers are identical, choose one at random. Return your answer in json, e.g. {{'answer': 1}}."
+        completion = conditional_openai_call(
+            x=lm_input,
+            use_cache=self.use_cache,
+            model=self.model_name,
+            temperature=temperature,
+            response_format="json",
+        )
+        lm_output = loads(completion.choices[0].message.content)["answer"]
+        try:
+            lm_output = int(lm_output)
+        except ValueError:
+            lm_output = np.random.choice([0, 1]) # if gpt4 refuses to rank, pick one at random
+        lm_output -= 1 # since prompt is 1-based
+        if is_reversed:
+            return 1 - lm_output
+        return lm_output
+ 
 
 # testing
 if __name__ == "__main__":

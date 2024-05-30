@@ -47,6 +47,11 @@ class PrimaryModel:
         """
         return self.prompt_template % (doc, prompt)
 
+    def prepare_ca_instruction(self, doc_summ: str, ca: str, prompt: str):
+        return self.prepare_instruction(
+                "\n\n".join([doc_summ, ca]), prompt
+            )
+
     def process(self, instructions: pd.Series) -> pd.Series:
         """
         Helper method for running forward on an entire series of inputs. Subclass this method.
