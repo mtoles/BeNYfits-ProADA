@@ -203,6 +203,7 @@ class GPTPMPairwiseRankingModel():
         try:
             lm_output = int(lm_output)
         except ValueError:
+            print("Ranking at Random")
             lm_output = np.random.choice([0, 1]) # if gpt4 refuses to rank, pick one at random
         lm_output -= 1 # since prompt is 1-based
         if is_reversed:
