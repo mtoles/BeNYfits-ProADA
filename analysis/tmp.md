@@ -62,35 +62,35 @@ Based on the entire document, what steps has the person taken to communicate the
 
 ## bm_cq_0
 
-How has the person communicated their concerns to their boyfriend regarding his marijuana use?
+How has the person communicated their concerns about their boyfriend's marijuana use to him so far?
 
 ## bm_cq_1
 
-What specific effects on the relationship has the person attributed to their boyfriend's marijuana use?
+What specific impacts on the relationship have been mentioned due to the boyfriend's marijuana use?
 
 ## bm_cq_2
 
-What actions or changes has the person suggested to their boyfriend to address the impact of his marijuana use on their relationship?
+What has the person identified as a proposed solution or action they would take if their boyfriend's marijuana use and its impact on the relationship does not change?
 
 ## ex_cq
 
-What specific conversations or actions have you taken to address your boyfriend's marijuana use and its effects on your relationship?
+Can you provide the sections of the document that detail the communication between the person and their boyfriend regarding his marijuana use?
 
 ## bm_ca_0
 
-I discussed the weed and sex issue with my boyfriend, expressing my feelings about how his constant state of being stoned affects our intimacy and synchronization during sex. I explained that it sometimes feels like he's more engaged with acting out a scenario rather than being present with me, and that his behavior becomes too rough and impersonal. He seemed surprised by my concerns and promised not to smoke so that we could be on the same mental state. However, he ended up smoking again shortly after our conversation.
+I discussed the weed and sex issue with my boyfriend, expressing my feelings that his constant state of being stoned affects our intimacy and synchronization during sex. I mentioned that it feels like he's more trying to act out a porn movie with a stranger rather than being engaged with me, and that he becomes too rough and impersonal when he's stoned.
 
 ## bm_ca_1
 
-The specific effects on the relationship attributed to my boyfriend's marijuana use include his inability to engage in normal conversation due to being stoned every time we are together, which has led to a lack of intellectual engagement and feeling like I'm watching a stoned zombie every night. Additionally, his marijuana use has affected our sexual relationship; I feel he becomes too rough and impersonal, trying to act out a porn movie rather than being engaged with me. This has contributed to a feeling of being used and placed second to his desire to get high, especially noticeable when he immediately smoked after sex despite our prior discussion about his usage.
+The specific impacts on the relationship due to my boyfriend's marijuana use include a lack of normal conversation as he is stoned from dinner until he falls asleep, issues with sexual intimacy where he becomes too rough and impersonal, and a general feeling of being second place to his weed consumption. Additionally, there's a loss of respect for him as he has transformed from who he was to what I described as a 'stoned zombie' every night.
 
 ## bm_ca_2
 
-I discussed the weed and sex issue with my boyfriend, expressing my concerns about how his constant state of being stoned affects our intimacy and our ability to connect. I suggested that he not smoke up so that we could be in the same state of mind, especially during intimate moments. Additionally, we talked about possibly switching products or methods of consuming marijuana, though he showed no interest in making such changes.
+I'm thinking of asking him for a break until my work matters get settled and we can agree on what amount of smoking is ok when we are together.
 
 ## ex_ca
 
-I discussed the weed and sex issue with my boyfriend, expressing my concerns about how his constant state of being stoned affects our intimacy and our ability to connect. I explained that it feels like he's more focused on acting out a scene than being present with me, which sometimes makes the sex feel rough and impersonal. He seemed surprised by my concerns and promised not to smoke so that we could be on the same level mentally. However, immediately after we had sex, he went to 'go to the bathroom' and returned smelling of weed, which made me feel used and secondary to his desire to get high.
+After last post, I discussed the weed and sex issue with BF. I told him that I feel like the one of the reasons we are not in sync sometimes is because he is stoned every time and way far off in his own little world. I sometimes feel he's more trying to act out a porn movie with a stranger instead of being engaged with me, and that he becomes too rough and impersonal. He seemed surprised that I had those concerns and said he'd not smoke up so that we could be in the same state of mind.
 
 ## pm_instruction_full
 
@@ -144,7 +144,7 @@ Document:
 
 thinking of asking for a break from the relationship because losing respect
 
-I discussed the weed and sex issue with my boyfriend, expressing my feelings about how his constant state of being stoned affects our intimacy and synchronization during sex. I explained that it sometimes feels like he's more engaged with acting out a scenario rather than being present with me, and that his behavior becomes too rough and impersonal. He seemed surprised by my concerns and promised not to smoke so that we could be on the same mental state. However, he ended up smoking again shortly after our conversation.
+I discussed the weed and sex issue with my boyfriend, expressing my feelings that his constant state of being stoned affects our intimacy and synchronization during sex. I mentioned that it feels like he's more trying to act out a porn movie with a stranger rather than being engaged with me, and that he becomes too rough and impersonal when he's stoned.
 
 Instructions: Based on the entire document, what steps has the person taken to communicate their concerns about their boyfriend's increasing marijuana use and its impact on their relationship, and what is their proposed solution if the issue persists?
 
@@ -158,7 +158,7 @@ Document:
 
 thinking of asking for a break from the relationship because losing respect
 
-The specific effects on the relationship attributed to my boyfriend's marijuana use include his inability to engage in normal conversation due to being stoned every time we are together, which has led to a lack of intellectual engagement and feeling like I'm watching a stoned zombie every night. Additionally, his marijuana use has affected our sexual relationship; I feel he becomes too rough and impersonal, trying to act out a porn movie rather than being engaged with me. This has contributed to a feeling of being used and placed second to his desire to get high, especially noticeable when he immediately smoked after sex despite our prior discussion about his usage.
+The specific impacts on the relationship due to my boyfriend's marijuana use include a lack of normal conversation as he is stoned from dinner until he falls asleep, issues with sexual intimacy where he becomes too rough and impersonal, and a general feeling of being second place to his weed consumption. Additionally, there's a loss of respect for him as he has transformed from who he was to what I described as a 'stoned zombie' every night.
 
 Instructions: Based on the entire document, what steps has the person taken to communicate their concerns about their boyfriend's increasing marijuana use and its impact on their relationship, and what is their proposed solution if the issue persists?
 
@@ -172,7 +172,7 @@ Document:
 
 thinking of asking for a break from the relationship because losing respect
 
-I discussed the weed and sex issue with my boyfriend, expressing my concerns about how his constant state of being stoned affects our intimacy and our ability to connect. I suggested that he not smoke up so that we could be in the same state of mind, especially during intimate moments. Additionally, we talked about possibly switching products or methods of consuming marijuana, though he showed no interest in making such changes.
+I'm thinking of asking him for a break until my work matters get settled and we can agree on what amount of smoking is ok when we are together.
 
 Instructions: Based on the entire document, what steps has the person taken to communicate their concerns about their boyfriend's increasing marijuana use and its impact on their relationship, and what is their proposed solution if the issue persists?
 
@@ -186,7 +186,7 @@ Document:
 
 thinking of asking for a break from the relationship because losing respect
 
-I discussed the weed and sex issue with my boyfriend, expressing my concerns about how his constant state of being stoned affects our intimacy and our ability to connect. I explained that it feels like he's more focused on acting out a scene than being present with me, which sometimes makes the sex feel rough and impersonal. He seemed surprised by my concerns and promised not to smoke so that we could be on the same level mentally. However, immediately after we had sex, he went to 'go to the bathroom' and returned smelling of weed, which made me feel used and secondary to his desire to get high.
+After last post, I discussed the weed and sex issue with BF. I told him that I feel like the one of the reasons we are not in sync sometimes is because he is stoned every time and way far off in his own little world. I sometimes feel he's more trying to act out a porn movie with a stranger instead of being engaged with me, and that he becomes too rough and impersonal. He seemed surprised that I had those concerns and said he'd not smoke up so that we could be in the same state of mind.
 
 Instructions: Based on the entire document, what steps has the person taken to communicate their concerns about their boyfriend's increasing marijuana use and its impact on their relationship, and what is their proposed solution if the issue persists?
 
@@ -218,42 +218,36 @@ The document does not provide specific details about the steps the person has ta
 
 The person has taken the following steps to communicate their concerns about their boyfriend's marijuana use and its impact on their relationship:
 
-1. **Direct Communication**: The person directly discussed the issue with their boyfriend, specifically addressing how his constant state of being stoned affects their intimacy and synchronization during sex.
+1. **Discussion**: The person has directly discussed the issue with their boyfriend, specifically addressing how his constant state of being stoned affects their intimacy and synchronization during sex.
 
-2. **Expressing Feelings**: They clearly expressed their feelings about the situation, explaining that it sometimes feels like the boyfriend is more engaged with acting out a scenario rather than being present with her, and that his behavior becomes too rough and impersonal.
+2. **Expressing Feelings**: They have expressed their feelings clearly, stating that the marijuana use makes the boyfriend act in a way that feels impersonal and rough, akin to acting out a porn movie rather than engaging intimately with them.
 
-3. **Seeking a Solution**: They listened to the boyfriend's response, who seemed surprised by the concerns but promised to stop smoking so that they could be on the same mental state.
-
-As for the proposed solution if the issue persists:
-- The person is considering asking for a break from the relationship, as indicated by the initial thought of "thinking of asking for a break from the relationship because losing respect." This suggests that if the boyfriend's behavior does not change despite his promises, the person might opt to take a break from the relationship due to a loss of respect and unresolved issues regarding his marijuana use and its effects on their intimacy and relationship dynamics.
+The proposed solution if the issue persists, as indicated in the document, is that the person is considering asking for a break from the relationship. This suggests that they are contemplating taking a step back from the relationship if their concerns are not addressed or if the situation does not improve.
 
 ## ca_1_pm_output
 
-Based on the document, the person has communicated their concerns about their boyfriend's marijuana use by discussing his usage with him, particularly how it affects their relationship post-sex. This indicates that there has been at least one conversation about the issue. The proposed solution if the issue persists is that the person is considering asking for a break from the relationship, as indicated by the initial mention of "thinking of asking for a break from the relationship because losing respect." This suggests that the person feels a diminishing respect for their boyfriend due to his behavior and sees a break as a potential solution if there is no change in his marijuana use and its impacts.
+Based on the document provided, there is no explicit mention of the steps the person has taken to communicate their concerns about their boyfriend's marijuana use and its impact on their relationship. The document does not detail any conversations or actions taken to address the issue directly with the boyfriend. 
+
+The proposed solution, as indicated in the document, is that the person is considering asking for a break from the relationship due to the loss of respect stemming from the boyfriend's behavior and the negative impacts of his marijuana use.
 
 ## ca_2_pm_output
 
-The person has taken the following steps to communicate their concerns about their boyfriend's marijuana use and its impact on their relationship:
-
-1. **Discussion:** The person directly discussed the issue with their boyfriend, specifically addressing how his constant state of being stoned affects their intimacy and their ability to connect.
-
-2. **Suggestion for Change:** They suggested that the boyfriend should not smoke marijuana so that they could both be in the same state of mind during intimate moments. This indicates an attempt to find a middle ground where both partners can feel more connected.
-
-3. **Alternative Options:** The person also proposed possibly switching products or methods of consuming marijuana as a less impactful alternative, though the boyfriend showed no interest in making such changes.
-
-The proposed solution if the issue persists, as implied by the context of the document, is that the person is considering asking for a break from the relationship. This is suggested by the initial statement about losing respect and thinking of asking for a break, indicating that this might be a consequence if their concerns are not addressed or if the situation does not improve.
+Based on the document provided, the person has not explicitly mentioned any steps they have already taken to communicate their concerns about their boyfriend's increasing marijuana use and its impact on their relationship. However, the document does indicate that the person is considering asking for a break from the relationship. This suggests that they are contemplating addressing the issue directly by proposing a temporary separation. The proposed solution if the issue persists is to take a break until their work matters are settled and they can agree on an acceptable amount of smoking when they are together. This indicates a desire to set boundaries and find a compromise regarding the boyfriend's marijuana use in the context of their relationship.
 
 ## ca_ex_pm_output
 
 The person has taken the following steps to communicate their concerns about their boyfriend's marijuana use and its impact on their relationship:
 
-1. **Direct Communication**: The person directly discussed the issue with their boyfriend, specifically addressing how his constant state of being stoned affects their intimacy and their ability to connect emotionally.
+1. **Direct Communication**: The person directly discussed the issue with their boyfriend, explicitly stating how his behavior while under the influence of marijuana affects their relationship negatively. They mentioned feeling out of sync with him because he is often stoned, which makes him seem distant and disconnected.
 
-2. **Expressing Feelings**: They explained how the boyfriend's behavior makes the sex feel rough and impersonal, indicating a lack of presence and emotional engagement during intimate moments.
+2. **Specific Examples**: They provided specific examples of how his behavior changes when he is stoned, such as trying to act out a porn movie and becoming too rough and impersonal during intimate moments.
 
-3. **Seeking Change**: They requested that the boyfriend not smoke marijuana so that they could be on the same mental level, aiming for a more meaningful and connected relationship experience.
+3. **Expressing Feelings**: They communicated how these actions make them feel, emphasizing the lack of engagement and the impersonal nature of their interactions when he is under the influence.
 
-The proposed solution if the issue persists, as implied by the document, is that the person is considering asking for a break from the relationship. This is suggested by the initial mention of "thinking of asking for a break from the relationship because losing respect," indicating that they might opt for a separation if their boyfriend's behavior does not change and continues to affect their respect and satisfaction in the relationship.
+The proposed solution if the issue persists, as inferred from the document, is:
+- **Change in Behavior**: The boyfriend agreed to not smoke marijuana so that they could be in the same state of mind and more in sync. This suggests that the person is giving their boyfriend an opportunity to change his behavior to see if it positively affects their relationship dynamics.
+
+If this solution does not lead to a satisfactory change, it is implied (though not explicitly stated in the document) that the person might consider taking a break from the relationship, as indicated by their initial thought of "thinking of asking for a break from the relationship because losing respect." This indicates that continuing issues might lead to more drastic measures to preserve their well-being and respect in the relationship.
 
 ## pref_ca_0
 
