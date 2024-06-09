@@ -245,7 +245,7 @@ def main(
         # win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
         print(win_rate_bm)
         # dump preferences to a json
-        df_to_md(df.iloc[:1], "tmp.md")
+        df_to_md(df.iloc[:1], "../results/intermediate/tmp.md")
         df.to_json(
             f"../results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
         )
