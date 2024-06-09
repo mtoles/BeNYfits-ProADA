@@ -18,8 +18,14 @@ from models.ranking_models import (
 from tqdm import tqdm
 import click
 import numpy as np
-from utils import df_to_md, print_current_device
+from utils import df_to_md
+import torch
 
+def print_current_device():
+    if torch.cuda.is_available():
+        print("Current Device: GPU")
+    else:
+        print("Current Device: CPU")
 
 @click.command()
 @click.option(
