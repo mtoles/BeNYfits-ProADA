@@ -208,7 +208,7 @@ def main(
             axis=1,
         )
 
-        print("running primary models for for joint summ + ca contexts")
+        print("running primary models for joint summ + ca contexts")
 
         # get answered, summary, and original outputs
         df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
@@ -219,6 +219,7 @@ def main(
             )
         df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
 
+        print("running pairwise ranking model")
         ranking_model = GPTPMPairwiseRankingModel(use_cache=use_cache)
         opponents = [f"ca_{i}_pm_output" for i in range(n_clarifying_questions)] + [
             # "full_pm_output",
@@ -246,7 +247,7 @@ def main(
         # dump preferences to a json
         df_to_md(df.iloc[:1], "tmp.md")
         df.to_json(
-            f"results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
+            f"../results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
         )
 
 
