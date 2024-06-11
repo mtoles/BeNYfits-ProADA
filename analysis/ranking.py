@@ -8,7 +8,7 @@ from models.primary_models import (
     Llama3PrimaryModel,
     PrimaryModel,
 )
-from models.cq_models import GPTClarifyingQuestionModel
+from models.cq_models import GPTClarifyingQuestionModel, GPTExperimentalClarifyingQuestionModel
 from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
@@ -19,7 +19,13 @@ from tqdm import tqdm
 import click
 import numpy as np
 from utils import df_to_md
+import torch
 
+def print_current_device():
+    if torch.cuda.is_available():
+        print("Current Device: GPU")
+    else:
+        print("Current Device: CPU")
 
 @click.command()
 @click.option(
@@ -80,6 +86,7 @@ def main(
     intermediate_results_path,
 ):
     assert pm_name in ["gpt4", "llama2", "llama3", "gpt-3.5-turbo", "gpt-4-turbo"]
+    print_current_device()
     tqdm.pandas()
     np.random.seed(42)
     if intermediate_results_path is not None:
@@ -145,12 +152,12 @@ def main(
             df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
 
         # generate cq, ca, output for experimental model
-        ex_cq_model = GPTClarifyingQuestionModel(use_cache)
+        print("running experimental cq model...")
+        ex_cq_model = GPTExperimentalClarifyingQuestionModel(use_cache)
         df[f"ex_cq"] = df.progress_apply(
             lambda x: ex_cq_model.forward(x["doc_summ"], x["prompt"], 1)[0],
             axis=1,
         )
-        print("running experimental cq model...")
 
         ###### ORACLE STEP ######
 
@@ -201,7 +208,7 @@ def main(
             axis=1,
         )
 
-        print("running primary models for for joint summ + ca contexts")
+        print("running primary models for joint summ + ca contexts")
 
         # get answered, summary, and original outputs
         df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
@@ -212,6 +219,7 @@ def main(
             )
         df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
 
+        print("running pairwise ranking model")
         ranking_model = GPTPMPairwiseRankingModel(use_cache=use_cache)
         opponents = [f"ca_{i}_pm_output" for i in range(n_clarifying_questions)] + [
             # "full_pm_output",
@@ -237,9 +245,9 @@ def main(
         # win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
         print(win_rate_bm)
         # dump preferences to a json
-        df_to_md(df.iloc[:1], "tmp.md")
+        df_to_md(df.iloc[:1], "../results/intermediate/tmp.md")
         df.to_json(
-            f"results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
+            f"../results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
         )
 
 

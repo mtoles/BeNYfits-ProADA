@@ -80,7 +80,7 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
             List[str]: the selected sentence
         """
         # todo: unify with the llama mode
-        lm_input = f"Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{'s' if n_clarifying_questions > 1 else ''} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Return the questions as a list in JSON format, as in {{'questions': ['The first question?', 'The second question?']}}"
+        lm_input = f"Context: {document}\n\nTask:{task}?\n\n You are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{'s' if n_clarifying_questions > 1 else ''} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Return the questions as a list in JSON format, as in {{'questions': ['The first question?', 'The second question?']}}"
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -101,6 +101,52 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
 
     # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
 
+class GPTExperimentalClarifyingQuestionModel(Clarifying_Question_Model):
+    def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
+        self.use_cache = use_cache
+        self.no_answer_str = "GPT-4 did not return a valid sentence"
+        self.model_name = model_name
+
+    def forward(
+        self,
+        document: str,
+        task: str,
+        n_clarifying_questions: int,
+        temperature: float = 0.7,
+    ) -> List[str]:
+        """
+        Use the OpenAI API to ask multiple questions about a document. Return the selected sentence.
+
+        Parameters:
+            document (str): the full document
+            task (str): the task
+            temperature (float): the temperature to use for the GPT model
+
+        Returns:
+            List[str]: the selected sentence
+        """
+        # todo: unify with the llama mode
+        lm_input = f"Context: {document}\n\nTask:{task}?\n\n Instructions: You need to complete the task but lack sufficient information from the document. Follow these steps to ask one specific clarifying question:\n1. Identify the Gap: What specific information do you need to complete the task that is not in the document?\n2. Reference the Document: Can you refer to a particular section or detail in the document related to this gap?\n3. Formulate the Question: Create a clear, concise question that asks for the missing information. Ensure the question only seeks one fact at a time and does not merely rephrase the original task.\nReturn the questions as a list in JSON format, like this: {{'questions': ['The first question?', 'The second question?']}}"
+        # lm_input = f"Context: {document}\n\nTask:{task}?\n\n You are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{'s' if n_clarifying_questions > 1 else ''} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Return the questions as a list in JSON format, as in {{'questions': ['The first question?', 'The second question?']}}"
+        completion = conditional_openai_call(
+            x=lm_input,
+            use_cache=self.use_cache,
+            model=self.model_name,
+            temperature=temperature,
+            response_format="json",
+        )
+        # Tokenize the answer and return the first sentence
+        questions = loads(completion.choices[0].message.content)["questions"]
+        # assert len(questions) == n_clarifying_questions
+        if len(questions) > n_clarifying_questions:
+            questions = questions[:n_clarifying_questions]
+        elif len(questions) < n_clarifying_questions:
+            questions += self.forward(
+                document, task, n_clarifying_questions - len(questions)
+            )
+        return questions
+
+    # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
 
 class Llama2PrimaryModel(Clarifying_Question_Model):
     """
