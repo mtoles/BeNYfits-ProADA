@@ -2,7 +2,7 @@
 import pandas as pd
 from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
-from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel, PrimaryModel
+from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel, Llama3PrimaryModel, PrimaryModel
 from models.cq_models import GPTClarifyingQuestionModel
 from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
 from models.ranking_models import (
@@ -26,6 +26,8 @@ import random
     default="gpt-3.5-turbo",
     help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'",
 )
+@click.option("--oracle_size", default="8b", help="Size of the oracle model to use")
+@click.option("--oracle_batch_size", default=4, help="Batch size for the oracle model")
 @click.option(
     "--oracle_size",
     default="8b",
@@ -35,7 +37,7 @@ import random
 @click.option(
     "--pm_size",
     default="7b",
-    help="Size of the primary model to use, one of {7b, 13b, 70b}", # todo: update for llama3
+    help="Size of the primary model to use, one of {7b, 13b, 70b}",  # todo: update for llama3
 )
 @click.option("--pm_batch_size", default=4, help="Batch size for the primary model")
 @click.option(
@@ -77,7 +79,7 @@ def main(
     use_cache,
     intermediate_results_path,
 ):
-    assert pm_name in ["gpt4", "llama2", "gpt-3.5-turbo", "gpt-4-turbo"]
+    assert pm_name in ["gpt4", "llama2", "llama3", "gpt-3.5-turbo", "gpt-4-turbo"]
     tqdm.pandas()
     np.random.seed(42)
     if intermediate_results_path is not None:
@@ -123,6 +125,8 @@ def main(
             primary_model = GPTPrimaryModel(pm_name, use_cache)
         elif pm_name == "llama2":
             primary_model = Llama2PrimaryModel(pm_size, pm_batch_size)
+        elif pm_name == "llama3":
+            primary_model = Llama3PrimaryModel(pm_size, pm_batch_size)
         else:
             raise ValueError(f"Unknown primary model name {pm_name}")
         # Prepare instructions for the full example
@@ -188,6 +192,9 @@ def main(
             )
             ordering = np.random.permutation(len(pm_outputs_list))
             shuffled_outputs = [pm_outputs_list[i] for i in ordering]
+
+            # reduce to two random indices
+            ordering = np.random.choice(len(pm_outputs_list), 2, replace=False)
             return ordering, shuffled_outputs
 
         df["order"], df["pm_output_candidates"] = zip(
@@ -209,14 +216,16 @@ def main(
         # )
 
         # dump preferences to a json
-        df.to_json(f"results/intermediate/{pm_name}-{pm_size}_{ds_downsample}.json")
+        df.to_json(
+            f"results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
+        )
 
         # calculate percent time option 1 is best
-        option_0_mean_position = df["ranking"].apply(lambda x: x.index(0)).mean()
-        option_4_mean_position = df["ranking"].apply(lambda x: x.index(4)).mean()
-        print(f"Option 0 (summ) mean position: {option_0_mean_position}")
-        print(f"Option 4 (full) mean position: {option_4_mean_position}")
-        print
+        # option_0_mean_position = df["ranking"].apply(lambda x: x.index(0)).mean()
+        # option_4_mean_position = df["ranking"].apply(lambda x: x.index(4)).mean()
+        # print(f"Option 0 (summ) mean position: {option_0_mean_position}")
+        # print(f"Option 4 (full) mean position: {option_4_mean_position}")
+        # print
 
         # def get_preference(row):
         #     if random.uniform(a=0, b=1) < 0.5:

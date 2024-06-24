@@ -123,10 +123,8 @@ class GPTPMOutputRankingModel(RankingModel):
             ]
         )
 
-        # nn = "\n\n"
-        # lm_input = f'Context: {doc_full}\n\nTask: {task}\n\nPossible Answers:\n\n{pm_output_list}\n\nReference Answer:\n\n{gold_pm_output}\n\nReturn an ordering of these answers in terms of their closeness to the reference answer, starting with the one that most closely resembles the reference answer. Return a list of indices, where each index in the list corresponds to the answer associated with that number under Possible Answers. For example, if the possible answers are\n\n1. The narrator plays guitar.\n\n2. The narrator is a boy.\n\n and the task is "What is the narrators\' gender?" when the reference answer is "The narrator\'s gender is male.", then tne second possible answer resembles the reference answer better than the first one. Therefore, return [2, 1] in this case.\n\nPlease return only a json object with only one key "response" and its value as a list with square brackets, where each element is an integer. For example, {{"response": [2, 1]}} is a valid json response.'
-        # lm_input = f"Reference answer: {gold_pm_output}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers is most similar to the reference answer? Return a list of indices from most to least similar in JSON format. For example {{'response': [3, 1, 2]}}."
-        lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers best answers the task? Return a list of indices from worst to best in JSON format. For example {{'response': [3, 1, 2]}}."
+        # lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers best answers the task? Return a list of indices from worst to best in JSON format. For example {{'response': [3, 1, 2]}}." # ranking prompt
+        lm_input = f"Task: {task}\n\nContext:{doc_full}\n\nCandidate Answers:\n\n{pm_output_list}\n\nWhich of the candidate answers is more helpful in answering the task? Return your answer in json, e.g. {{'answer': 1}}."
 
         completion = conditional_openai_call(
             x=lm_input,
@@ -135,21 +133,24 @@ class GPTPMOutputRankingModel(RankingModel):
             temperature=temperature,
             response_format="json",
         )
-        # Tokenize the answer and return the first sentence
-        # answer = nltk.sent_tokenize(
-        #     loads(completion.choices[0].message.content)["answers"]
-        # )
-        nominal_ranking = [
-            x - 1 for x in loads(completion.choices[0].message.content)["response"]
-        ]
-        # undo shuffling based on the `ordering` parameter
-        assert len(nominal_ranking) == len(pm_outputs)
-        assert set(nominal_ranking) == set(range(len(pm_outputs)))
-        # ordered_cq = [cq[i - 1] for i in ordering]
-        ranking_of_each_candidate = [-1] * len(pm_outputs)
-        for i, j in enumerate(order):
-            ranking_of_each_candidate[i] = nominal_ranking[j]
 
+        # nominal_ranking = [
+        #     x - 1 for x in loads(completion.choices[0].message.content)["response"]
+        # ]
+        # undo shuffling based on the `ordering` parameter
+        # TODO: retry if the ordering is not valid
+        # assert len(nominal_ranking) == len(pm_outputs)
+        # assert set(nominal_ranking) == set(range(len(pm_outputs)))
+        # ordered_cq = [cq[i - 1] for i in ordering]
+        # ranking_of_each_candidate = [-1] * len(pm_outputs)
+        # for i, j in enumerate(order):
+        #     ranking_of_each_candidate[i] = nominal_ranking[j]
+
+        best_candidate = loads(completion.choices[0].message.content)["answer"] - 1
+        if best_candidate == 0:
+            ranking_of_each_candidate = [1, 0]
+        else:
+            ranking_of_each_candidate = [0, 1]
         return ranking_of_each_candidate
 
     # remap the preferences to the original order

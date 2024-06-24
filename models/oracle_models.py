@@ -18,12 +18,16 @@ class OracleModel:
     """
 
     def __init__(self):
-        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. If no sentence from the context answers the question or the question cannot be answered confidently, return 'Sorry, I don't know how to answer this question.'"
+        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.'"
 
     def forward_list(self, document: str, question: str) -> str:
         # subclass this method
         raise NotImplementedError
         return self.split_doc_to_sentences(document)[0]
+<<<<<<< HEAD
+=======
+
+>>>>>>> 918cd983ffb0c0b0c9d71b3b39d35d4065bcef3b
 
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, model_name, use_cache):
@@ -145,8 +149,10 @@ class Llama3OracleModel(OracleModel):
             results.extend(batch_results)
 
         return results
+
     def forward_list(self, document: str, questions: List[str]) -> List[str]:
         return self.forward([document] * len(questions), questions)
+
 
 # testing
 if __name__ == "__main__":
