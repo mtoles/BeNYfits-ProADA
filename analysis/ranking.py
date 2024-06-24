@@ -4,7 +4,7 @@ from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import GPTPrimaryModel, Llama2PrimaryModel, PrimaryModel
 from models.cq_models import GPTClarifyingQuestionModel
-from models.oracle_models import GPTOracleAbstractiveModel
+from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
     GPTPMOutputRankingModel,
@@ -27,9 +27,15 @@ import random
     help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'",
 )
 @click.option(
+    "--oracle_size",
+    default="8b",
+    help="Size of the oracle model to use"
+)
+@click.option("--oracle_batch_size", default=4, help="Batch size for the oracle model")
+@click.option(
     "--pm_size",
     default="7b",
-    help="Size of the primary model to use, one of {7b, 13b, 70b}",
+    help="Size of the primary model to use, one of {7b, 13b, 70b}", # todo: update for llama3
 )
 @click.option("--pm_batch_size", default=4, help="Batch size for the primary model")
 @click.option(
@@ -59,6 +65,8 @@ import random
 def main(
     pm_name,
     oracle_name,
+    oracle_size,
+    oracle_batch_size,
     pm_size,
     pm_batch_size,
     prompt_gen_temperature,
@@ -136,10 +144,14 @@ def main(
             ),
             axis=1,
         )
-
-        oracle_model = GPTOracleAbstractiveModel(
-            model_name=oracle_name, use_cache=use_cache
-        )
+        if "gpt" in oracle_name.lower():
+            oracle_model = GPTOracleAbstractiveModel(
+                model_name=oracle_name, use_cache=use_cache
+            )
+        elif "llama3" in oracle_name.lower():
+            oracle_model = Llama3OracleModel(
+                model_size=oracle_size, batch_size=oracle_batch_size
+            )
         print("running abstractive oracle model to answer clarifying questions...")
         # Ask the clarifying question to the oracle
         df["ca"] = df.progress_apply(
