@@ -8,7 +8,7 @@ from models.primary_models import (
     Llama3PrimaryModel,
     PrimaryModel,
 )
-from models.cq_models import GPTClarifyingQuestionModel
+from models.cq_models import *
 from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
@@ -23,6 +23,10 @@ from utils import df_to_md
 
 @click.command()
 @click.option(
+    "--bm_name",
+    help="Name of the benchmark model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'",
+)
+@click.option(
     "--pm_name",
     default="gpt-3.5-turbo",
     help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo', 'llama2'",
@@ -34,11 +38,6 @@ from utils import df_to_md
 )
 @click.option("--oracle_size", default="8b", help="Size of the oracle model to use")
 @click.option("--oracle_batch_size", default=4, help="Batch size for the oracle model")
-@click.option(
-    "--pm_size",
-    default="7b",
-    help="Size of the primary model to use, one of {7b, 13b, 70b}",  # todo: update for llama3
-)
 @click.option("--pm_batch_size", default=4, help="Batch size for the primary model")
 @click.option(
     "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation"
@@ -65,11 +64,11 @@ from utils import df_to_md
     help="Path to load results containing summaries and pm output. Skips directly to alpaca eval",
 )
 def main(
+    bm_name,
     pm_name,
     oracle_name,
     oracle_size,
     oracle_batch_size,
-    pm_size,
     pm_batch_size,
     prompt_gen_temperature,
     ds_path,
@@ -79,7 +78,28 @@ def main(
     use_cache,
     intermediate_results_path,
 ):
-    assert pm_name in ["gpt4", "llama2", "llama3", "gpt-3.5-turbo", "gpt-4-turbo"]
+    # assert pm_name in ["gpt4", "llama2", "llama3", "gpt-3.5-turbo", "gpt-4-turbo"]
+    # check if we can share weights between llama3 models
+    llamas = [x for x in [bm_name, pm_name, oracle_name] if "llama-3" in x.lower()]
+    llama_pipelines = {
+        "meta-llama/Meta-Llama-3-8B-Instruct": None,
+        "meta-llama/Meta-Llama-3-70B-Instruct": None,
+    }
+    if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
+        llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = transformers.pipeline(
+            "text-generation",
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+    if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
+        llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = transformers.pipeline(
+            "text-generation",
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+
     tqdm.pandas()
     np.random.seed(42)
     if intermediate_results_path is not None:
@@ -123,33 +143,49 @@ def main(
         # Load the primary model
         if "gpt" in pm_name.lower():
             primary_model = GPTPrimaryModel(pm_name, use_cache)
-        elif pm_name == "llama2":
-            primary_model = Llama2PrimaryModel(pm_size, pm_batch_size)
-        elif pm_name == "llama3":
-            primary_model = Llama3PrimaryModel(pm_size, pm_batch_size)
+        elif "llama-3" in pm_name.lower():
+            primary_model = Llama3PrimaryModel(
+                model_name=pm_name,
+                batch_size=pm_batch_size,
+                pipeline=llama_pipelines[pm_name],
+            )
         else:
             raise ValueError(f"Unknown primary model name {pm_name}")
 
         ###### CQ STEP ######
 
         # Run the cq model
-        bm_cq_model = GPTClarifyingQuestionModel(use_cache)
+        if "gpt" in bm_name:
+            bm_cq_model = GPTClarifyingQuestionModel(bm_name, use_cache)
+        elif "Llama-3" in bm_name:
+            bm_cq_model = Llama3ClarifyingQuestionModel(
+                model_name=bm_name,
+                batch_size=pm_batch_size,
+                pipeline=llama_pipelines[bm_name],
+            )
+        else:
+            raise ValueError(f"Unknown benchmark model name {bm_name}")
         print("running cq model...")
-        benchmark_cqs = df.progress_apply(
-            lambda x: bm_cq_model.forward(
-                x["doc_summ"], x["prompt"], n_clarifying_questions
-            ),
-            axis=1,
+        # benchmark_cqs = df.progress_apply(
+        #     lambda x: bm_cq_model.forward(
+        #         x["doc_summ"], x["prompt"], n_clarifying_questions
+        #     ),
+        #     axis=1,
+        # )
+        benchmark_cqs = bm_cq_model.forward_batch(
+            df["doc_summ"], df["prompt"], n_clarifying_questions
         )
         for i in range(n_clarifying_questions):
             df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
 
         # generate cq, ca, output for experimental model
-        ex_cq_model = GPTClarifyingQuestionModel(use_cache)
-        df[f"ex_cq"] = df.progress_apply(
-            lambda x: ex_cq_model.forward(x["doc_summ"], x["prompt"], 1)[0],
-            axis=1,
-        )
+        # ex_cq_model = GPTClarifyingQuestionModel(use_cache)
+        ex_cq_model = GPTCOTClarifyingQuestionModel(use_cache)
+        # df[f"ex_cq"] = df.progress_apply(
+        #     lambda x: ex_cq_model.forward(x["doc_summ"], x["prompt"]),
+        #     axis=1,
+        # )
+        df[f"ex_cq"] = ex_cq_model.forward_batch(df["doc_summ"], df["prompt"])
         print("running experimental cq model...")
 
         ###### ORACLE STEP ######
@@ -158,20 +194,26 @@ def main(
             oracle_model = GPTOracleAbstractiveModel(
                 model_name=oracle_name, use_cache=use_cache
             )
-        elif "llama3" in oracle_name.lower():
+        elif "llama-3" in oracle_name.lower():
             oracle_model = Llama3OracleModel(
-                model_size=oracle_size, batch_size=oracle_batch_size
+                model_name=oracle_name,
+                batch_size=oracle_batch_size,
+                pipeline=llama_pipelines[oracle_name],
             )
         print("running abstractive oracle model to answer clarifying questions...")
         # Ask the clarifying question to the oracle
         for i in range(n_clarifying_questions):
-            df[f"bm_ca_{i}"] = df.progress_apply(
-                lambda x: oracle_model.forward_single(x["doc_full"], x[f"bm_cq_{i}"]),
-                axis=1,
+            # df[f"bm_ca_{i}"] = df.progress_apply(
+            #     lambda x: oracle_model.forward_single(x["doc_full"], x[f"bm_cq_{i}"]),
+            #     axis=1,
+            # )
+            df[f"bm_ca_{i}"] = oracle_model.forward_batch(
+                df["doc_full"], df[f"bm_cq_{i}"]
             )
-        df[f"ex_ca"] = df.progress_apply(
-            lambda x: oracle_model.forward_single(x["doc_full"], x["ex_cq"]), axis=1
-        )
+        # df[f"ex_ca"] = df.progress_apply(
+        #     lambda x: oracle_model.forward_single(x["doc_full"], x["ex_cq"]), axis=1
+        # )
+        df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
 
         ###### PRIMARY MODEL STEP ######
 

@@ -9,10 +9,21 @@ import transformers
 import os
 from huggingface_hub import login
 import torch
+import re
 
 tqdm.pandas()
 
+### TEMPLATES ###
 
+benchmark_template = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. {json}"
+bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
+
+ambig_cot_template_1 = 'Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Identify 5 sources of ambiguity in the situation. Return your answer as as a list in JSON format, as in {{"ambiguities": ["The first ambiguity", "The second ambiguity"]}}'
+ambig_cot_template_2 = 'Task: {task}\n\nAmbiguities:\n\n{ambigs_str}\n\nYou are trying to complete the task but do not have enough information from the document. Identify the most important ambiguity in the situation. Return your answer as a json dict in the form {{"best_ambiguity": 1}}'
+ambig_cot_template_3 = 'Context: {document}\n\nAmbiguity:\n\n{best_ambig}\n\nGenerate a clarifying question that will help you resolve the ambiguity in the context. Return the question itself, exactly, in JSON format, as in {{"question": "The question."}} Do not return anything besides the JSON.'
+
+
+### CLASSES ###
 class Clarifying_Question_Model:
     """
     Model to generate a clarifying question given a document and a question. Subclass this model.
@@ -27,39 +38,10 @@ class Clarifying_Question_Model:
 
 
 class GPTClarifyingQuestionModel(Clarifying_Question_Model):
-    def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
+    def __init__(self, model_name, use_cache):
         self.use_cache = use_cache
         self.no_answer_str = "GPT-4 did not return a valid sentence"
         self.model_name = model_name
-
-    # def forward(
-    #     self,
-    #     document: str,
-    #     task: str,
-    #     temperature: float = 0.7,
-    # ) -> str:
-    #     """
-    #     Use the OpenAI API to answer a question given a document. Return the selected sentence.
-
-    #     Parameters:
-    #         document (str): the full document
-    #         task (str): the task
-    #         temperature (float): the temperature to use for the GPT model
-
-    #     Returns:
-    #         str: the selected sentence
-    #     """
-    #     lm_input = f"Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Ask a question about the situation that can help you complete the task. Only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Return the question itself, exactly, in JSON format, as in {{'question': 'The question.'}}"
-    #     completion = conditional_openai_call(
-    #         x=lm_input,
-    #         use_cache=self.use_cache,
-    #         model=self.model_name,
-    #         temperature=temperature,
-    #         response_format="json",
-    #     )
-    #     # Tokenize the answer and return the first sentence
-    #     question = loads(completion.choices[0].message.content)["question"]
-    #     return question
 
     def forward(
         self,
@@ -79,8 +61,14 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
         Returns:
             List[str]: the selected sentence
         """
-        # todo: unify with the llama mode
-        lm_input = f"Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{'s' if n_clarifying_questions > 1 else ''} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Return the questions as a list in JSON format, as in {{'questions': ['The first question?', 'The second question?']}}"
+        plural = "s" if n_clarifying_questions > 1 else ""
+        lm_input = benchmark_template.format(
+            document=document,
+            task=task,
+            n_clarifying_questions=n_clarifying_questions,
+            plural=plural,
+            json=bechmark_template_json,
+        )
         completion = conditional_openai_call(
             x=lm_input,
             use_cache=self.use_cache,
@@ -99,7 +87,229 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
             )
         return questions
 
+    def forward_batch(
+        self,
+        documents: List[str],
+        tasks: List[str],
+        n_clarifying_questions: int,
+        temperature: float = 0.7,
+    ) -> List[List[str]]:
+        """
+        Use the OpenAI API to ask multiple questions about a document. Return the selected sentence.
+
+        Parameters:
+            document (str): the full document
+            task (str): the task
+            temperature (float): the temperature to use for the GPT model
+
+        Returns:
+            List[str]: the selected sentence
+        """
+        plural = "s" if n_clarifying_questions > 1 else ""
+        lm_inputs = [
+            benchmark_template.format(
+                document=doc,
+                task=task,
+                n_clarifying_questions=n_clarifying_questions,
+                plural=plural,
+                json=bechmark_template_json,
+            )
+            for doc, task in zip(documents, tasks)
+        ]
+        completions = []
+        for lmi in lm_inputs:
+            completions.append(
+                conditional_openai_call(
+                    x=lmi,
+                    use_cache=self.use_cache,
+                    model=self.model_name,
+                    temperature=temperature,
+                    response_format="json",
+                )
+            )
+        questions = []
+        for completion in completions:
+            questions.append(loads(completion.choices[0].message.content)["questions"])
+        return questions
+
     # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
+
+
+class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
+    """
+    Llama3 CQ Model.
+    """
+
+    def __init__(self, model_name, batch_size, pipeline=None):
+        super().__init__()
+        assert model_name in [
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Meta-Llama-3-70B-Instruct",
+        ]
+        self.model_name = model_name
+        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        login(token=self.hf_api_key)
+        if pipeline:
+            self.pipeline=pipeline
+        else:
+            self.pipeline = transformers.pipeline(
+                "text-generation",
+                model=self.model_name,
+                model_kwargs={"torch_dtype": torch.bfloat16},
+                device_map="auto",
+            )
+        self.no_answer_str = "Llama3 did not return a valid sentence"
+        # self.user_prompt = "{question_string}"
+
+        self.batch_size = batch_size
+
+    def forward_batch(
+        self, documents: List[str], questions: List[str], n_clarifying_questions
+    ) -> List[str]:
+        formatted_user_messages = [
+            [
+                {
+                    "role": "system",
+                    "content": f"You are trying to help the user with the task below.",
+                },
+                {
+                    "role": "user",
+                    "content": benchmark_template.format(
+                        document=doc,
+                        task=question,
+                        n_clarifying_questions=n_clarifying_questions,
+                        plural="s",
+                        json=bechmark_template_json,
+                    ),
+                },
+            ]
+            for doc, question in zip(documents, questions)
+        ]
+
+        llama_formatted_prompts = [
+            self.pipeline.tokenizer.apply_chat_template(
+                prompt, tokenize=False, add_generation_prompt=True
+            )
+            for prompt in formatted_user_messages
+        ]
+
+        sequences = self.pipeline(llama_formatted_prompts)
+        # extract json
+
+        outputs = []
+        for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
+            llama_parsed_output = seq[0]["generated_text"]
+            llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+            llama_parsed_output = llama_parsed_output.strip()
+            # use regex to extract the json portion
+            match = re.search(r"\{.*\}", llama_parsed_output, re.DOTALL)
+            if match:
+                json_section = loads(match.group())
+                outputs.append(json_section["questions"])
+            else:
+                outputs.append(self.no_answer_str)
+                print("llama3 dumb")
+                raise NotImplementedError  # "Llama3 too dumb"
+
+        # raise NotImplementedError, "TODO: parse JSON"
+        return outputs
+
+    def forward(self, documents: List[str], questions: List[str]) -> List[str]:
+        assert len(documents) == len(
+            questions
+        ), "The length of the documents list must be equal to the length of the questions list."
+
+        results = []
+        n_batches = len(documents) // self.batch_size + (
+            0 if len(documents) % self.batch_size == 0 else 1
+        )
+
+        for i in tqdm(range(n_batches)):
+            batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
+            batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
+
+            batch_results = self.forward_batch(batch_documents, batch_questions)
+            results.extend(batch_results)
+
+        return results
+
+    def forward_list(self, document: str, questions: List[str]) -> List[str]:
+        return self.forward([document] * len(questions), questions)
+
+
+class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
+    def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
+        self.use_cache = use_cache
+        self.no_answer_str = "Llama3 did not return a valid sentence"
+        self.model_name = model_name
+
+    def forward(
+        self,
+        document: str,
+        task: str,
+        n_ambiguities: int = 5,
+        temperature: float = 0.0,
+    ) -> List[str]:
+        """ """
+        # todo: unify with the llama mode
+        # lm_input1 = f"Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Identify 5 sources of ambiguity in the situation. Return your answer as as a list in JSON format, as in {{'ambiguities': ['The first ambiguity', 'The second ambiguity']}}"
+        lm_input1 = ambig_cot_template_1.format(document=document, task=task)
+        completion1 = conditional_openai_call(
+            x=lm_input1,
+            use_cache=self.use_cache,
+            model=self.model_name,
+            temperature=temperature,
+            response_format="json",
+        )
+        # Tokenize the answer and return the first sentence
+        ambigs = loads(completion1.choices[0].message.content)["ambiguities"]
+        # assert len(questions) == n_clarifying_questions
+        if len(ambigs) > n_ambiguities:
+            ambigs = ambigs[:n_ambiguities]
+        elif len(ambigs) < n_ambiguities:
+            ambigs += self.forward(document, task, n_ambiguities - len(ambigs))
+        ambigs_str = "\n\n".join(
+            [str(i + 1) + ". " + ambig for i, ambig in enumerate(ambigs)]
+        )
+        # lm_input2 = f"Task: {task}\n\nAmbiguities:\n\n{ambigs_str}\n\nYou are trying to complete the task but do not have enough information from the document. Identify the most important ambiguity in the situation. Return your answer as a json dict in the form {{'best_ambiguity': 1}}"
+        lm_input2 = ambig_cot_template_2.format(task=task, ambigs_str=ambigs_str)
+
+        completion2 = conditional_openai_call(
+            x=lm_input2,
+            use_cache=self.use_cache,
+            model=self.model_name,
+            temperature=temperature,
+            response_format="json",
+        )
+        best_ambig = loads(completion2.choices[0].message.content)["best_ambiguity"]
+        # lm_input3 = f"Context: {document}\n\nAmbiguity:\n\n{ambigs[best_ambig-1]}\n\nGenerate a clarifying question that will help you resolve the ambiguity in the context. Return the question itself, exactly, in JSON format, as in {{'question': 'The question.'}}"
+        lm_input3 = ambig_cot_template_3.format(
+            document=document, best_ambig=ambigs[best_ambig - 1]
+        )
+        completion3 = conditional_openai_call(
+            x=lm_input3,
+            use_cache=self.use_cache,
+            model=self.model_name,
+            temperature=temperature,
+            response_format="json",
+        )
+        clarifying_question = loads(completion3.choices[0].message.content)["question"]
+        return clarifying_question
+
+    def forward_batch(
+        self,
+        documents: List[str],
+        tasks: List[str],
+        n_ambiguities: int = 5,
+        temperature: float = 0.0,
+    ) -> List[str]:
+        """ """
+        clarifying_questions = []
+        for doc, task in zip(documents, tasks):
+            clarifying_questions.append(
+                self.forward(doc, task, n_ambiguities, temperature)
+            )
+        return clarifying_questions
 
 
 class Llama2PrimaryModel(Clarifying_Question_Model):
@@ -108,7 +318,7 @@ class Llama2PrimaryModel(Clarifying_Question_Model):
     """
 
     def __init__(self, model_size, batch_size):
-        raise NotImplementedError # This model still needs a prompt template
+        raise NotImplementedError  # This model still needs a prompt template
         super().__init__()
         if model_size == "7b":
             self.model_name = "meta-llama/Llama-2-7b-chat-hf"
