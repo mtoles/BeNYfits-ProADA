@@ -25,7 +25,6 @@ class OracleModel:
         raise NotImplementedError
         return self.split_doc_to_sentences(document)[0]
 
-
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, model_name, use_cache):
         super().__init__()
