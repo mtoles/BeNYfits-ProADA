@@ -8,11 +8,7 @@ from models.primary_models import (
     Llama3PrimaryModel,
     PrimaryModel,
 )
-<<<<<<< HEAD
-from models.cq_models import GPTClarifyingQuestionModel, GPTExperimentalClarifyingQuestionModel
-=======
 from models.cq_models import GPTClarifyingQuestionModel
->>>>>>> @{-1}
 from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
