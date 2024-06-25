@@ -184,23 +184,21 @@ class Llama3PrimaryModel(PrimaryModel):
     Llama3 chat primary model.
     """
 
-    def __init__(self, model_size, batch_size):
+    def __init__(self, model_name, batch_size, pipeline=None):
         super().__init__()
-        if model_size == "8b":
-            self.model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
-        elif model_size == "70b":
-            self.model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
-        else:
-            raise ValueError(f"Unknown llama3 model size {model_size}")
+        self.model_name = model_name
+
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
-
-        self.pipeline = transformers.pipeline(
-            "text-generation",
-            model=self.model_name,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
+        if pipeline:
+            self.pipeline = pipeline
+        else:
+            self.pipeline = transformers.pipeline(
+                "text-generation",
+                model=self.model_name,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            )
         self.pipeline.tokenizer.pad_token_id = 0
         self.pipeline.tokenizer.padding_side = "left"
         # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."

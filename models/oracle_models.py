@@ -1,14 +1,12 @@
 from utils import *
 from typing import List, Dict, Tuple, Union, Optional
 from json import loads
-import nltk
 from tqdm import tqdm
 import os
 import torch
 import transformers
 from huggingface_hub import login
 
-nltk.download("punkt")
 nn = "\n\n"
 
 
@@ -66,33 +64,63 @@ class GPTOracleAbstractiveModel(OracleModel):
         )
         return str(loads(completion.choices[0].message.content)["answer"])
 
+    def forward_batch(
+        self,
+        documents: List[str],
+        questions: List[str],
+        temperature: float = 0.0,
+    ) -> List[str]:
+        lm_inputs = [
+            self.lm_input_template(doc, question)
+            for doc, question in zip(documents, questions)
+        ]
+        completions = []
+        for lmi in lm_inputs:
+            completions.append(
+                conditional_openai_call(
+                    x=lmi,
+                    use_cache=self.use_cache,
+                    model=self.model_name,
+                    temperature=temperature,
+                    response_format="json",
+                )
+                .choices[0]
+                .message.content
+            )
+
+        outputs = [str(loads(c)["answer"]) for c in completions]
+        return outputs
+
 
 class Llama3OracleModel(OracleModel):
     """
     Llama3 Oracle Model.
     """
 
-    def __init__(self, model_size, batch_size):
+    def __init__(self, model_name, batch_size, pipeline=None):
         super().__init__()
         # self.llama_system_prompt = 'Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with "Sorry, I\'m not sure." Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text. \n\n Context: {user_input}'
 
-        if model_size == "8b":
-            self.model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
-        elif model_size == "70b":
-            self.model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
-        else:
-            raise ValueError(f"Unknown llama model size {model_size}")
+        # if model_size == "8b":
+        #     self.model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+        # elif model_size == "70b":
+        #     self.model_name = "meta-llama/Meta-Llama-3-70B-Instruct"
+        # else:
+        #     raise ValueError(f"Unknown llama model size {model_size}")
         # self.system_prompt = self.llama_system_prompt
+        self.model_name = model_name
 
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
-
-        self.pipeline = transformers.pipeline(
-            "text-generation",
-            model=self.model_name,
-            model_kwargs={"torch_dtype": torch.bfloat16},
-            device_map="auto",
-        )
+        if pipeline:
+            self.pipeline = pipeline
+        else:
+            self.pipeline = transformers.pipeline(
+                "text-generation",
+                model=self.model_name,
+                model_kwargs={"torch_dtype": torch.bfloat16},
+                device_map="auto",
+            )
 
         # self.system_prompt = "Based on the context provided, answer the specific question listed using only the information from the context. Do not add any additional information beyond what is in the context. Respond in the first person, as if you are the original writer of the content. Return your answer as a simple string, directly addressing the question without including any additional text. \n\n Context: {user_input}"
         self.user_prompt = "{question_string}"
