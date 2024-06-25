@@ -38,21 +38,20 @@ def print_current_device():
 
 parser = argparse.ArgumentParser(description="Run model evaluations.")
 parser.add_argument(
-    "--bm_name", default="gpt-3.5-turbo", help="Name of the benchmark model to use."
+    "--bm_name", default="meta-llama/Meta-Llama-3-8B-Instruct", help="Name of the benchmark model to use."
 )
 parser.add_argument(
-    "--pm_name", default="gpt-3.5-turbo", help="Name of the primary model to use."
+    "--cq_name", default="meta-llama/Meta-Llama-3-8B-Instruct", help="Name of the experimental clarifying question model to use."
 )
 parser.add_argument(
-    "--oracle_name", default="gpt-3.5-turbo", help="Name of the oracle model to use."
+    "--pm_name", default="meta-llama/Meta-Llama-3-8B-Instruct", help="Name of the primary model to use."
 )
 parser.add_argument(
-    "--oracle_size", default="8b", help="Size of the oracle model to use."
+    "--oracle_name", default="meta-llama/Meta-Llama-3-8B-Instruct", help="Name of the oracle model to use."
 )
 parser.add_argument(
     "--oracle_batch_size", default=4, help="Batch size for the oracle model.", type=int
 )
-parser.add_argument("--pm_size", default="7b", help="Size of the primary model to use.")
 parser.add_argument(
     "--pm_batch_size", default=2, help="Batch size for the primary model.", type=int
 )
@@ -181,9 +180,18 @@ else:
         df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
 
     # generate cq, ca, output for experimental model
-    # ex_cq_model = GPTClarifyingQuestionModel(use_cache)
-    ex_cq_model = GPTCOTClarifyingQuestionModel(args.use_cache)
-    df[f"ex_cq"] = ex_cq_model.forward_batch(df["doc_summ"], df["prompt"])
+    if args.cq_name == "gpt-cot":
+        ex_cq_model = GPTCOTClarifyingQuestionModel(args.use_cache)
+    elif "gpt-4" in args.cq_name.lower():
+        ex_cq_model = GPTClarifyingQuestionModel(args.use_cache)
+    elif "llama-3" in args.cq_name.lower():
+        ex_cq_model = Llama3ClarifyingQuestionModel(
+            model_name=args.cq_name,
+            batch_size=args.pm_batch_size,
+            pipeline=llama_pipelines[args.cq_name],
+        )
+
+    df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
     print("running experimental cq model...")
 
     ###### ORACLE STEP ######

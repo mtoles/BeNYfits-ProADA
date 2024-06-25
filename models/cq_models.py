@@ -255,7 +255,7 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
             else:
                 outputs.append(self.no_answer_str)
                 print("llama3 dumb")
-                raise NotImplementedError  # "Llama3 too dumb"
+                # raise NotImplementedError  # "Llama3 too dumb"
 
         # raise NotImplementedError, "TODO: parse JSON"
         return outputs
@@ -274,7 +274,7 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
             batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
             batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
 
-            batch_results = self.forward_batch(batch_documents, batch_questions)
+            batch_results = self.forward_batch(batch_documents, batch_questions, 1)[0]
             results.extend(batch_results)
 
         return results
@@ -358,67 +358,67 @@ class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
         return clarifying_questions
 
 
-class Llama2PrimaryModel(Clarifying_Question_Model):
-    """
-    Llama2 chat primary model.
-    """
+# class Llama2PrimaryModel(Clarifying_Question_Model):
+#     """
+#     Llama2 chat primary model.
+#     """
 
-    def __init__(self, model_size, batch_size):
-        raise NotImplementedError  # This model still needs a prompt template
-        super().__init__()
-        if model_size == "7b":
-            self.model_name = "meta-llama/Llama-2-7b-chat-hf"
-        elif model_size == "13b":
-            self.model_name = "meta-llama/Llama-2-13b-chat-hf"
-        elif model_size == "70b":
-            self.model_name = "meta-llama/Llama-2-70b-chat-hf"
-        else:
-            raise ValueError(f"Unknown llama2 model size {model_size}")
-        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-        login(token=self.hf_api_key)
+#     def __init__(self, model_size, batch_size):
+#         raise NotImplementedError  # This model still needs a prompt template
+#         super().__init__()
+#         if model_size == "7b":
+#             self.model_name = "meta-llama/Llama-2-7b-chat-hf"
+#         elif model_size == "13b":
+#             self.model_name = "meta-llama/Llama-2-13b-chat-hf"
+#         elif model_size == "70b":
+#             self.model_name = "meta-llama/Llama-2-70b-chat-hf"
+#         else:
+#             raise ValueError(f"Unknown llama2 model size {model_size}")
+#         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+#         login(token=self.hf_api_key)
 
-        self.pipeline = transformers.pipeline(
-            "text-generation",
-            model=self.model_name,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
-        self.pipeline.tokenizer.pad_token_id = 0
-        self.pipeline.tokenizer.padding_side = "left"
-        # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
-        self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
+#         self.pipeline = transformers.pipeline(
+#             "text-generation",
+#             model=self.model_name,
+#             torch_dtype=torch.bfloat16,
+#             device_map="auto",
+#         )
+#         self.pipeline.tokenizer.pad_token_id = 0
+#         self.pipeline.tokenizer.padding_side = "left"
+#         # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
+#         self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
 
-        self.batch_size = batch_size
+#         self.batch_size = batch_size
 
-    def process(
-        self,
-        document: pd.Series,
-        task: pd.Series,
-    ) -> pd.Series:
-        llama_formatted_input = [
-            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
-            for instruction in instructions
-        ]
-        # wrap the pipeline so we can have a progress bar
-        sequences = []
-        for i in tqdm(range(0, len(llama_formatted_input), self.batch_size)):
-            batch = llama_formatted_input[i : i + self.batch_size]
-            sequences.extend(
-                self.pipeline(
-                    batch,
-                    # do_sample=True,
-                    # top_k=10,
-                    # num_return_sequences=1,
-                    # eos_token_id=self.tokenizer.eos_token_id,
-                    # max_length=300,
-                )
-            )
+#     def process(
+#         self,
+#         document: pd.Series,
+#         task: pd.Series,
+#     ) -> pd.Series:
+#         llama_formatted_input = [
+#             f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
+#             for instruction in instructions
+#         ]
+#         # wrap the pipeline so we can have a progress bar
+#         sequences = []
+#         for i in tqdm(range(0, len(llama_formatted_input), self.batch_size)):
+#             batch = llama_formatted_input[i : i + self.batch_size]
+#             sequences.extend(
+#                 self.pipeline(
+#                     batch,
+#                     # do_sample=True,
+#                     # top_k=10,
+#                     # num_return_sequences=1,
+#                     # eos_token_id=self.tokenizer.eos_token_id,
+#                     # max_length=300,
+#                 )
+#             )
 
-        outputs = [sequence[0]["generated_text"] for sequence in sequences]
-        # delete the prompt
-        # outputs = [output[len(llama_formatted_input) :] for output in outputs]
-        outputs = [x[len(y) :] for x, y in zip(outputs, llama_formatted_input)]
-        return outputs
+#         outputs = [sequence[0]["generated_text"] for sequence in sequences]
+#         # delete the prompt
+#         # outputs = [output[len(llama_formatted_input) :] for output in outputs]
+#         outputs = [x[len(y) :] for x, y in zip(outputs, llama_formatted_input)]
+#         return outputs
 
 
 if __name__ == "__main__":
