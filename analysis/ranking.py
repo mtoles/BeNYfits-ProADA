@@ -1,4 +1,6 @@
-# Setup
+
+
+import argparse
 import pandas as pd
 from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
@@ -16,274 +18,333 @@ from models.ranking_models import (
     GPTPMPairwiseRankingModel,
 )
 from tqdm import tqdm
-import click
 import numpy as np
 from utils import df_to_md
+import torch
+
+# hugging face log in
+import os
+from dotenv import load_dotenv
+from huggingface_hub import HfApi
+import dotenv
+
+hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
 
 
-@click.command()
-@click.option(
-    "--bm_name",
-    help="Name of the benchmark model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'",
+def print_current_device():
+    if torch.cuda.is_available():
+        print("Current Device: GPU")
+    else:
+        print("Current Device: CPU")
+
+
+
+parser = argparse.ArgumentParser(description="Run model evaluations.")
+parser.add_argument(
+    "--bm_name", default="gpt-3.5-turbo", help="Name of the benchmark model to use."
 )
-@click.option(
-    "--pm_name",
-    default="gpt-3.5-turbo",
-    help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo', 'llama2'",
+parser.add_argument(
+    "--pm_name", default="gpt-3.5-turbo", help="Name of the primary model to use."
 )
-@click.option(
-    "--oracle_name",
-    default="gpt-3.5-turbo",
-    help="Name of the primary model to use. If using a gpt model, use the exact api call name, e.g., 'gpt-3.5-turbo'",
+parser.add_argument(
+    "--oracle_name", default="gpt-3.5-turbo", help="Name of the oracle model to use."
 )
-@click.option("--oracle_size", default="8b", help="Size of the oracle model to use")
-@click.option("--oracle_batch_size", default=4, help="Batch size for the oracle model")
-@click.option("--pm_batch_size", default=4, help="Batch size for the primary model")
-@click.option(
-    "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation"
+parser.add_argument(
+    "--oracle_size", default="8b", help="Size of the oracle model to use."
 )
-@click.option("--ds_path", help="Path to the dataset")
-@click.option(
+parser.add_argument(
+    "--oracle_batch_size", default=4, help="Batch size for the oracle model.", type=int
+)
+parser.add_argument("--pm_size", default="7b", help="Size of the primary model to use.")
+parser.add_argument(
+    "--pm_batch_size", default=2, help="Batch size for the primary model.", type=int
+)
+parser.add_argument(
+    "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation."
+)
+parser.add_argument("--ds_path", help="Path to the dataset.")
+parser.add_argument(
     "--ds_downsample",
     default=None,
     type=int,
-    help="Use at most this many rows of the dataset",
+    help="Use at most this many rows of the dataset.",
 )
-@click.option(
+parser.add_argument(
     "--n_clarifying_questions",
     default=1,
-    help="Number of clarifying questions to generate",
+    help="Number of clarifying questions to generate.",
+    type=int,
 )
-@click.option(
-    "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows"
+parser.add_argument(
+    "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows."
 )
-@click.option("--use_cache", default=True, help="Use the GPT-4 shelved cache")
-@click.option(
+parser.add_argument("--use_cache", default=True, help="Use the GPT-4 shelved cache.")
+parser.add_argument(
     "--intermediate_results_path",
     default=None,
-    help="Path to load results containing summaries and pm output. Skips directly to alpaca eval",
+    help="Path to load intermediate results.",
 )
-def main(
-    bm_name,
-    pm_name,
-    oracle_name,
-    oracle_size,
-    oracle_batch_size,
-    pm_batch_size,
-    prompt_gen_temperature,
-    ds_path,
-    ds_downsample,
-    n_clarifying_questions,
-    ds_shift,
-    use_cache,
-    intermediate_results_path,
-):
-    # assert pm_name in ["gpt4", "llama2", "llama3", "gpt-3.5-turbo", "gpt-4-turbo"]
-    # check if we can share weights between llama3 models
-    llamas = [x for x in [bm_name, pm_name, oracle_name] if "llama-3" in x.lower()]
-    llama_pipelines = {
-        "meta-llama/Meta-Llama-3-8B-Instruct": None,
-        "meta-llama/Meta-Llama-3-70B-Instruct": None,
-    }
-    if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
-        llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = transformers.pipeline(
-            "text-generation",
-            model="meta-llama/Meta-Llama-3-8B-Instruct",
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
-    if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
-        llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = transformers.pipeline(
-            "text-generation",
-            model="meta-llama/Meta-Llama-3-70B-Instruct",
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
+args = parser.parse_args()
 
-    tqdm.pandas()
-    np.random.seed(42)
-    if intermediate_results_path is not None:
-        # load intermediate results instead and skip directly to alpaca eval
-        df = pd.read_json(intermediate_results_path)
+llamas = [
+    x for x in [args.bm_name, args.pm_name, args.oracle_name] if "llama-3" in x.lower()
+]
+llama_pipelines = {
+    "meta-llama/Meta-Llama-3-8B-Instruct": None,
+    "meta-llama/Meta-Llama-3-70B-Instruct": None,
+}
+if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
+    llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = transformers.pipeline(
+        "text-generation",
+        model="meta-llama/Meta-Llama-3-8B-Instruct",
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        token=hf_api_key,
+    )
+if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
+    llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = transformers.pipeline(
+        "text-generation",
+        model="meta-llama/Meta-Llama-3-70B-Instruct",
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        token=hf_api_key,
+    )
+
+tqdm.pandas()
+np.random.seed(42)
+if args.intermediate_results_path is not None:
+    # load intermediate results instead and skip directly to alpaca eval
+    df = pd.read_json(args.intermediate_results_path)
+else:
+    # Read docs from the dataset
+    if args.ds_path.lower().endswith(".jsonl"):
+        df = pd.read_json(args.ds_path, lines=True)
+    elif args.ds_path.lower().endswith(".json"):
+        df = pd.read_json(args.ds_path, lines=False)
+    elif args.ds_path.lower().endswith(".csv"):
+        df = pd.read_csv(args.ds_path)
+    if "selftext" in df.columns:
+        df["doc_full"] = df["selftext"].astype(str)
+        df = df.drop(columns=["selftext"])
+    # Shuffle the datast
+    df = df.sample(frac=1).reset_index(drop=True)
+    # Shift the dataset
+    df = pd.concat([df.iloc[args.ds_shift :], df.iloc[: args.ds_shift]]).reset_index(
+        drop=True
+    )
+    # Apply downsampling
+    if args.ds_downsample is not None:
+        df = df.head(args.ds_downsample)
+    # summarize each item of the dataset to 50% of its original length
+    summarizer = GPTSummarizer(args.use_cache)
+    print("summarizing...")
+    if "doc_summ" not in df.columns:
+        df["doc_summ"] = df["doc_full"].progress_apply(lambda x: summarizer.forward(x))
     else:
-        # Read docs from the dataset
-        if ds_path.lower().endswith(".jsonl"):
-            df = pd.read_json(ds_path, lines=True)
-        elif ds_path.lower().endswith(".json"):
-            df = pd.read_json(ds_path, lines=False)
-        elif ds_path.lower().endswith(".csv"):
-            df = pd.read_csv(ds_path)
-        if "selftext" in df.columns:
-            df["doc_full"] = df["selftext"].astype(str)
-            df = df.drop(columns=["selftext"])
-        # Shuffle the datast
-        df = df.sample(frac=1).reset_index(drop=True)
-        # Shift the dataset
-        df = pd.concat([df.iloc[ds_shift:], df.iloc[:ds_shift]]).reset_index(drop=True)
-        # Apply downsampling
-        if ds_downsample is not None:
-            df = df.head(ds_downsample)
-        # summarize each item of the dataset to 50% of its original length
-        summarizer = GPTSummarizer(use_cache)
-        print("summarizing...")
-        if "doc_summ" not in df.columns:
-            df["doc_summ"] = df["doc_full"].progress_apply(
-                lambda x: summarizer.forward(x)
-            )
-        else:
-            print("Skipping summarization because doc_summ is already present")
+        print("Skipping summarization because doc_summ is already present")
 
-        # Generate primary tasks
-        prompt_generator = GPTPromptGenerator(use_cache)
-        print("generating prompts...")
-        df["prompt"] = df["doc_full"].progress_apply(
-            lambda x: prompt_generator.forward(x, prompt_gen_temperature)
+    # Generate primary tasks
+    prompt_generator = GPTPromptGenerator(args.use_cache)
+    print("generating prompts...")
+    df["prompt"] = df["doc_full"].progress_apply(
+        lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
+    )
+
+    # Load the primary model
+    if "gpt" in args.pm_name.lower():
+        primary_model = GPTPrimaryModel(args.pm_name, args.use_cache)
+    elif "llama-3" in args.pm_name.lower():
+        primary_model = Llama3PrimaryModel(
+            model_name=args.pm_name,
+            batch_size=args.pm_batch_size,
+            pipeline=llama_pipelines[args.pm_name],
         )
+    else:
+        raise ValueError(f"Unknown primary model name {args.pm_name}")
 
-        # Load the primary model
-        if "gpt" in pm_name.lower():
-            primary_model = GPTPrimaryModel(pm_name, use_cache)
-        elif "llama-3" in pm_name.lower():
-            primary_model = Llama3PrimaryModel(
-                model_name=pm_name,
-                batch_size=pm_batch_size,
-                pipeline=llama_pipelines[pm_name],
-            )
-        else:
-            raise ValueError(f"Unknown primary model name {pm_name}")
+    ###### CQ STEP ######
 
-        ###### CQ STEP ######
+    # Run the cq model
+    if "gpt" in args.bm_name:
+        bm_cq_model = GPTClarifyingQuestionModel(args.bm_name, args.use_cache)
+    elif "Llama-3" in args.bm_name:
+        bm_cq_model = Llama3ClarifyingQuestionModel(
+            model_name=args.bm_name,
+            batch_size=args.pm_batch_size,
+            pipeline=llama_pipelines[args.bm_name],
+        )
+    else:
+        raise ValueError(f"Unknown benchmark model name {args.bm_name}")
+    print("running cq model...")
+    # benchmark_cqs = df.progress_apply(
+    #     lambda x: bm_cq_model.forward(
+    #         x["doc_summ"], x["prompt"], n_clarifying_questions
+    #     ),
+    #     axis=1,
+    # )
+    benchmark_cqs = bm_cq_model.forward_batch(
+        df["doc_summ"], df["prompt"], args.n_clarifying_questions
+    )
+    for i in range(args.n_clarifying_questions):
+        df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
 
-        # Run the cq model
-        if "gpt" in bm_name:
-            bm_cq_model = GPTClarifyingQuestionModel(bm_name, use_cache)
-        elif "Llama-3" in bm_name:
-            bm_cq_model = Llama3ClarifyingQuestionModel(
-                model_name=bm_name,
-                batch_size=pm_batch_size,
-                pipeline=llama_pipelines[bm_name],
-            )
-        else:
-            raise ValueError(f"Unknown benchmark model name {bm_name}")
-        print("running cq model...")
-        # benchmark_cqs = df.progress_apply(
-        #     lambda x: bm_cq_model.forward(
-        #         x["doc_summ"], x["prompt"], n_clarifying_questions
-        #     ),
+    # generate cq, ca, output for experimental model
+    # ex_cq_model = GPTClarifyingQuestionModel(use_cache)
+    ex_cq_model = GPTCOTClarifyingQuestionModel(args.use_cache)
+    # df[f"ex_cq"] = df.progress_apply(
+    #     lambda x: ex_cq_model.forward(x["doc_summ"], x["prompt"]),
+    #     axis=1,
+    # )
+    df[f"ex_cq"] = ex_cq_model.forward_batch(df["doc_summ"], df["prompt"])
+    print("running experimental cq model...")
+
+    ###### ORACLE STEP ######
+
+    if "gpt" in args.oracle_name.lower():
+        oracle_model = GPTOracleAbstractiveModel(
+            model_name=args.oracle_name, use_cache=args.use_cache
+        )
+    elif "llama-3" in args.oracle_name.lower():
+        oracle_model = Llama3OracleModel(
+            model_name=args.oracle_name,
+            batch_size=args.oracle_batch_size,
+            pipeline=llama_pipelines[args.oracle_name],
+        )
+    print("running abstractive oracle model to answer clarifying questions...")
+    # Ask the clarifying question to the oracle
+    for i in range(args.n_clarifying_questions):
+        # df[f"bm_ca_{i}"] = df.progress_apply(
+        #     lambda x: oracle_model.forward_single(x["doc_full"], x[f"bm_cq_{i}"]),
         #     axis=1,
         # )
-        benchmark_cqs = bm_cq_model.forward_batch(
-            df["doc_summ"], df["prompt"], n_clarifying_questions
-        )
-        for i in range(n_clarifying_questions):
-            df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
+        df[f"bm_ca_{i}"] = oracle_model.forward_batch(df["doc_full"], df[f"bm_cq_{i}"])
+    # df[f"ex_ca"] = df.progress_apply(
+    #     lambda x: oracle_model.forward_single(x["doc_full"], x["ex_cq"]), axis=1
+    # )
+    df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
 
-        # generate cq, ca, output for experimental model
-        # ex_cq_model = GPTClarifyingQuestionModel(use_cache)
-        ex_cq_model = GPTCOTClarifyingQuestionModel(use_cache)
-        # df[f"ex_cq"] = df.progress_apply(
-        #     lambda x: ex_cq_model.forward(x["doc_summ"], x["prompt"]),
-        #     axis=1,
-        # )
-        df[f"ex_cq"] = ex_cq_model.forward_batch(df["doc_summ"], df["prompt"])
-        print("running experimental cq model...")
+    ###### PRIMARY MODEL STEP ######
 
-        ###### ORACLE STEP ######
-
-        if "gpt" in oracle_name.lower():
-            oracle_model = GPTOracleAbstractiveModel(
-                model_name=oracle_name, use_cache=use_cache
-            )
-        elif "llama-3" in oracle_name.lower():
-            oracle_model = Llama3OracleModel(
-                model_name=oracle_name,
-                batch_size=oracle_batch_size,
-                pipeline=llama_pipelines[oracle_name],
-            )
-        print("running abstractive oracle model to answer clarifying questions...")
-        # Ask the clarifying question to the oracle
-        for i in range(n_clarifying_questions):
-            # df[f"bm_ca_{i}"] = df.progress_apply(
-            #     lambda x: oracle_model.forward_single(x["doc_full"], x[f"bm_cq_{i}"]),
-            #     axis=1,
-            # )
-            df[f"bm_ca_{i}"] = oracle_model.forward_batch(
-                df["doc_full"], df[f"bm_cq_{i}"]
-            )
-        # df[f"ex_ca"] = df.progress_apply(
-        #     lambda x: oracle_model.forward_single(x["doc_full"], x["ex_cq"]), axis=1
-        # )
-        df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
-
-        ###### PRIMARY MODEL STEP ######
-
-        print("preparing instructions")
-        # Prepare instructions for the full example
-        df["pm_instruction_full"] = df.apply(
-            lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
-            axis=1,
-        )
-        # Prepare instructions for the summary example
-        df["pm_instruction_summ"] = df.apply(
-            lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
-            axis=1,
-        )
-        # Prepare instructions for the answer inputs
-        for i in range(n_clarifying_questions):
-            df[f"instructions_bm_ca_{i}"] = df.apply(
-                lambda x: primary_model.prepare_ca_instruction(
-                    x["doc_summ"], x[f"bm_ca_{i}"], x["prompt"]
-                ),
-                axis=1,
-            )
-        df["instructions_ex_ca"] = df.apply(
+    print("preparing instructions")
+    # Prepare instructions for the full example
+    df["pm_instruction_full"] = df.apply(
+        lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
+        axis=1,
+    )
+    # Prepare instructions for the summary example
+    df["pm_instruction_summ"] = df.apply(
+        lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
+        axis=1,
+    )
+    # Prepare instructions for the answer inputs
+    for i in range(args.n_clarifying_questions):
+        df[f"instructions_bm_ca_{i}"] = df.apply(
             lambda x: primary_model.prepare_ca_instruction(
-                x["doc_summ"], x["ex_ca"], x["prompt"]
+                x["doc_summ"], x[f"bm_ca_{i}"], x["prompt"]
             ),
             axis=1,
         )
 
-        print("running primary models for for joint summ + ca contexts")
 
-        # get answered, summary, and original outputs
-        df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
-        df["summ_pm_output"] = primary_model.process_single(df["pm_instruction_summ"])
-        for i in range(n_clarifying_questions):
-            df[f"ca_{i}_pm_output"] = primary_model.process_single(
-                df[f"instructions_bm_ca_{i}"]
-            )
-        df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
-
-        ranking_model = GPTPMPairwiseRankingModel(use_cache=use_cache)
-        opponents = [f"ca_{i}_pm_output" for i in range(n_clarifying_questions)] + [
-            # "full_pm_output",
-            # "summ_pm_output",
-        ]
-        for opponent in opponents:
-            assert opponent[-10:] == "_pm_output"
-            opp = opponent[:-10]
-
-            df[f"pref_{opp}"] = df.progress_apply(
-                lambda x: ranking_model.forward(
-                    x["prompt"], x["doc_full"], x["ca_ex_pm_output"], x[opponent]
-                ),
-                axis=1,
-            ).apply(lambda x: "ex" if x == 0 else "bm")
-
-        # calculate total wins
-        wins = 0
-        for opponent in [f"ca_{i}_pm_output" for i in range(n_clarifying_questions)]:
-            opp = opponent[:-10]
-            wins += (df[f"pref_{opp}"] == "ex").sum()
-        win_rate_bm = wins / (len(df) * n_clarifying_questions)
-        # win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
-        print(win_rate_bm)
-        # dump preferences to a json
-        df_to_md(df.iloc[:1], "tmp.md")
-        df.to_json(
-            f"results/intermediate/pm-{pm_name}_or-{oracle_name}_{str(ds_downsample)}.json"
+print(
+    "preparing instructions for joint summ + ca contexts to be fed to the primary model"
+)
+df["instructions_ex_ca"] = df.progress_apply(
+    lambda x:
+        primary_model.prepare_instruction(
+            "\n\n".join([x["doc_summ"], x["ex_ca"]]), x["prompt"]
         )
+    ,
+    axis=1,
+)
+# df["instructions_ex_ca"] = df.progress_apply(
+#     lambda x: prepare_ca_instructions(
+#         x["doc_summ"], x["ex_ca"], x["prompt"], primary_model
+#     ),
+#     axis=1,
+# )
+print("running primary models for for joint summ + ca contexts")
+
+# get answered, summary, and original outputs
+# df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
+# df["summ_pm_output"] = primary_model.process_single(df["pm_instruction_summ"])
+for i in range(args.n_clarifying_questions):
+    df[f"ca_{i}_pm_output"] = primary_model.process_single(
+        df[f"instructions_bm_ca_{i}"]
+    )
+df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
+
+ranking_model = GPTPMPairwiseRankingModel(use_cache=args.use_cache)
+opponents = [f"ca_{i}_pm_output" for i in range(args.n_clarifying_questions)] + [
+    # "full_pm_output",
+    # "summ_pm_output",
+]
+for opponent in opponents:
+    assert opponent[-10:] == "_pm_output"
+    opp = opponent[:-10]
+
+    df[f"pref_{opp}"] = df.progress_apply(
+        lambda x: ranking_model.forward(
+            x["prompt"], x["doc_full"], x["ca_ex_pm_output"], x[opponent]
+        ),
+        axis=1,
+    ).apply(lambda x: "ex" if x == 0 else "bm")
+
+# calculate total wins
+wins = 0
+for opponent in [f"ca_{i}_pm_output" for i in range(args.n_clarifying_questions)]:
+    opp = opponent[:-10]
+    wins += (df[f"pref_{opp}"] == "ex").sum()
+win_rate_bm = wins / (len(df) * args.n_clarifying_questions)
+# win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
+print(win_rate_bm)
+# dump preferences to a json
+df_to_md(df.iloc[:1], "tmp.md")
+save_path = f"results/intermediate/pm-{args.pm_name.split('/')[-1]}_or-{args.oracle_name.split('/')[-1]}_{str(args.ds_downsample)}.json"
+df.to_json(
+    save_path
+)
+# print("running primary models for for joint summ + ca contexts")
+
+# # get answered, summary, and original outputs
+# df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
+# df["summ_pm_output"] = primary_model.process_single(df["pm_instruction_summ"])
+# df["summ_ca_pm_outputs"] = primary_model.process_list(df["instructions_summ_ca"])
 
 
-if __name__ == "__main__":
-    main()
+# # create a shuffled order of the outputs
+# def shuffle_outputs(row) -> str:
+#     # worst to best
+#     pm_outputs_list = (
+#         [row["summ_pm_output"]] + row["summ_ca_pm_outputs"] + [row["full_pm_output"]]
+#     )
+#     ordering = np.random.permutation(len(pm_outputs_list))
+#     shuffled_outputs = [pm_outputs_list[i] for i in ordering]
+
+#     # reduce to two random indices
+#     ordering = np.random.choice(len(pm_outputs_list), 2, replace=False)
+#     return ordering, shuffled_outputs
+
+
+# df["order"], df["pm_output_candidates"] = zip(
+#     *df.progress_apply(shuffle_outputs, axis=1)
+# )
+
+# pm_output_ranking_model = GPTPMOutputRankingModel(use_cache=args.use_cache)
+
+# # get the preferences of the SHUFFLED candidates
+# df["ranking"] = df.progress_apply(
+#     lambda x: pm_output_ranking_model.forward(
+#         x["doc_full"], x["prompt"], x["pm_output_candidates"], x["order"]
+#     ),
+#     axis=1,
+# )
+
+# # df["preference_ordering"] = df.progress_apply(
+# #     lambda x: reconstruct(x["preference_ordering_shuffled"], x["order"]),
+# # )
+
+# # dump preferences to a json
+# df.to_json(
+#     f"results/intermediate/pm-{args.pm_name}_or-{args.oracle_name}_{str(args.ds_downsample)}.json"
+# )

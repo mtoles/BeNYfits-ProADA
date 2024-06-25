@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import pandas as pd
 from openai._types import NotGiven
 from typing import Optional
-
+import torch
 
 load_dotenv()
 
@@ -113,3 +113,9 @@ def df_to_md(df: pd.DataFrame, output_path: str):
             substrs.append(f"\n\n{'='*50}\n\n")
             md_row = "\n\n".join(substrs)
             f.write(md_row)
+
+def print_device():
+    if torch.cuda.is_available():
+        print("Current Device: GPU")
+    else:
+        print("Current Device: CPU")
