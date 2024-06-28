@@ -172,9 +172,12 @@ else:
 # Generate primary tasks
 prompt_generator = GPTPromptGenerator(args.use_cache)
 print("generating prompts...")
-df["prompt"] = df["doc_full"].progress_apply(
-    lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
-)
+if "prompt" not in df.columns:
+    df["prompt"] = df["doc_full"].progress_apply(
+        lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
+    )
+else:
+    print("Skipping prompt generation because it is already present")
 
 # Load the primary model
 if "gpt" in args.pm_name.lower():
