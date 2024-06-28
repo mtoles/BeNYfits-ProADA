@@ -149,7 +149,8 @@ class Llama3OracleModel(OracleModel):
             for prompt in formatted_user_messages
         ]
 
-        sequences = self.pipeline(llama_formatted_prompts, pad_token_id=self.pipeline.tokenizer.eos_token_id, self.batch_size)
+        sequences = self.pipeline(llama_formatted_prompts, self.batch_size, pad_token_id=self.pipeline.tokenizer.eos_token_id)
+
 
         outputs = []
         for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
