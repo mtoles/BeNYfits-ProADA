@@ -50,7 +50,6 @@ def openai_call(
     )
     return completion
 
-
 @cachetools.cached(pc)
 def cached_openai_call(*args, **kwargs):
     """

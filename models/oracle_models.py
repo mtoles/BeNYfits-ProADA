@@ -149,7 +149,7 @@ class Llama3OracleModel(OracleModel):
             for prompt in formatted_user_messages
         ]
 
-        sequences = self.pipeline(llama_formatted_prompts)
+        sequences = self.pipeline(llama_formatted_prompts, pad_token_id=self.pipeline.tokenizer.eos_token_id, self.batch_size)
 
         outputs = []
         for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
@@ -167,16 +167,16 @@ class Llama3OracleModel(OracleModel):
         ), "The length of the documents list must be equal to the length of the questions list."
 
         results = []
-        n_batches = len(documents) // self.batch_size + (
-            0 if len(documents) % self.batch_size == 0 else 1
-        )
+        # n_batches = len(documents) // self.batch_size + (
+        #     0 if len(documents) % self.batch_size == 0 else 1
+        # )
 
-        for i in tqdm(range(n_batches)):
-            batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
-            batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
+        # for i in tqdm(range(n_batches)):
+        #     batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
+        #     batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
 
-            batch_results = self.forward_batch(batch_documents, batch_questions)
-            results.extend(batch_results)
+        batch_results = self.forward_batch(documents, questions)
+        results.extend(batch_results)
 
         return results
 

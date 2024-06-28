@@ -10,17 +10,22 @@ import os
 from huggingface_hub import login
 import torch
 import re
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
 
 tqdm.pandas()
 
 ### TEMPLATES ###
 
-benchmark_template = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. {json}"
+benchmark_template = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Do not say anything other than the question. {json}"
 bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
 
 ambig_cot_template_1 = 'Context: {document}\n\nTask:{task}\n\n? You are trying to complete the task but do not have enough information from the document. Identify 5 sources of ambiguity in the situation. Return your answer as as a list in JSON format, as in {{"ambiguities": ["The first ambiguity", "The second ambiguity"]}}'
 ambig_cot_template_2 = 'Task: {task}\n\nAmbiguities:\n\n{ambigs_str}\n\nYou are trying to complete the task but do not have enough information from the document. Identify the most important ambiguity in the situation. Return your answer as a json dict in the form {{"best_ambiguity": 1}}'
 ambig_cot_template_3 = 'Context: {document}\n\nAmbiguity:\n\n{best_ambig}\n\nGenerate a clarifying question that will help you resolve the ambiguity in the context. Return the question itself, exactly, in JSON format, as in {{"question": "The question."}} Do not return anything besides the JSON.'
+
+imagine_answers_template = "Context: {document}\n\nQuestion: {cq}\n\nAlthough you do not have enough information to answer the question, imagine you are the writer of the context and provide a plausible answer. Stay in character and only respond with the answer to the question."
 
 
 ### CLASSES ###
@@ -134,6 +139,7 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
 
     # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
 
+
 class GPTExperimentalClarifyingQuestionModel(Clarifying_Question_Model):
     def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
         self.use_cache = use_cache
@@ -181,6 +187,7 @@ class GPTExperimentalClarifyingQuestionModel(Clarifying_Question_Model):
 
     # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
 
+
 class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
     """
     Llama3 CQ Model.
@@ -196,7 +203,7 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
         if pipeline:
-            self.pipeline=pipeline
+            self.pipeline = pipeline
         else:
             self.pipeline = transformers.pipeline(
                 "text-generation",
@@ -225,7 +232,8 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
                         task=question,
                         n_clarifying_questions=n_clarifying_questions,
                         plural="s",
-                        json=bechmark_template_json,
+                        # json=bechmark_template_json_plural,
+                        json="",
                     ),
                 },
             ]
@@ -239,25 +247,22 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
             for prompt in formatted_user_messages
         ]
 
-        sequences = self.pipeline(llama_formatted_prompts)
+        sequences = self.pipeline(
+            llama_formatted_prompts,
+            pad_token_id=self.pipeline.tokenizer.eos_token_id,
+            batch_size=self.batch_size,
+        )
         # extract json
 
         outputs = []
-        for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
+        for seq, llama_formatted_prompt in tqdm(
+            zip(sequences, llama_formatted_prompts)
+        ):
             llama_parsed_output = seq[0]["generated_text"]
             llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
             llama_parsed_output = llama_parsed_output.strip()
-            # use regex to extract the json portion
-            match = re.search(r"\{.*\}", llama_parsed_output, re.DOTALL)
-            if match:
-                json_section = loads(match.group())
-                outputs.append(json_section["questions"])
-            else:
-                outputs.append(self.no_answer_str)
-                print("llama3 dumb")
-                # raise NotImplementedError  # "Llama3 too dumb"
+            outputs.append(llama_parsed_output)
 
-        # raise NotImplementedError, "TODO: parse JSON"
         return outputs
 
     def forward(self, documents: List[str], questions: List[str]) -> List[str]:
@@ -274,12 +279,195 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
             batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
             batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
 
-            batch_results = self.forward_batch(batch_documents, batch_questions, 1)[0]
+            batch_results = self.forward_batch(batch_documents, batch_questions, 1)
             results.extend(batch_results)
 
         return results
 
     def forward_list(self, document: str, questions: List[str]) -> List[str]:
+        # forward but for a list of questions
+        return self.forward([document] * len(questions), questions)
+
+
+class Llama3ImagineClarifyingQuestionModel(Clarifying_Question_Model):
+    """
+    Llama3 CQ Model.
+    """
+
+    def __init__(self, model_name, batch_size, pipeline=None):
+        super().__init__()
+        assert model_name in [
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Meta-Llama-3-70B-Instruct",
+        ]
+        self.model_name = model_name
+        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        login(token=self.hf_api_key)
+        if pipeline:
+            self.pipeline = pipeline
+        else:
+            self.pipeline = transformers.pipeline(
+                "text-generation",
+                model=self.model_name,
+                model_kwargs={"torch_dtype": torch.bfloat16},
+                device_map="auto",
+            )
+        self.no_answer_str = "Llama3 did not return a valid sentence"
+        # self.user_prompt = "{question_string}"
+
+        self.batch_size = batch_size
+
+    def forward_batch(
+        self,
+        documents: List[str],
+        tasks: List[str],
+        n_clarifying_questions,
+    ) -> List[str]:
+        initial_seed = torch.initial_seed()
+        # generate candidate questions
+        N_QUESTIONS = 4
+        N_ANSWERS = 4
+        IMAGINATION_TEMP = 1.0
+        candidate_cqs = []
+        for i in range(N_QUESTIONS):
+            formatted_user_messages = [
+                [
+                    {
+                        "role": "system",
+                        "content": f"You are trying to help the user with the task below.",
+                    },
+                    {
+                        "role": "user",
+                        "content": benchmark_template.format(
+                            document=doc,
+                            task=task,
+                            n_clarifying_questions=n_clarifying_questions,
+                            plural="s",
+                            # json=bechmark_template_json_plural,
+                            json="",
+                        ),
+                    },
+                ]
+                for doc, task in zip(documents, tasks)
+            ]
+
+            llama_formatted_prompts = [
+                self.pipeline.tokenizer.apply_chat_template(
+                    prompt, tokenize=False, add_generation_prompt=True
+                )
+                for prompt in formatted_user_messages
+            ]
+
+            sequences = self.pipeline(
+                llama_formatted_prompts,
+                pad_token_id=self.pipeline.tokenizer.eos_token_id,
+                temperature=IMAGINATION_TEMP,
+                batch_size=self.batch_size,
+            )
+            # extract json
+
+            parsed_candidate_cq_sequences = []
+            for seq, llama_formatted_prompt in tqdm(
+                zip(sequences, llama_formatted_prompts)
+            ):
+                llama_parsed_output = seq[0]["generated_text"]
+                llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+                llama_parsed_output = llama_parsed_output.strip()
+                parsed_candidate_cq_sequences.append(llama_parsed_output)
+
+            candidate_cqs.extend(parsed_candidate_cq_sequences)
+            torch.manual_seed(torch.seed() + 1)
+        torch.manual_seed(initial_seed)
+        # generate answers
+        imagined_answers = []
+        for i in range(N_ANSWERS):
+            formatted_user_messages = [
+                [
+                    {
+                        "role": "system",
+                        "content": f"You are trying to help the user with the task below.",
+                    },
+                    {
+                        "role": "user",
+                        "content": imagine_answers_template.format(
+                            document=doc,
+                            cq=candidate_cq,
+                        ),
+                    },
+                ]
+                for doc, candidate_cq in zip(
+                    list(documents) * N_QUESTIONS, candidate_cqs
+                )
+            ]
+
+            llama_formatted_prompts = [
+                self.pipeline.tokenizer.apply_chat_template(
+                    prompt, tokenize=False, add_generation_prompt=True
+                )
+                for prompt in formatted_user_messages
+            ]
+
+            sequences = self.pipeline(
+                llama_formatted_prompts,
+                pad_token_id=self.pipeline.tokenizer.eos_token_id,
+                temperature=IMAGINATION_TEMP,
+                batch_size=self.batch_size,
+            )
+            # extract json
+
+            parsed_candidate_answer_sequences = []
+            for seq, llama_formatted_prompt in tqdm(
+                zip(sequences, llama_formatted_prompts)
+            ):
+                llama_parsed_output = seq[0]["generated_text"]
+                llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+                llama_parsed_output = llama_parsed_output.strip()
+                parsed_candidate_answer_sequences.append(llama_parsed_output)
+
+            imagined_answers.extend(parsed_candidate_answer_sequences)
+            torch.manual_seed(torch.seed() + 1)
+        torch.manual_seed(initial_seed)
+        imagined_answers = np.array(imagined_answers).reshape(
+            len(documents), N_QUESTIONS, N_ANSWERS
+        )
+        q_similarity = np.zeros((len(documents), N_QUESTIONS))
+        sbert = SentenceTransformer("all-mpnet-base-v2")
+        for i in range(len(documents)):
+            for j in range(N_QUESTIONS):
+                embeddings = sbert.encode(imagined_answers[i, j, :])
+                similarities = sbert.similarity(embeddings, embeddings)
+
+                q_similarity[i, j] = similarities.mean()
+        # get the question with the lowest answer similarity
+        best_questions = []
+        for i in range(len(documents)):
+            best_questions.append(candidate_cqs[q_similarity[i].argmin()])
+        return best_questions
+
+    def forward(self, documents: List[str], questions: List[str]) -> List[str]:
+        assert len(documents) == len(
+            questions
+        ), "The length of the documents list must be equal to the length of the questions list."
+
+        results = []
+        # n_batches = len(documents) // self.batch_size + (
+        #     0 if len(documents) % self.batch_size == 0 else 1
+        # )
+
+        # for i in tqdm(range(n_batches)):
+        #     batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
+        #     batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
+
+        #     batch_results = self.forward_batch(batch_documents, batch_questions, 1)
+        #     results.extend(batch_results)
+
+        batch_results = self.forward_batch(documents, questions, 1)
+        results.extend(batch_results)
+
+        return results
+
+    def forward_list(self, document: str, questions: List[str]) -> List[str]:
+        # forward but for a list of questions
         return self.forward([document] * len(questions), questions)
 
 
@@ -356,69 +544,6 @@ class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
                 self.forward(doc, task, n_ambiguities, temperature)
             )
         return clarifying_questions
-
-
-# class Llama2PrimaryModel(Clarifying_Question_Model):
-#     """
-#     Llama2 chat primary model.
-#     """
-
-#     def __init__(self, model_size, batch_size):
-#         raise NotImplementedError  # This model still needs a prompt template
-#         super().__init__()
-#         if model_size == "7b":
-#             self.model_name = "meta-llama/Llama-2-7b-chat-hf"
-#         elif model_size == "13b":
-#             self.model_name = "meta-llama/Llama-2-13b-chat-hf"
-#         elif model_size == "70b":
-#             self.model_name = "meta-llama/Llama-2-70b-chat-hf"
-#         else:
-#             raise ValueError(f"Unknown llama2 model size {model_size}")
-#         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-#         login(token=self.hf_api_key)
-
-#         self.pipeline = transformers.pipeline(
-#             "text-generation",
-#             model=self.model_name,
-#             torch_dtype=torch.bfloat16,
-#             device_map="auto",
-#         )
-#         self.pipeline.tokenizer.pad_token_id = 0
-#         self.pipeline.tokenizer.padding_side = "left"
-#         # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
-#         self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
-
-#         self.batch_size = batch_size
-
-#     def process(
-#         self,
-#         document: pd.Series,
-#         task: pd.Series,
-#     ) -> pd.Series:
-#         llama_formatted_input = [
-#             f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
-#             for instruction in instructions
-#         ]
-#         # wrap the pipeline so we can have a progress bar
-#         sequences = []
-#         for i in tqdm(range(0, len(llama_formatted_input), self.batch_size)):
-#             batch = llama_formatted_input[i : i + self.batch_size]
-#             sequences.extend(
-#                 self.pipeline(
-#                     batch,
-#                     # do_sample=True,
-#                     # top_k=10,
-#                     # num_return_sequences=1,
-#                     # eos_token_id=self.tokenizer.eos_token_id,
-#                     # max_length=300,
-#                 )
-#             )
-
-#         outputs = [sequence[0]["generated_text"] for sequence in sequences]
-#         # delete the prompt
-#         # outputs = [output[len(llama_formatted_input) :] for output in outputs]
-#         outputs = [x[len(y) :] for x, y in zip(outputs, llama_formatted_input)]
-#         return outputs
 
 
 if __name__ == "__main__":

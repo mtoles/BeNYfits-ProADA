@@ -230,7 +230,7 @@ class Llama3PrimaryModel(PrimaryModel):
             )
             for prompt in formatted_user_messages
         ]
-        sequences = self.pipeline(llama_formatted_prompts)
+        sequences = self.pipeline(llama_formatted_prompts, pad_token_id=self.pipeline.tokenizer.eos_token_id, batch_size=self.batch_size)
 
         outputs = []
         for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
