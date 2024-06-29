@@ -6,7 +6,6 @@ from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import (
     GPTPrimaryModel,
-    Llama2PrimaryModel,
     Llama3PrimaryModel,
     PrimaryModel,
 )
@@ -67,7 +66,10 @@ parser.add_argument(
     "--pm_batch_size", default=8, help="Batch size for the primary model.", type=int
 )
 parser.add_argument(
-    "--cq_batch_size", default=8, help="Batch size for the clarifying question model.", type=int
+    "--cq_batch_size",
+    default=8,
+    help="Batch size for the clarifying question model.",
+    type=int,
 )
 parser.add_argument(
     "--bm_batch_size", default=8, help="Batch size for the benchmark model.", type=int
@@ -118,21 +120,28 @@ llama_pipelines = {
     "meta-llama/Meta-Llama-3-70B-Instruct": None,
 }
 if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
-    llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = transformers.pipeline(
-        "text-generation",
-        model="meta-llama/Meta-Llama-3-8B-Instruct",
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        token=hf_api_key,
-    )
+    # llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = transformers.pipeline(
+    #     "text-generation",
+    #     model="meta-llama/Meta-Llama-3-8B-Instruct",
+    #     torch_dtype=torch.bfloat16,
+    #     device_map="auto",
+    #     token=hf_api_key,
+    # )
+    llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = get_huggingface_lm("meta-llama/Meta-Llama-3-8B-Instruct")
 if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
-    llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = transformers.pipeline(
-        "text-generation",
-        model="meta-llama/Meta-Llama-3-70B-Instruct",
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        token=hf_api_key,
-    )
+    # llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = transformers.pipeline(
+    #     "text-generation",
+    #     model="meta-llama/Meta-Llama-3-70B-Instruct",
+    #     torch_dtype=torch.bfloat16,
+    #     device_map="auto",
+    #     token=hf_api_key,
+    # )
+    llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = get_huggingface_lm("meta-llama/Meta-Llama-3-70B-Instruct")
+for pipeline in llama_pipelines.values():
+    if pipeline is not None:
+        pipeline._tokenizer.pad_token_id = pipeline._tokenizer.eos_token_id
+        pipeline._tokenizer.padding_side = "left"
+
 
 # %%
 

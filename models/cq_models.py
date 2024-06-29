@@ -12,7 +12,9 @@ import torch
 import re
 from sentence_transformers import SentenceTransformer
 import numpy as np
-
+from lmwrapper.huggingface_wrapper import get_huggingface_lm
+from lmwrapper.structs import LmPrompt
+from lmwrapper.batch_config import CompletionWindow
 
 tqdm.pandas()
 
@@ -352,30 +354,34 @@ class Llama3ImagineClarifyingQuestionModel(Clarifying_Question_Model):
             ]
 
             llama_formatted_prompts = [
-                self.pipeline.tokenizer.apply_chat_template(
+                self.pipeline._tokenizer.apply_chat_template(
                     prompt, tokenize=False, add_generation_prompt=True
                 )
                 for prompt in formatted_user_messages
             ]
-
-            sequences = self.pipeline(
-                llama_formatted_prompts,
-                pad_token_id=self.pipeline.tokenizer.eos_token_id,
-                temperature=IMAGINATION_TEMP,
-                batch_size=self.batch_size,
+            sequences = self.pipeline.predict_many(
+                ([LmPrompt(p) for p in llama_formatted_prompts]),
+                completion_window=CompletionWindow.ASAP,
             )
+
+            # sequences = self.pipeline.predict_many(
+            #     llama_formatted_prompts,
+            #     # pad_token_id=self.pipeline.tokenizer.eos_token_id,
+            #     temperature=IMAGINATION_TEMP,
+            #     batch_size=self.batch_size,
+            # )
             # extract json
 
-            parsed_candidate_cq_sequences = []
-            for seq, llama_formatted_prompt in tqdm(
-                zip(sequences, llama_formatted_prompts)
-            ):
-                llama_parsed_output = seq[0]["generated_text"]
-                llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
-                llama_parsed_output = llama_parsed_output.strip()
-                parsed_candidate_cq_sequences.append(llama_parsed_output)
+            # parsed_candidate_cq_sequences = []
+            # for seq, llama_formatted_prompt in tqdm(
+            #     zip(sequences, llama_formatted_prompts)
+            # ):
+            #     llama_parsed_output = seq.completion_text
+            #     llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+            #     llama_parsed_output = llama_parsed_output.strip()
+            #     parsed_candidate_cq_sequences.append(llama_parsed_output)
 
-            candidate_cqs.extend(parsed_candidate_cq_sequences)
+            candidate_cqs.extend([x.completion_text for x in sequences])
             torch.manual_seed(torch.seed() + 1)
         torch.manual_seed(initial_seed)
         # generate answers
@@ -401,30 +407,28 @@ class Llama3ImagineClarifyingQuestionModel(Clarifying_Question_Model):
             ]
 
             llama_formatted_prompts = [
-                self.pipeline.tokenizer.apply_chat_template(
+                self.pipeline._tokenizer.apply_chat_template(
                     prompt, tokenize=False, add_generation_prompt=True
                 )
                 for prompt in formatted_user_messages
             ]
 
-            sequences = self.pipeline(
-                llama_formatted_prompts,
-                pad_token_id=self.pipeline.tokenizer.eos_token_id,
-                temperature=IMAGINATION_TEMP,
-                batch_size=self.batch_size,
+            sequences = self.pipeline.predict_many(
+                ([LmPrompt(p) for p in llama_formatted_prompts]),
+                completion_window=CompletionWindow.ASAP,
             )
             # extract json
 
-            parsed_candidate_answer_sequences = []
-            for seq, llama_formatted_prompt in tqdm(
-                zip(sequences, llama_formatted_prompts)
-            ):
-                llama_parsed_output = seq[0]["generated_text"]
-                llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
-                llama_parsed_output = llama_parsed_output.strip()
-                parsed_candidate_answer_sequences.append(llama_parsed_output)
+            # parsed_candidate_answer_sequences = []
+            # for seq, llama_formatted_prompt in tqdm(
+            #     zip(sequences, llama_formatted_prompts)
+            # ):
+                # llama_parsed_output = seq[0]["generated_text"]
+                # llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+                # llama_parsed_output = llama_parsed_output.strip()
+                # parsed_candidate_answer_sequences.append(llama_parsed_output)
 
-            imagined_answers.extend(parsed_candidate_answer_sequences)
+            imagined_answers.extend([x.completion_text for x in sequences])
             torch.manual_seed(torch.seed() + 1)
         torch.manual_seed(initial_seed)
         imagined_answers = np.array(imagined_answers).reshape(
@@ -450,16 +454,6 @@ class Llama3ImagineClarifyingQuestionModel(Clarifying_Question_Model):
         ), "The length of the documents list must be equal to the length of the questions list."
 
         results = []
-        # n_batches = len(documents) // self.batch_size + (
-        #     0 if len(documents) % self.batch_size == 0 else 1
-        # )
-
-        # for i in tqdm(range(n_batches)):
-        #     batch_documents = documents[i * self.batch_size : (i + 1) * self.batch_size]
-        #     batch_questions = questions[i * self.batch_size : (i + 1) * self.batch_size]
-
-        #     batch_results = self.forward_batch(batch_documents, batch_questions, 1)
-        #     results.extend(batch_results)
 
         batch_results = self.forward_batch(documents, questions, 1)
         results.extend(batch_results)
@@ -505,7 +499,6 @@ class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
         ambigs_str = "\n\n".join(
             [str(i + 1) + ". " + ambig for i, ambig in enumerate(ambigs)]
         )
-        # lm_input2 = f"Task: {task}\n\nAmbiguities:\n\n{ambigs_str}\n\nYou are trying to complete the task but do not have enough information from the document. Identify the most important ambiguity in the situation. Return your answer as a json dict in the form {{'best_ambiguity': 1}}"
         lm_input2 = ambig_cot_template_2.format(task=task, ambigs_str=ambigs_str)
 
         completion2 = conditional_openai_call(
@@ -516,7 +509,6 @@ class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
             response_format="json",
         )
         best_ambig = loads(completion2.choices[0].message.content)["best_ambiguity"]
-        # lm_input3 = f"Context: {document}\n\nAmbiguity:\n\n{ambigs[best_ambig-1]}\n\nGenerate a clarifying question that will help you resolve the ambiguity in the context. Return the question itself, exactly, in JSON format, as in {{'question': 'The question.'}}"
         lm_input3 = ambig_cot_template_3.format(
             document=document, best_ambig=ambigs[best_ambig - 1]
         )

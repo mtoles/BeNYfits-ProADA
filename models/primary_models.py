@@ -8,6 +8,10 @@ from huggingface_hub import login
 import pandas as pd
 from tqdm import tqdm
 from typing import List
+from lmwrapper.huggingface_wrapper import get_huggingface_lm
+from lmwrapper.structs import LmPrompt
+from lmwrapper.batch_config import CompletionWindow
+
 
 load_dotenv()
 
@@ -48,9 +52,7 @@ class PrimaryModel:
         return self.prompt_template % (doc, prompt)
 
     def prepare_ca_instruction(self, doc_summ: str, ca: str, prompt: str):
-        return self.prepare_instruction(
-                "\n\n".join([doc_summ, ca]), prompt
-            )
+        return self.prepare_instruction("\n\n".join([doc_summ, ca]), prompt)
 
     def process(self, instructions: pd.Series) -> pd.Series:
         """
@@ -111,96 +113,28 @@ class GPTPrimaryModel(PrimaryModel):
         return pm_output
 
 
-class Llama2PrimaryModel(PrimaryModel):
-    """
-    Llama2 chat primary model.
-    """
-
-    def __init__(self, model_size, batch_size):
-        super().__init__()
-        if model_size == "7b":
-            self.model_name = "meta-llama/Llama-2-7b-chat-hf"
-        elif model_size == "13b":
-            self.model_name = "meta-llama/Llama-2-13b-chat-hf"
-        elif model_size == "70b":
-            self.model_name = "meta-llama/Llama-2-70b-chat-hf"
-        else:
-            raise ValueError(f"Unknown llama2 model size {model_size}")
-        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-        login(token=self.hf_api_key)
-
-        self.pipeline = transformers.pipeline(
-            "text-generation",
-            model=self.model_name,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
-        self.pipeline.tokenizer.pad_token_id = 0
-        self.pipeline.tokenizer.padding_side = "left"
-        # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
-        self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
-
-        self.batch_size = batch_size
-
-    def process_single(self, instructions: pd.Series) -> pd.Series:
-        llama_formatted_input = [
-            f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
-            for instruction in instructions
-        ]
-        # wrap the pipeline so we can have a progress bar
-        sequences = []
-        for i in tqdm(range(0, len(llama_formatted_input), self.batch_size)):
-            batch = llama_formatted_input[i : i + self.batch_size]
-            sequences.extend(
-                self.pipeline(
-                    batch,
-                    # do_sample=True,
-                    # top_k=10,
-                    # num_return_sequences=1,
-                    # eos_token_id=self.tokenizer.eos_token_id,
-                    # max_length=300,
-                )
-            )
-
-        outputs = [sequence[0]["generated_text"] for sequence in sequences]
-        # delete the prompt
-        # outputs = [output[len(llama_formatted_input) :] for output in outputs]
-        outputs = pd.Series(
-            [x[len(y) :] for x, y in zip(outputs, llama_formatted_input)]
-        )
-        return outputs
-
-    def process_list(self, instructions: pd.Series) -> pd.Series:
-        list_len = len(instructions[0])
-        flat_instructions = instructions.explode()
-        model_outputs = self.process(flat_instructions)
-        # unexplode
-        model_outputs = model_outputs.groupby(level=0).apply(list)
-        return model_outputs
-
-
 class Llama3PrimaryModel(PrimaryModel):
     """
     Llama3 chat primary model.
     """
 
-    def __init__(self, model_name, batch_size, pipeline=None):
+    def __init__(self, model_name, batch_size, pipeline):
         super().__init__()
         self.model_name = model_name
 
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
-        if pipeline:
-            self.pipeline = pipeline
-        else:
-            self.pipeline = transformers.pipeline(
-                "text-generation",
-                model=self.model_name,
-                torch_dtype=torch.bfloat16,
-                device_map="auto",
-            )
-        self.pipeline.tokenizer.pad_token_id = 0
-        self.pipeline.tokenizer.padding_side = "left"
+        self.pipeline = pipeline
+        # if pipeline:
+        #     self.pipeline = pipeline
+        # else:
+        #     self.pipeline = transformers.pipeline(
+        #         "text-generation",
+        #         model=self.model_name,
+        #         torch_dtype=torch.bfloat16,
+        #         device_map="auto",
+        #     )
+
         # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
         self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
 
@@ -225,20 +159,24 @@ class Llama3PrimaryModel(PrimaryModel):
             for instruction in instructions
         ]
         llama_formatted_prompts = [
-            self.pipeline.tokenizer.apply_chat_template(
+            self.pipeline._tokenizer.apply_chat_template(
                 prompt, tokenize=False, add_generation_prompt=True
             )
             for prompt in formatted_user_messages
         ]
-        sequences = self.pipeline(llama_formatted_prompts, pad_token_id=self.pipeline.tokenizer.eos_token_id, batch_size=self.batch_size)
+        # sequences = self.pipeline(
+        sequences = self.pipeline.predict_many(
+            ([LmPrompt(p) for p in llama_formatted_prompts]),
+            completion_window=CompletionWindow.ASAP,
+        )
 
-        outputs = []
-        for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
-            llama_parsed_output = seq[0]["generated_text"]
-            llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
-            llama_parsed_output = llama_parsed_output.strip()
+        outputs = [x.completion_text for x in sequences]
+        # for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
+        #     llama_parsed_output = seq[0]["generated_text"]
+        #     llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+        #     llama_parsed_output = llama_parsed_output.strip()
 
-            outputs.append(llama_parsed_output)
+        #     outputs.append(llama_parsed_output)
 
         return pd.Series(outputs)
 
@@ -249,3 +187,26 @@ class Llama3PrimaryModel(PrimaryModel):
         # unexplode
         model_outputs = model_outputs.groupby(level=0).apply(list)
         return model_outputs
+
+
+if __name__ == "__main__":
+    hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+
+    # l3_pipeline = transformers.pipeline(
+    #     "text-generation",
+    #     model="meta-llama/Meta-Llama-3-8B-Instruct",
+    #     # model=lm,
+    #     torch_dtype=torch.bfloat16,
+    #     device_map="auto",
+    #     token=hf_api_key,
+    # )
+    lm = get_huggingface_lm("meta-llama/Meta-Llama-3-8B-Instruct")
+    # l3_pipeline.model = lm
+
+    l3_model = Llama3PrimaryModel("meta-llama/Meta-Llama-3-8B-Instruct", 1, lm)
+    doc = "I don't know how to cook spaghetti but my girlfriend is coming over and wants to eat it"
+    prompt = "What advice would you give to this person?"
+    instruction = l3_model.prepare_instruction(doc, prompt)
+    output = l3_model.process_single(pd.Series([instruction] * 2))
+    print(output)
+    print
