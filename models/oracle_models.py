@@ -25,6 +25,7 @@ class OracleModel:
         raise NotImplementedError
         return self.split_doc_to_sentences(document)[0]
 
+
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, model_name, use_cache):
         super().__init__()
@@ -151,12 +152,11 @@ class Llama3OracleModel(OracleModel):
             for prompt in formatted_user_messages
         ]
         sequences = self.pipeline.predict_many(
-            ([LmPrompt(p) for p in llama_formatted_prompts]),
+            ([LmPrompt(p, cache=False) for p in llama_formatted_prompts]),
             completion_window=CompletionWindow.ASAP,
         )
 
         # sequences = self.pipeline(llama_formatted_prompts, self.batch_size, pad_token_id=self.pipeline.tokenizer.eos_token_id)
-
 
         # outputs = []
         # outputs.extend([x.completion_text for x in sequences])

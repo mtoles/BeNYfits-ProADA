@@ -20,14 +20,18 @@ from tqdm import tqdm
 import numpy as np
 from utils import df_to_md
 import torch
+import json
 
 # hugging face log in
 import os
 from dotenv import load_dotenv
-from huggingface_hub import HfApi
-import dotenv
 
-hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+# from huggingface_hub import HfApi
+import dotenv
+from datetime import datetime
+
+now = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+# hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
 torch.manual_seed(0)
 
 
@@ -89,12 +93,6 @@ parser.add_argument(
     help="Use at most this many rows of the dataset.",
 )
 parser.add_argument(
-    "--n_clarifying_questions",
-    default=1,
-    help="Number of clarifying questions to generate.",
-    type=int,
-)
-parser.add_argument(
     "--ds_shift", default=0, type=int, help="Shift the dataset by this many rows."
 )
 parser.add_argument("--use_cache", default=True, help="Use the GPT-4 shelved cache.")
@@ -102,6 +100,11 @@ parser.add_argument(
     "--intermediate_results_path",
     default=None,
     help="Path to load intermediate results.",
+)
+parser.add_argument(
+    "--manual_note",
+    default=None,
+    help="Manual note to add to the results file for experiment tracking",
 )
 args = parser.parse_args()
 # Testing: Set testing args
@@ -120,23 +123,13 @@ llama_pipelines = {
     "meta-llama/Meta-Llama-3-70B-Instruct": None,
 }
 if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
-    # llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = transformers.pipeline(
-    #     "text-generation",
-    #     model="meta-llama/Meta-Llama-3-8B-Instruct",
-    #     torch_dtype=torch.bfloat16,
-    #     device_map="auto",
-    #     token=hf_api_key,
-    # )
-    llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = get_huggingface_lm("meta-llama/Meta-Llama-3-8B-Instruct")
+    llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = get_huggingface_lm(
+        "meta-llama/Meta-Llama-3-8B-Instruct"
+    )
 if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
-    # llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = transformers.pipeline(
-    #     "text-generation",
-    #     model="meta-llama/Meta-Llama-3-70B-Instruct",
-    #     torch_dtype=torch.bfloat16,
-    #     device_map="auto",
-    #     token=hf_api_key,
-    # )
-    llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = get_huggingface_lm("meta-llama/Meta-Llama-3-70B-Instruct")
+    llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = get_huggingface_lm(
+        "meta-llama/Meta-Llama-3-70B-Instruct"
+    )
 for pipeline in llama_pipelines.values():
     if pipeline is not None:
         pipeline._tokenizer.pad_token_id = pipeline._tokenizer.eos_token_id
@@ -147,10 +140,6 @@ for pipeline in llama_pipelines.values():
 
 tqdm.pandas()
 np.random.seed(42)
-# if args.intermediate_results_path is not None:
-#     # load intermediate results instead and skip directly to alpaca eval
-#     df = pd.read_json(args.intermediate_results_path)
-# else:
 # Read docs from the dataset
 if args.ds_path.lower().endswith(".jsonl"):
     df = pd.read_json(args.ds_path, lines=True)
@@ -213,11 +202,7 @@ else:
     raise ValueError(f"Unknown benchmark model name {args.bm_name}")
 print("running cq model...")
 
-benchmark_cqs = bm_cq_model.forward_batch(
-    df["doc_summ"], df["prompt"], args.n_clarifying_questions
-)
-for i in range(args.n_clarifying_questions):
-    df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
+df["bm_cq"] = bm_cq_model.forward(df["doc_summ"], df["prompt"])
 
 # generate cq, ca, output for experimental model
 if args.cq_name == "gpt-cot":
@@ -237,8 +222,8 @@ elif "llama-3" in args.cq_name.lower():
         pipeline=llama_pipelines[args.cq_name],
     )
 
-df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
 print("running experimental cq model...")
+df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
 
 ###### ORACLE STEP ######
 
@@ -254,31 +239,18 @@ elif "llama-3" in args.oracle_name.lower():
     )
 print("running abstractive oracle model to answer clarifying questions...")
 # Ask the clarifying question to the oracle
-for i in range(args.n_clarifying_questions):
-    df[f"bm_ca_{i}"] = oracle_model.forward_batch(df["doc_full"], df[f"bm_cq_{i}"])
+df["bm_ca"] = oracle_model.forward_batch(df["doc_full"], df["bm_cq"])
 df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
 
 ###### PRIMARY MODEL STEP ######
 
 print("preparing instructions")
-# Prepare instructions for the full example
-df["pm_instruction_full"] = df.apply(
-    lambda x: primary_model.prepare_instruction(x["doc_full"], x["prompt"]),
+df["instructions_bm_ca"] = df.apply(
+    lambda x: primary_model.prepare_ca_instruction(
+        x["doc_summ"], x["bm_ca"], x["prompt"]
+    ),
     axis=1,
 )
-# Prepare instructions for the summary example
-df["pm_instruction_summ"] = df.apply(
-    lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
-    axis=1,
-)
-# Prepare instructions for the answer inputs
-for i in range(args.n_clarifying_questions):
-    df[f"instructions_bm_ca_{i}"] = df.apply(
-        lambda x: primary_model.prepare_ca_instruction(
-            x["doc_summ"], x[f"bm_ca_{i}"], x["prompt"]
-        ),
-        axis=1,
-    )
 
 print(
     "preparing instructions for joint summ + ca contexts to be fed to the primary model"
@@ -292,40 +264,52 @@ df["instructions_ex_ca"] = df.progress_apply(
 
 print("running primary models for for joint summ + ca contexts")
 
-# get answered, summary, and original outputs
-# df["full_pm_output"] = primary_model.process_single(df["pm_instruction_full"])
-# df["summ_pm_output"] = primary_model.process_single(df["pm_instruction_summ"])
-for i in range(args.n_clarifying_questions):
-    df[f"ca_{i}_pm_output"] = primary_model.process_single(
-        df[f"instructions_bm_ca_{i}"]
-    )
+df["ca_bm_pm_output"] = primary_model.process_single(df["instructions_bm_ca"])
 df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
 
+### Ranking ###
 ranking_model = GPTPMPairwiseRankingModel(use_cache=args.use_cache)
-opponents = [f"ca_{i}_pm_output" for i in range(args.n_clarifying_questions)] + [
-    # "full_pm_output",
-    # "summ_pm_output",
-]
-for opponent in opponents:
-    assert opponent[-10:] == "_pm_output"
-    opp = opponent[:-10]
 
-    df[f"pref_{opp}"] = df.progress_apply(
-        lambda x: ranking_model.forward(
-            x["prompt"], x["doc_full"], x["ca_ex_pm_output"], x[opponent]
-        ),
-        axis=1,
-    ).apply(lambda x: "ex" if x == 0 else "bm")
+df["pref_bm"] = df.progress_apply(
+    lambda x: ranking_model.forward(
+        x["prompt"], x["doc_full"], x["ca_ex_pm_output"], x["ca_bm_pm_output"]
+    ),
+    axis=1,
+).apply(lambda x: "ex" if x == 0 else "bm")
 
 # calculate total wins
 wins = 0
-for opponent in [f"ca_{i}_pm_output" for i in range(args.n_clarifying_questions)]:
-    opp = opponent[:-10]
-    wins += (df[f"pref_{opp}"] == "ex").sum()
-win_rate_bm = wins / (len(df) * args.n_clarifying_questions)
-# win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
+win_rate_bm = (df["pref_bm"] == "ex").sum() / len(df)
+
+### Record Results ###
 print(win_rate_bm)
 # dump preferences to a json
-df_to_md(df.iloc[:1], "tmp.md")
-save_path = f"results/intermediate/pm-{args.pm_name.split('/')[-1]}_or-{args.oracle_name.split('/')[-1]}_{str(args.ds_downsample)}.json"
+df_to_md(df.iloc[:10], "tmp.md")
+save_path = os.path.join(
+    "results",
+    f"{now}_cq-{args.cq_name}_or-{args.oracle_name}_pm-{args.pm_name}_n={args.ds_downsample}.json".replace(
+        "/", "-"
+    ),
+)
 df.to_json(save_path)
+
+
+def save_inputs_and_outputs():
+    results = {
+        "win_rate_bm": win_rate_bm,
+        "bm_name": args.bm_name,
+        "cq_name": args.cq_name,
+        "pm_name": args.pm_name,
+        "oracle_name": args.oracle_name,
+        "ds_path": args.ds_path,
+        "ds_downsample": args.ds_downsample,
+        "prompt_gen_temperature": args.prompt_gen_temperature,
+        "use_cache": args.use_cache,
+        "manual_note": args.manual_note,
+        "start_datetime": now,
+    }
+    with open(f"results/{now}_results.json", "w") as f:
+        json.dump(results, f, indent=4)
+
+
+save_inputs_and_outputs()

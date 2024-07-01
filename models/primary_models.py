@@ -166,7 +166,7 @@ class Llama3PrimaryModel(PrimaryModel):
         ]
         # sequences = self.pipeline(
         sequences = self.pipeline.predict_many(
-            ([LmPrompt(p) for p in llama_formatted_prompts]),
+            ([LmPrompt(p, cache=False) for p in llama_formatted_prompts]),
             completion_window=CompletionWindow.ASAP,
         )
 
