@@ -6,6 +6,8 @@ import os
 import torch
 import transformers
 from huggingface_hub import login
+from lmwrapper.structs import LmPrompt
+from lmwrapper.batch_config import CompletionWindow
 
 nn = "\n\n"
 
@@ -22,6 +24,7 @@ class OracleModel:
         # subclass this method
         raise NotImplementedError
         return self.split_doc_to_sentences(document)[0]
+
 
 class GPTOracleAbstractiveModel(OracleModel):
     def __init__(self, model_name, use_cache):
@@ -143,22 +146,27 @@ class Llama3OracleModel(OracleModel):
         ]
 
         llama_formatted_prompts = [
-            self.pipeline.tokenizer.apply_chat_template(
+            self.pipeline._tokenizer.apply_chat_template(
                 prompt, tokenize=False, add_generation_prompt=True
             )
             for prompt in formatted_user_messages
         ]
+        sequences = self.pipeline.predict_many(
+            ([LmPrompt(p, cache=False) for p in llama_formatted_prompts]),
+            completion_window=CompletionWindow.ASAP,
+        )
 
-        sequences = self.pipeline(llama_formatted_prompts, self.batch_size, pad_token_id=self.pipeline.tokenizer.eos_token_id)
+        # sequences = self.pipeline(llama_formatted_prompts, self.batch_size, pad_token_id=self.pipeline.tokenizer.eos_token_id)
 
+        # outputs = []
+        # outputs.extend([x.completion_text for x in sequences])
+        outputs = [x.completion_text for x in sequences]
+        # for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
+        #     llama_parsed_output = seq[0]["generated_text"]
+        #     llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
+        #     llama_parsed_output = llama_parsed_output.strip()
 
-        outputs = []
-        for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
-            llama_parsed_output = seq[0]["generated_text"]
-            llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
-            llama_parsed_output = llama_parsed_output.strip()
-
-            outputs.append(llama_parsed_output)
+        #     outputs.append(llama_parsed_output)
 
         return outputs
 
@@ -194,10 +202,10 @@ if __name__ == "__main__":
     question2 = "What did I write?"
     question3 = "Where do I go to school?"
 
-    model = GPTOracleAbstractiveModel(use_cache=False)
-    print(model.forward(document, [question1], 0.7))
-    print(model.forward(document, [question2], 0.7))
-    print(model.forward(document, [question3], 0.7))
-    print(model.forward(document, [question1, question2, question3], 0.7))
-    abs_model = GPTOracleAbstractiveModel(use_cache=False)
-    print(abs_model.forward(document, [question1, question2, question3], 0.7))
+    # model = GPTOracleAbstractiveModel(use_cache=False)
+    # print(model.forward(document, [question1], 0.7))
+    # print(model.forward(document, [question2], 0.7))
+    # print(model.forward(document, [question3], 0.7))
+    # print(model.forward(document, [question1, question2, question3], 0.7))
+    # abs_model = GPTOracleAbstractiveModel(use_cache=False)
+    # print(abs_model.forward(document, [question1, question2, question3], 0.7))
