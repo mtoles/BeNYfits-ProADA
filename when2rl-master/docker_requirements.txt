@@ -1,0 +1,19 @@
+shortuuid
+fschat[model_worker,llm_judge]
+gradio==3.48.0
+anthropic
+tenacity
+langdetect
+pycld2
+# for lm-eval
+lm-eval==0.4.1
+promptsource
+immutabledict
+# for bertopic
+bertopic
+pydantic==1.10.14
+sentence_transformers
+pynndescent
+hdbscan
+umap-learn
+plotly

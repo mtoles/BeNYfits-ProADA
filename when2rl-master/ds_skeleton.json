@@ -1,0 +1,56 @@
+{
+  "prompt":{
+    "0":"Given the fact \"usually coral lives in warm water\", what is the answer to the question or completion \"Coral gets some help with algae for their\""
+  },
+  "prompt_id":{
+    "0":"3d5dedcf729063b0507bd45425f839fee71d935d0a41907a2c60b95a8d8a5090"
+  },
+  "chosen":{
+    "0":[
+      {
+        "content":"Given the fact \"usually coral lives in warm water\", what is the answer to the question or completion \"Coral gets some help with algae for their\"",
+        "role":"user"
+      },
+      {
+        "content":"Coral gets some help with algae for their food production and energy needs. This mutualistic relationship is called \"symbiosis,\" and the specific algae that live inside the coral's cells are known as \"zooxanthellae.\" The algae photosynthesize and provide the coral with energy in the form of glucose, glycerol, and amino acids, while the coral provides the algae with protection and access to sunlight. This relationship is essential for coral growth and survival, particularly in nutrient-poor waters commonly found in tropical environments.",
+        "role":"assistant"
+      }
+    ]
+  },
+  "rejected":{
+    "0":[
+      {
+        "content":"Given the fact \"usually coral lives in warm water\", what is the answer to the question or completion \"Coral gets some help with algae for their\"",
+        "role":"user"
+      },
+      {
+        "content":"colorful appearance.",
+        "role":"assistant"
+      }
+    ]
+  },
+  "messages":{
+    "0":[
+      {
+        "content":"Given the fact \"usually coral lives in warm water\", what is the answer to the question or completion \"Coral gets some help with algae for their\"",
+        "role":"user"
+      },
+      {
+        "content":"Coral gets some help with algae for their food production and energy needs. This mutualistic relationship is called \"symbiosis,\" and the specific algae that live inside the coral's cells are known as \"zooxanthellae.\" The algae photosynthesize and provide the coral with energy in the form of glucose, glycerol, and amino acids, while the coral provides the algae with protection and access to sunlight. This relationship is essential for coral growth and survival, particularly in nutrient-poor waters commonly found in tropical environments.",
+        "role":"assistant"
+      }
+    ]
+  },
+  "score_chosen":{
+    "0":9.5
+  },
+  "score_rejected":{
+    "0":7.5
+  },
+  "other_info":{
+    "0":{
+      "dataset_name":"when2rl\/UltraFeedback_binarized_cleaned_annotated",
+      "split_name":"train_prefs"
+    }
+  }
+}

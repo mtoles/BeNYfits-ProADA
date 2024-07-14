@@ -1,0 +1,11 @@
+{
+    "name": "deepseek_math",
+    "system": "<｜begin▁of▁sentence｜>",
+    "system_message": "",
+    "user": "User",
+    "assistant": "Assistant",
+    "sep_style": "ADD_COLON_TWO",
+    "sep": "\n\n",
+    "sep2": "<｜end▁of▁sentence｜>\n\n",
+    "stop_str": ["<｜end▁of▁sentence｜>"]
+}

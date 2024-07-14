@@ -1,0 +1,10 @@
+{
+  "name": "hf_gemma_zephyr",
+  "system": "<bos><|im_start|>system",
+  "system_message": "",
+  "user": "<|im_start|>user",
+  "assistant": "<|im_start|>assistant",
+  "sep_style": "CHATML",
+  "sep": "<|im_end|>",
+  "stop_str": ["<|endoftext|>", "<|im_end|>"]
+}

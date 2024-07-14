@@ -1,0 +1,9 @@
+{
+  "name": "zephyr",
+  "system": "<|system|>",
+  "user": "<|user|>",
+  "assistant": "<|assistant|>",
+  "sep_style": "CHATML",
+  "sep": "</s>",
+  "stop_str": ["</s>"]
+}

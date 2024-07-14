@@ -1,0 +1,10 @@
+{
+    "name": "meta_llama_zephyr",
+    "system": "<|begin_of_text|><|im_start|>system",
+    "system_message": "",
+    "user": "<|im_start|>user",
+    "assistant": "<|im_start|>assistant",
+    "sep_style": "CHATML",
+    "sep": "<|im_end|>",
+    "stop_str": ["<|end_of_text|>", "<|im_end|>"]
+}

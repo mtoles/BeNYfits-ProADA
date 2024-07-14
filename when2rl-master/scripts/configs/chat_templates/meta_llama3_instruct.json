@@ -1,0 +1,10 @@
+{
+    "name": "meta_llama_instruct",
+    "system": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n",
+    "system_message": "",
+    "user": "<|start_header_id|>user<|end_header_id|>\n",
+    "assistant": "<|start_header_id|>assistant<|end_header_id|>\n",
+    "sep_style": "ADD_NEW_LINE_SINGLE",
+    "sep": "<|eot_id|>",
+    "stop_str": ["<|eot_id|>"]
+}
