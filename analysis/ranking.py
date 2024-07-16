@@ -213,27 +213,6 @@ benchmark_cqs = bm_cq_model.forward_batch(
 for i in range(args.n_clarifying_questions):
     df[f"bm_cq_{i}"] = [cqs[i] for cqs in benchmark_cqs]
 
-# generate cq, ca, output for experimental model
-if args.cq_name == "gpt-cot":
-    ex_cq_model = GPTCOTClarifyingQuestionModel(args.use_cache)
-elif "gpt-4" in args.cq_name.lower():
-    ex_cq_model = GPTClarifyingQuestionModel(args.use_cache)
-elif "imaginellama" in args.cq_name:
-    ex_cq_model = Llama3ImagineClarifyingQuestionModel(
-        model_name=args.cq_name.split(":")[-1],
-        batch_size=args.pm_batch_size,
-        pipeline=llama_pipelines[args.cq_name.split(":")[-1]],
-    )
-elif "llama-3" in args.cq_name.lower():
-    ex_cq_model = Llama3ClarifyingQuestionModel(
-        model_name=args.cq_name,
-        batch_size=args.pm_batch_size,
-        pipeline=llama_pipelines[args.cq_name],
-    )
-
-df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
-print("running experimental cq model...")
-
 ###### ORACLE STEP ######
 
 if "gpt" in args.oracle_name.lower():
@@ -250,7 +229,6 @@ print("running abstractive oracle model to answer clarifying questions...")
 # Ask the clarifying question to the oracle
 for i in range(args.n_clarifying_questions):
     df[f"bm_ca_{i}"] = oracle_model.forward_batch(df["doc_full"], df[f"bm_cq_{i}"])
-df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
 
 ###### PRIMARY MODEL STEP ######
 
@@ -265,6 +243,8 @@ df["pm_instruction_summ"] = df.apply(
     lambda x: primary_model.prepare_instruction(x["doc_summ"], x["prompt"]),
     axis=1,
 )
+
+
 # Prepare instructions for the answer inputs
 for i in range(args.n_clarifying_questions):
     df[f"instructions_bm_ca_{i}"] = df.apply(
@@ -277,12 +257,6 @@ for i in range(args.n_clarifying_questions):
 print(
     "preparing instructions for joint summ + ca contexts to be fed to the primary model"
 )
-df["instructions_ex_ca"] = df.progress_apply(
-    lambda x: primary_model.prepare_instruction(
-        "\n\n".join([x["doc_summ"], x["ex_ca"]]), x["prompt"]
-    ),
-    axis=1,
-)
 
 print("running primary models for for joint summ + ca contexts")
 
@@ -293,33 +267,31 @@ for i in range(args.n_clarifying_questions):
     df[f"ca_{i}_pm_output"] = primary_model.process_single(
         df[f"instructions_bm_ca_{i}"]
     )
-df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
 
 ranking_model = GPTPMPairwiseRankingModel(use_cache=args.use_cache)
 opponents = [f"ca_{i}_pm_output" for i in range(args.n_clarifying_questions)] + [
     # "full_pm_output",
     # "summ_pm_output",
 ]
-for opponent in opponents:
-    assert opponent[-10:] == "_pm_output"
-    opp = opponent[:-10]
 
-    df[f"pref_{opp}"] = df.progress_apply(
-        lambda x: ranking_model.forward(
-            x["prompt"], x["doc_full"], x["ca_ex_pm_output"], x[opponent]
-        ),
-        axis=1,
-    ).apply(lambda x: "ex" if x == 0 else "bm")
+df["pref"] = df.progress_apply(
+    lambda x: ranking_model.forward(
+        x["prompt"], x["doc_full"], x["bm_ca_0"], x["bm_ca_1"]
+    ),
+    axis=1,
+)
 
-# calculate total wins
-wins = 0
-for opponent in [f"ca_{i}_pm_output" for i in range(args.n_clarifying_questions)]:
-    opp = opponent[:-10]
-    wins += (df[f"pref_{opp}"] == "ex").sum()
-win_rate_bm = wins / (len(df) * args.n_clarifying_questions)
-# win_rate_bm = (df["pref_01"] == "ex").sum() / len(df)
-print(win_rate_bm)
-# dump preferences to a json
-df_to_md(df.iloc[:1], "tmp.md")
-save_path = f"results/intermediate/pm-{args.pm_name.split('/')[-1]}_or-{args.oracle_name.split('/')[-1]}_{str(args.ds_downsample)}.json"
+df["winner_cq"] = df.apply(lambda x: x["bm_cq_0"] if x["pref"] == 0 else x["bm_cq_1"], axis=1)
+
+df["loser_cq"] = df.apply(lambda x: x["bm_cq_1"] if x["pref"] == 0 else x["bm_cq_0"], axis=1)
+
+df["winner_ca"] = df.apply(lambda x: x["bm_ca_0"] if x["pref"] == 0 else x["bm_ca_1"], axis=1)
+
+df["loser_ca"] = df.apply(lambda x: x["bm_ca_1"] if x["pref"] == 0 else x["bm_ca_0"], axis=1)
+
+df["winner_pm_output"] = df.apply(lambda x: x["ca_0_pm_output"] if x["pref"] == 0 else x["ca_1_pm_output"], axis=1)
+
+df["loser_pm_output"] = df.apply(lambda x: x["ca_1_pm_output"] if x["pref"] == 0 else x["ca_0_pm_output"], axis=1)
+
+save_path = f"results/intermediate/pm-{args.pm_name.split('/')[-1]}_or-{args.oracle_name.split('/')[-1]}_{str(args.ds_downsample)}-pref.json"
 df.to_json(save_path)
