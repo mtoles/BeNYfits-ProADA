@@ -283,15 +283,15 @@ df["pref"] = df.progress_apply(
 
 df["winner_cq"] = df.apply(lambda x: x["bm_cq_0"] if x["pref"] == 0 else x["bm_cq_1"], axis=1)
 
-df["loser_cq"] = df.apply(lambda x: x["bm_cq_1"] if x["pref"] == 0 else x["bm_cq_0"], axis=1)
+df["loser_cq"] = df.apply(lambda x: x["bm_cq_1"] if x["pref"] == 1 else x["bm_cq_0"], axis=1)
 
 df["winner_ca"] = df.apply(lambda x: x["bm_ca_0"] if x["pref"] == 0 else x["bm_ca_1"], axis=1)
 
-df["loser_ca"] = df.apply(lambda x: x["bm_ca_1"] if x["pref"] == 0 else x["bm_ca_0"], axis=1)
+df["loser_ca"] = df.apply(lambda x: x["bm_ca_1"] if x["pref"] == 1 else x["bm_ca_0"], axis=1)
 
 df["winner_pm_output"] = df.apply(lambda x: x["ca_0_pm_output"] if x["pref"] == 0 else x["ca_1_pm_output"], axis=1)
 
-df["loser_pm_output"] = df.apply(lambda x: x["ca_1_pm_output"] if x["pref"] == 0 else x["ca_0_pm_output"], axis=1)
+df["loser_pm_output"] = df.apply(lambda x: x["ca_1_pm_output"] if x["pref"] == 1 else x["ca_0_pm_output"], axis=1)
 
 save_path = f"results/intermediate/pm-{args.pm_name.split('/')[-1]}_or-{args.oracle_name.split('/')[-1]}_{str(args.ds_downsample)}-pref.json"
 df.to_json(save_path)
