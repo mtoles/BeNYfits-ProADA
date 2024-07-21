@@ -10,7 +10,8 @@ from models.primary_models import (
     PrimaryModel,
 )
 from models.cq_models import *
-from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel
+from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel, BaseOracleModel
+
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
     GPTPMOutputRankingModel,
@@ -21,6 +22,7 @@ import numpy as np
 from utils import df_to_md
 import torch
 import json
+from models.utils import load_lm
 
 # hugging face log in
 import os
@@ -227,16 +229,29 @@ df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
 
 ###### ORACLE STEP ######
 
-if "gpt" in args.oracle_name.lower():
-    oracle_model = GPTOracleAbstractiveModel(
-        model_name=args.oracle_name, use_cache=args.use_cache
-    )
-elif "llama-3" in args.oracle_name.lower():
-    oracle_model = Llama3OracleModel(
-        model_name=args.oracle_name,
-        batch_size=args.oracle_batch_size,
-        pipeline=llama_pipelines[args.oracle_name],
-    )
+# TODO - RATTAN - REMOVE THIS
+# if "gpt" in args.oracle_name.lower():
+#     oracle_model = GPTOracleAbstractiveModel(
+#         model_name=args.oracle_name, use_cache=args.use_cache
+#     )
+# elif "llama-3" in args.oracle_name.lower():
+#     oracle_model = Llama3OracleModel(
+#         model_name=args.oracle_name,
+#         batch_size=args.oracle_batch_size,
+#         pipeline=llama_pipelines[args.oracle_name],
+#     )
+# print("running abstractive oracle model to answer clarifying questions...")
+# # Ask the clarifying question to the oracle
+# df["bm_ca"] = oracle_model.forward_batch(df["doc_full"], df["bm_cq"])
+# df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
+
+
+# TODO - RATTAN HERE - REMOVE OTHER IMPLEMENTATIONS OF ORACLE MODEL
+# Oracle Model should be declared independent of LM - GPT / Oracle
+
+oracle_lm_wrapper = load_lm(args.oracle_name)
+oracle_model = BaseOracleModel(oracle_lm_wrapper, args.oracle_batch_size)
+
 print("running abstractive oracle model to answer clarifying questions...")
 # Ask the clarifying question to the oracle
 df["bm_ca"] = oracle_model.forward_batch(df["doc_full"], df["bm_cq"])

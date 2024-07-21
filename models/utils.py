@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from lmwrapper.huggingface_wrapper import get_huggingface_lm
 from lmwrapper.openai_wrapper import get_open_ai_lm, OpenAiModelNames
 from lmwrapper.structs import LmPrompt
+# https://github.com/DaiseyCode/lmwrapper
 
 class ModelFamily(Enum):
     LLAMA = "llama"
@@ -20,7 +21,7 @@ class LanguageModelWrapper:
     @property
     def language_model(self):
         if self._language_model is None:
-            if self.family == ModelFamily.LLAMA:
+            if self.family in [ModelFamily.LLAMA, ModelFamily.GEMMA]:
                 self._language_model = get_huggingface_lm(self.hf_name)
             else:
                 self._language_model = get_open_ai_lm(self.hf_name)
@@ -36,6 +37,8 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "llama-70b-instruct": LanguageModelWrapper("Llama 70B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-70B-Instruct"),
     "gpt2": LanguageModelWrapper("GPT-2", ModelFamily.GPT, "gpt2"),
     "gpt-3.5-turbo": LanguageModelWrapper("GPT-3.5-Turbo", ModelFamily.GPT, OpenAiModelNames.gpt_3_5_turbo),
+    "gemma-2b": LanguageModelWrapper("Gemma 2B", ModelFamily.GEMMA, "google/gemma-2b"),
+    "gemma-7b": LanguageModelWrapper("Gemma 7B", ModelFamily.GEMMA, "google/gemma-7b"),
     # Add more models here as needed
 }
 

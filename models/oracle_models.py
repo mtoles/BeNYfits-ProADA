@@ -202,7 +202,6 @@ class BaseOracleModel:
         self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.'"
 
         self.lm_wrapper = lm_wrapper
-        self.lm = lm_wrapper.language_model
         self.batch_size = batch_size
 
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
@@ -220,7 +219,7 @@ class BaseOracleModel:
                 "content": user_prompt.format(question_string=question),
             },
         ]
-        return self.lm._tokenizer.apply_chat_template(
+        return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
             formatted_user_messages, tokenize=False, add_generation_prompt=True
         )
 
@@ -251,7 +250,7 @@ class BaseOracleModel:
             for doc, question in zip(documents, questions)
         ]
 
-        sequences = self.lm.predict_many(
+        sequences = self.lm_wrapper.language_model.predict_many(
             ([LmPrompt(p, cache=False) for p in formatted_prompts]),
             completion_window=CompletionWindow.ASAP,
         )
