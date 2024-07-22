@@ -185,6 +185,8 @@ def maybe_precompute_all_ref_probs(
     )
 
     save_path = os.path.join('data/precompute', training_args.output_dir.split('/')[-1])
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     train_save_path = os.path.join(save_path, 'train_ref_logps.csv')
     test_save_path = os.path.join(save_path, 'test_ref_logps.csv')
     if training_args.precompute_train_ref_file_path != '':

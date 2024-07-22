@@ -1,11 +1,11 @@
 export PYTHONPATH="/home/mt3639/miniconda3/envs/dpo/bin/python"
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=1,2
 # export CUDA_VISIBLE_DEVICES=3
-TRAIN_GPU_IDX=0,1,2,3  # we use task scheduler
-# TRAIN_GPU_IDX=0
-NUM_GPUS=4
-# NUM_GPUS=1
+# TRAIN_GPU_IDX=0,1,2,3  # we use task scheduler
+TRAIN_GPU_IDX=0
+# NUM_GPUS=4
+NUM_GPUS=2
 EVAL_GPU_IDX=0
 
 CKPT_FOLDER=model_checkpoints
