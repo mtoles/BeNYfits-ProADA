@@ -33,12 +33,12 @@ class LanguageModelWrapper:
         return f"{self.display_name} ({self.family.value})"
 
 MODEL_MAP: Dict[str, LanguageModelWrapper] = {
-    "llama-8b-instruct": LanguageModelWrapper("Llama 8B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-8B-Instruct"),
-    "llama-70b-instruct": LanguageModelWrapper("Llama 70B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-70B-Instruct"),
+    "meta-llama/Meta-Llama-3-8B-Instruct": LanguageModelWrapper("Llama 8B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-8B-Instruct"),
+    "meta-llama/Meta-Llama-3-70B-Instruct": LanguageModelWrapper("Llama 70B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-70B-Instruct"),
     "gpt2": LanguageModelWrapper("GPT-2", ModelFamily.GPT, "gpt2"),
     "gpt-3.5-turbo": LanguageModelWrapper("GPT-3.5-Turbo", ModelFamily.GPT, OpenAiModelNames.gpt_3_5_turbo),
-    "gemma-2b": LanguageModelWrapper("Gemma 2B", ModelFamily.GEMMA, "google/gemma-2b"),
-    "gemma-7b": LanguageModelWrapper("Gemma 7B", ModelFamily.GEMMA, "google/gemma-7b"),
+    "google/gemma-2b-it": LanguageModelWrapper("Gemma 2B Instruction Tuned", ModelFamily.GEMMA, "google/gemma-2b-it"),
+    "google/gemma-7b-it": LanguageModelWrapper("Gemma 7B Instruction Tuned", ModelFamily.GEMMA, "google/gemma-7b-it"),
     # Add more models here as needed
 }
 
