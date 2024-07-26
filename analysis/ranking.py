@@ -224,6 +224,8 @@ elif "llama-3" in args.cq_name.lower():
         batch_size=args.pm_batch_size,
         pipeline=llama_pipelines[args.cq_name],
     )
+else:
+    raise ValueError(f"Unknown experimental clarifying question model name {args.cq_name}")
 
 print("running experimental cq model...")
 df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
