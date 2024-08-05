@@ -172,9 +172,12 @@ else:
 # Generate primary tasks
 prompt_generator = GPTPromptGenerator(args.use_cache)
 print("generating prompts...")
-df["prompt"] = df["doc_full"].progress_apply(
-    lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
-)
+if "prompt" not in df.columns:
+    df["prompt"] = df["doc_full"].progress_apply(
+        lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
+    )
+else:
+    print("Skipping prompt generation because it is already present")
 
 # Load the primary model
 if "gpt" in args.pm_name.lower():
@@ -223,6 +226,8 @@ elif "llama-3" in args.cq_name.lower():
         batch_size=args.pm_batch_size,
         pipeline=llama_pipelines[args.cq_name],
     )
+else:
+    raise ValueError(f"Unknown experimental clarifying question model name {args.cq_name}")
 
 print("running experimental cq model...")
 df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
