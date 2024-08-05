@@ -8,7 +8,7 @@ import transformers
 from huggingface_hub import login
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
-from utils import ModelFamily
+from models.utils import ModelFamily
 
 nn = "\n\n"
 
