@@ -12,3 +12,4 @@ data/
 mini_data/
 alpaca_eval/
 dataset/
+analysis/.lmwrapper_cache/

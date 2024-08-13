@@ -66,19 +66,19 @@ parser.add_argument(
     help="Name of the oracle model to use.",
 )
 parser.add_argument(
-    "--oracle_batch_size", default=8, help="Batch size for the oracle model.", type=int
+    "--oracle_batch_size", default=1, help="Batch size for the oracle model.", type=int
 )
 parser.add_argument(
-    "--pm_batch_size", default=8, help="Batch size for the primary model.", type=int
+    "--pm_batch_size", default=1, help="Batch size for the primary model.", type=int
 )
 parser.add_argument(
     "--cq_batch_size",
-    default=8,
+    default=1,
     help="Batch size for the clarifying question model.",
     type=int,
 )
 parser.add_argument(
-    "--bm_batch_size", default=8, help="Batch size for the benchmark model.", type=int
+    "--bm_batch_size", default=1, help="Batch size for the benchmark model.", type=int
 )
 parser.add_argument(
     "--prompt_gen_temperature", default=0.7, help="Temperature for prompt generation."

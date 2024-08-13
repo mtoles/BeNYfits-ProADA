@@ -43,7 +43,6 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
 }
 
 def load_lm(model_name: str) -> LanguageModelWrapper:
-    model_name = model_name.lower()
     if model_name not in MODEL_MAP:
         available_models = ", ".join(MODEL_MAP.keys())
         raise ValueError(f"Unknown model: {model_name}. Available models are: {available_models}")
