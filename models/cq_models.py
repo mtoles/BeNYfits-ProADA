@@ -211,6 +211,8 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
                 model_kwargs={"torch_dtype": torch.bfloat16},
                 device_map="auto",
             )
+        self.pipeline.tokenizer.pad_token_id = self.pipeline.model.config.eos_token_id
+
         self.no_answer_str = "Llama3 did not return a valid sentence"
         # self.user_prompt = "{question_string}"
 
