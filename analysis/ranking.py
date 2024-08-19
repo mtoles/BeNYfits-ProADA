@@ -117,25 +117,25 @@ args = parser.parse_args()
 
 # %% Loading Models
 
-llamas = [
-    x for x in [args.bm_name, args.pm_name, args.oracle_name] if "llama-3" in x.lower()
-]
-llama_pipelines = {
-    "meta-llama/Meta-Llama-3-8B-Instruct": None,
-    "meta-llama/Meta-Llama-3-70B-Instruct": None,
-}
-if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
-    llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = get_huggingface_lm(
-        "meta-llama/Meta-Llama-3-8B-Instruct"
-    )
-if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
-    llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = get_huggingface_lm(
-        "meta-llama/Meta-Llama-3-70B-Instruct"
-    )
-for pipeline in llama_pipelines.values():
-    if pipeline is not None:
-        pipeline._tokenizer.pad_token_id = pipeline._tokenizer.eos_token_id
-        pipeline._tokenizer.padding_side = "left"
+# llamas = [
+#     x for x in [args.bm_name, args.pm_name, args.oracle_name] if "llama-3" in x.lower()
+# ]
+# llama_pipelines = {
+#     "meta-llama/Meta-Llama-3-8B-Instruct": None,
+#     "meta-llama/Meta-Llama-3-70B-Instruct": None,
+# }
+# if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
+#     llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = get_huggingface_lm(
+#         "meta-llama/Meta-Llama-3-8B-Instruct"
+#     )
+# if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
+#     llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = get_huggingface_lm(
+#         "meta-llama/Meta-Llama-3-70B-Instruct"
+#     )
+# for pipeline in llama_pipelines.values():
+#     if pipeline is not None:
+#         pipeline._tokenizer.pad_token_id = pipeline._tokenizer.eos_token_id
+#         pipeline._tokenizer.padding_side = "left"
 
 
 # %%
@@ -200,6 +200,7 @@ if "gpt" in args.bm_name:
     bm_cq_model = GPTClarifyingQuestionModel(args.bm_name, args.use_cache)
 elif "Llama-3" in args.bm_name:
     bm_lm_wrapper = load_lm(args.bm_name)
+
     bm_cq_model = Llama3ClarifyingQuestionModel(
         model_name=args.bm_name,
         batch_size=args.bm_batch_size,
@@ -228,7 +229,7 @@ elif "llama-3" in args.cq_name.lower():
     ex_cq_model = Llama3ClarifyingQuestionModel(
         model_name=args.cq_name,
         batch_size=args.pm_batch_size,
-        pipeline=cq_lm_wrapper,
+        pipeline=cq_lm_wrapper.language_model,
     )
 else:
     raise ValueError(f"Unknown experimental clarifying question model name {args.cq_name}")

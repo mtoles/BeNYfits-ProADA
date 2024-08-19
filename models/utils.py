@@ -27,7 +27,7 @@ class LanguageModelWrapper:
                 self._language_model = get_open_ai_lm(self.hf_name)
             self._language_model._tokenizer.pad_token_id = self._language_model._tokenizer.eos_token_id
             self._language_model._tokenizer.padding_side = "left"
-            print("Hello")
+            print(f"Model Pipeline Instantiated: {self.display_name} {self.family.value}")
         return self._language_model
 
     def __str__(self):
@@ -44,6 +44,8 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
 }
 
 def load_lm(model_name: str) -> LanguageModelWrapper:
+    print(f"Loading LM: {model_name}")
+    
     if model_name not in MODEL_MAP:
         available_models = ", ".join(MODEL_MAP.keys())
         raise ValueError(f"Unknown model: {model_name}. Available models are: {available_models}")
