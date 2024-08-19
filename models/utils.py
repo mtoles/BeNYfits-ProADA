@@ -27,6 +27,7 @@ class LanguageModelWrapper:
                 self._language_model = get_open_ai_lm(self.hf_name)
             self._language_model._tokenizer.pad_token_id = self._language_model._tokenizer.eos_token_id
             self._language_model._tokenizer.padding_side = "left"
+            print("Hello")
         return self._language_model
 
     def __str__(self):
@@ -52,7 +53,7 @@ def load_lm(model_name: str) -> LanguageModelWrapper:
 def main():
     # Test different variants
     models_to_test = [
-        "llama-8b-instruct",
+        "meta-llama/Meta-Llama-3-8B-Instruct",
         "llama-70b-instruct",
         "gpt2",
         "LLAMA-8B-INSTRUCT",  # Test case insensitivity

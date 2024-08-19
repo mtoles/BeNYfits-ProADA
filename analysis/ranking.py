@@ -183,10 +183,11 @@ else:
 if "gpt" in args.pm_name.lower():
     primary_model = GPTPrimaryModel(args.pm_name, args.use_cache)
 elif "llama-3" in args.pm_name.lower():
+    pm_lm_wrapper = load_lm(args.pm_name)
     primary_model = Llama3PrimaryModel(
         model_name=args.pm_name,
         batch_size=args.cq_batch_size,
-        pipeline=llama_pipelines[args.pm_name],
+        pipeline=pm_lm_wrapper.language_model,
     )
 else:
     raise ValueError(f"Unknown primary model name {args.pm_name}")
@@ -198,10 +199,11 @@ else:
 if "gpt" in args.bm_name:
     bm_cq_model = GPTClarifyingQuestionModel(args.bm_name, args.use_cache)
 elif "Llama-3" in args.bm_name:
+    bm_lm_wrapper = load_lm(args.bm_name)
     bm_cq_model = Llama3ClarifyingQuestionModel(
         model_name=args.bm_name,
         batch_size=args.bm_batch_size,
-        pipeline=llama_pipelines[args.bm_name],
+        pipeline=bm_lm_wrapper.language_model,
     )
 else:
     raise ValueError(f"Unknown benchmark model name {args.bm_name}")
@@ -215,16 +217,18 @@ if args.cq_name == "gpt-cot":
 elif "gpt-4" in args.cq_name.lower():
     ex_cq_model = GPTClarifyingQuestionModel(args.use_cache)
 elif "imaginellama" in args.cq_name:
+    image_lm_wrapper = load_lm(args.cq_name.split(":")[-1])
     ex_cq_model = Llama3ImagineClarifyingQuestionModel(
         model_name=args.cq_name.split(":")[-1],
         batch_size=args.pm_batch_size,
-        pipeline=llama_pipelines[args.cq_name.split(":")[-1]],
+        pipeline=image_lm_wrapper.language_model,
     )
 elif "llama-3" in args.cq_name.lower():
+    cq_lm_wrapper = load_lm(args.cq_name)
     ex_cq_model = Llama3ClarifyingQuestionModel(
         model_name=args.cq_name,
         batch_size=args.pm_batch_size,
-        pipeline=llama_pipelines[args.cq_name],
+        pipeline=cq_lm_wrapper,
     )
 else:
     raise ValueError(f"Unknown experimental clarifying question model name {args.cq_name}")
