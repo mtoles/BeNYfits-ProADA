@@ -23,10 +23,10 @@ class LanguageModelWrapper:
         if self._language_model is None:
             if self.family in [ModelFamily.LLAMA, ModelFamily.GEMMA]:
                 self._language_model = get_huggingface_lm(self.hf_name)
+                self._language_model._tokenizer.pad_token_id = self._language_model._tokenizer.eos_token_id
+                self._language_model._tokenizer.padding_side = "left"
             else:
                 self._language_model = get_open_ai_lm(self.hf_name)
-            self._language_model._tokenizer.pad_token_id = self._language_model._tokenizer.eos_token_id
-            self._language_model._tokenizer.padding_side = "left"
             print(f"Model Pipeline Instantiated: {self.display_name} {self.family.value}")
         return self._language_model
 
@@ -38,6 +38,7 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "meta-llama/Meta-Llama-3-70B-Instruct": LanguageModelWrapper("Llama 70B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-70B-Instruct"),
     "gpt2": LanguageModelWrapper("GPT-2", ModelFamily.GPT, "gpt2"),
     "gpt-3-5-turbo-instruct": LanguageModelWrapper("GPT-3.5-Turbo-Instruct", ModelFamily.GPT, OpenAiModelNames.gpt_3_5_turbo_instruct),
+    "gpt-4o-2024-05-13": LanguageModelWrapper("gpt-4o-2024-05-13", ModelFamily.GPT, OpenAiModelNames.gpt_4o_2024_05_13),
     "google/gemma-2b-it": LanguageModelWrapper("Gemma 2B Instruction Tuned", ModelFamily.GEMMA, "google/gemma-2b-it"),
     "google/gemma-7b-it": LanguageModelWrapper("Gemma 7B Instruction Tuned", ModelFamily.GEMMA, "google/gemma-7b-it"),
     # Add more models here as needed
