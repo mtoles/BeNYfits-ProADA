@@ -8,6 +8,7 @@ from models.primary_models import (
     GPTPrimaryModel,
     Llama3PrimaryModel,
     PrimaryModel,
+    BasePrimaryModel
 )
 from models.cq_models import *
 from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel, BaseOracleModel
@@ -138,10 +139,13 @@ args = parser.parse_args()
 #         pipeline._tokenizer.padding_side = "left"
 
 
-# %%
+#
+
+print_current_device()
 
 tqdm.pandas()
 np.random.seed(42)
+
 # Read docs from the dataset
 if args.ds_path.lower().endswith(".jsonl"):
     df = pd.read_json(args.ds_path, lines=True)
@@ -152,16 +156,20 @@ elif args.ds_path.lower().endswith(".csv"):
 if "selftext" in df.columns:
     df["doc_full"] = df["selftext"].astype(str)
     df = df.drop(columns=["selftext"])
+
 # Shuffle the datast
 df = df.sample(frac=1).reset_index(drop=True)
+
 # Shift the dataset
 df = pd.concat([df.iloc[args.ds_shift :], df.iloc[: args.ds_shift]]).reset_index(
     drop=True
 )
+
 # Apply downsampling
 if args.ds_downsample is not None:
     df = df.head(args.ds_downsample)
-# summarize each item of the dataset to 50% of its original length
+
+# Summarize each item of the dataset to 50% of its original length
 summarizer = GPTSummarizer(args.use_cache)
 print("summarizing...")
 if "doc_summ" not in df.columns:
@@ -180,18 +188,8 @@ else:
     print("Skipping prompt generation because it is already present")
 
 # Load the primary model
-if "gpt" in args.pm_name.lower():
-    primary_model = GPTPrimaryModel(args.pm_name, args.use_cache)
-elif "llama-3" in args.pm_name.lower():
-    pm_lm_wrapper = load_lm(args.pm_name)
-    primary_model = Llama3PrimaryModel(
-        model_name=args.pm_name,
-        batch_size=args.cq_batch_size,
-        pipeline=pm_lm_wrapper.language_model,
-    )
-else:
-    raise ValueError(f"Unknown primary model name {args.pm_name}")
-# %%
+pm_lm_wrapper = load_lm(args.pm_name)
+primary_model = BasePrimaryModel(pm_lm_wrapper)
 
 ###### CQ STEP ######
 
@@ -200,7 +198,6 @@ if "gpt" in args.bm_name:
     bm_cq_model = GPTClarifyingQuestionModel(args.bm_name, args.use_cache)
 elif "Llama-3" in args.bm_name:
     bm_lm_wrapper = load_lm(args.bm_name)
-
     bm_cq_model = Llama3ClarifyingQuestionModel(
         model_name=args.bm_name,
         batch_size=args.bm_batch_size,
@@ -238,37 +235,17 @@ print("running experimental cq model...")
 df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
 
 ###### ORACLE STEP ######
-
-# TODO - RATTAN - REMOVE THIS
-# if "gpt" in args.oracle_name.lower():
-#     oracle_model = GPTOracleAbstractiveModel(
-#         model_name=args.oracle_name, use_cache=args.use_cache
-#     )
-# elif "llama-3" in args.oracle_name.lower():
-#     oracle_model = Llama3OracleModel(
-#         model_name=args.oracle_name,
-#         batch_size=args.oracle_batch_size,
-#         pipeline=llama_pipelines[args.oracle_name],
-#     )
-# print("running abstractive oracle model to answer clarifying questions...")
-# # Ask the clarifying question to the oracle
-# df["bm_ca"] = oracle_model.forward_batch(df["doc_full"], df["bm_cq"])
-# df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
-
-
-# TODO - RATTAN HERE - REMOVE OTHER IMPLEMENTATIONS OF ORACLE MODEL
 # Oracle Model should be declared independent of LM - GPT / Oracle
-
 oracle_lm_wrapper = load_lm(args.oracle_name)
 oracle_model = BaseOracleModel(oracle_lm_wrapper, args.oracle_batch_size)
 
 print("running abstractive oracle model to answer clarifying questions...")
+
 # Ask the clarifying question to the oracle
 df["bm_ca"] = oracle_model.forward_batch(df["doc_full"], df["bm_cq"])
 df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
 
 ###### PRIMARY MODEL STEP ######
-
 print("preparing instructions")
 df["instructions_bm_ca"] = df.apply(
     lambda x: primary_model.prepare_ca_instruction(
@@ -281,16 +258,16 @@ print(
     "preparing instructions for joint summ + ca contexts to be fed to the primary model"
 )
 df["instructions_ex_ca"] = df.progress_apply(
-    lambda x: primary_model.prepare_instruction(
-        "\n\n".join([x["doc_summ"], x["ex_ca"]]), x["prompt"]
+    lambda x: primary_model.prepare_ca_instruction(
+        x["doc_summ"], x["ex_ca"], x["prompt"]
     ),
     axis=1,
 )
 
 print("running primary models for for joint summ + ca contexts")
 
-df["ca_bm_pm_output"] = primary_model.process_single(df["instructions_bm_ca"])
-df["ca_ex_pm_output"] = primary_model.process_single(df["instructions_ex_ca"])
+df["ca_bm_pm_output"] = primary_model.process_list(df["instructions_bm_ca"])
+df["ca_ex_pm_output"] = primary_model.process_list(df["instructions_ex_ca"])
 
 ### Ranking ###
 ranking_model = GPTPMPairwiseRankingModel(use_cache=args.use_cache)
@@ -333,7 +310,7 @@ def save_inputs_and_outputs():
         "manual_note": args.manual_note,
         "start_datetime": now,
     }
-    with open(f"results/{now}_results.json", "w") as f:
+    with open(f"../results/{now}_results.json", "w") as f:
         json.dump(results, f, indent=4)
 
 

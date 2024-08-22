@@ -251,7 +251,7 @@ class BaseOracleModel:
         ]
 
         sequences = self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(p, cache=False) for p in formatted_prompts]),
+            [LmPrompt(p, cache=False) for p in formatted_prompts],
             completion_window=CompletionWindow.ASAP,
         )
 
