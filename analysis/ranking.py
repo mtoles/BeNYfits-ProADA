@@ -8,10 +8,14 @@ from models.primary_models import (
     GPTPrimaryModel,
     Llama3PrimaryModel,
     PrimaryModel,
-    BasePrimaryModel
+    BasePrimaryModel,
 )
 from models.cq_models import *
-from models.oracle_models import GPTOracleAbstractiveModel, Llama3OracleModel, BaseOracleModel
+from models.oracle_models import (
+    GPTOracleAbstractiveModel,
+    Llama3OracleModel,
+    BaseOracleModel,
+)
 
 from models.ranking_models import (
     GPTClarifyingAnswersRankingModel,
@@ -87,7 +91,7 @@ parser.add_argument(
 parser.add_argument(
     "--ds_path",
     help="Path to the dataset.",
-    default="full_data/reddit_tldr_dataset.jsonl",
+    default="dataset/reddit_tldr_dataset.jsonl",
 )
 parser.add_argument(
     "--ds_downsample",
@@ -229,7 +233,9 @@ elif "llama-3" in args.cq_name.lower():
         pipeline=cq_lm_wrapper.language_model,
     )
 else:
-    raise ValueError(f"Unknown experimental clarifying question model name {args.cq_name}")
+    raise ValueError(
+        f"Unknown experimental clarifying question model name {args.cq_name}"
+    )
 
 print("running experimental cq model...")
 df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
@@ -310,7 +316,7 @@ def save_inputs_and_outputs():
         "manual_note": args.manual_note,
         "start_datetime": now,
     }
-    with open(f"../results/{now}_results.json", "w") as f:
+    with open(f"results/{now}_results.json", "w") as f:
         json.dump(results, f, indent=4)
 
 
