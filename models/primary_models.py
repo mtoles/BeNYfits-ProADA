@@ -189,6 +189,7 @@ class Llama3PrimaryModel(PrimaryModel):
         model_outputs = model_outputs.groupby(level=0).apply(list)
         return model_outputs
 
+
 # Base class for primary model
 class BasePrimaryModel:
     def __init__(self, lm_wrapper):
@@ -199,10 +200,10 @@ class BasePrimaryModel:
     def prepare_instruction(self, doc: str, prompt: str) -> str:
         instruction = "Memorize the following document and then follow the instructions below:\n\nDocument:\n\n%s\n\nInstructions: %s\n\n"
         return instruction % (doc, prompt)
-    
+
     def prepare_ca_instruction(self, doc_summ: str, ca: str, prompt: str):
-        return self.prepare_instruction("\n\n".join([doc_summ, ca]), prompt)        
-    
+        return self.prepare_instruction("\n\n".join([doc_summ, ca]), prompt)
+
         formatted_user_messages = [
             [
                 {
@@ -237,17 +238,17 @@ class BasePrimaryModel:
         #     outputs.append(llama_parsed_output)
 
         return pd.Series(outputs)
-    
+
     def forward(self, instruction: str) -> str:
         format_func = {
             ModelFamily.LLAMA: self._format_llama_prompt,
             ModelFamily.GPT: self._format_gpt_prompt,
             ModelFamily.GEMMA: self._format_gemma_prompt,
-            ModelFamily.MISTRAL: self._format_mistral_prompt
+            ModelFamily.MISTRAL: self._format_mistral_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_instruction = format_func(instruction)
-    
+
         sequences = self.lm_wrapper.language_model.predict_many(
             ([LmPrompt(formatted_instruction, cache=False)]),
             completion_window=CompletionWindow.ASAP,
@@ -257,28 +258,28 @@ class BasePrimaryModel:
     def process_single(self, instructions: pd.Series) -> pd.Series:
         pm_output = instructions.progress_apply(lambda x: self.forward(x))
         return pm_output
-    
+
     def forward_list(self, instructions: pd.Series) -> pd.Series:
         format_func = {
             ModelFamily.LLAMA: self._format_llama_prompt,
             ModelFamily.GPT: self._format_gpt_prompt,
             ModelFamily.GEMMA: self._format_gemma_prompt,
-            ModelFamily.MISTRAL: self._format_mistral_prompt
+            ModelFamily.MISTRAL: self._format_mistral_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
-        formatted_prompts = [ format_func(instruction) for instruction in instructions]
+        formatted_prompts = [format_func(instruction) for instruction in instructions]
 
         sequences = self.lm_wrapper.language_model.predict_many(
-            [LmPrompt(p, cache=False) for p in formatted_prompts],
+            [LmPrompt(p, cache=False, max_tokens=512) for p in formatted_prompts],
             completion_window=CompletionWindow.ASAP,
         )
 
         outputs = [x.completion_text for x in sequences]
         return pd.Series(outputs)
-    
+
     def process_list(self, instructions: pd.Series) -> pd.Series:
         return self.forward_list(instructions)
-    
+
     def _format_llama_prompt(self, instruction: str) -> str:
         llama_system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
         formatted_user_message = [
@@ -298,16 +299,17 @@ class BasePrimaryModel:
 
     def _format_gpt_prompt(self, instruction: str) -> str:
         return instruction
-    
+
     def _format_gemma_prompt(self, instruction: str) -> str:
         return instruction
-    
+
     def _format_mistral_prompt(self, instruction: str) -> str:
         return instruction
-    
+
     def _format_default_prompt(self, instruction: str) -> str:
         return instruction
-    
+
+
 if __name__ == "__main__":
     hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
 
