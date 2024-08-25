@@ -56,7 +56,7 @@ def main(tldr: str):
     client = bigquery.Client()
 
     # Write your query
-    subreddits = "'AmItheAsshole','entitledparents','relationships','JUSTNOMIL','askwomenadvice','Advice','TwoXChromosomes','tifu','unpopularopinion','povertyfinance', 'AskMenAdvice', 'AskMen', 'AskWomen'"
+    subreddits = "'AmItheAsshole'"
     tables = [
         "2015_12",
         "2016_01",
@@ -238,7 +238,7 @@ def split_tldr_posts_into_content_and_summary(df: pd.DataFrame):
             if output_row is not None:
                 filtered_rows.append(output_row.to_frame().T)
 
-    output_df = pd.DataFrame(columns=df.columns)
+    output_df = pd.DataFrame(columns=list(df.columns) + [doc_orig_col_name, doc_summ_col_name])
     if filtered_rows:
         output_df = pd.concat(filtered_rows, ignore_index=True)
 
