@@ -15,6 +15,9 @@ import numpy as np
 from lmwrapper.huggingface_wrapper import get_huggingface_lm
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
+from models.utils import ModelFamily
+from typing import List, Callable
+from enum import Enum
 
 tqdm.pandas()
 
@@ -85,13 +88,6 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
         )
         # Tokenize the answer and return the first sentence
         questions = loads(completion.choices[0].message.content)["questions"]
-        # assert len(questions) == n_clarifying_questions
-        # if len(questions) > n_clarifying_questions:
-        #     questions = questions[:n_clarifying_questions]
-        # elif len(questions) < n_clarifying_questions:
-        #     questions += self.forward(
-        #         document, task, n_clarifying_questions - len(questions)
-        #     )
         return questions
 
     def forward(
@@ -369,7 +365,6 @@ class Llama3ImagineClarifyingQuestionModel(Llama3ClarifyingQuestionModel):
         # forward but for a list of questions
         return self.forward([document] * len(questions), questions)
 
-
 class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
     def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
         self.use_cache = use_cache
@@ -442,6 +437,103 @@ class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
             )
         return clarifying_questions
 
+class PromptMode(Enum):
+    DEFAULT = "default"
+
+class BaseClarifyingQuestionModel:
+    def __init__(self, lm_wrapper, mode: PromptMode = PromptMode.DEFAULT):
+        self.lm_wrapper = lm_wrapper
+        self.mode = mode
+        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        login(token=self.hf_api_key)
+
+    def _get_format_func(self) -> Callable:
+        format_funcs = {
+            (ModelFamily.LLAMA, PromptMode.DEFAULT): self._format_llama_prompt_default,
+            (ModelFamily.GPT, PromptMode.DEFAULT): self._format_gpt_prompt_default,
+            (ModelFamily.GEMMA, PromptMode.DEFAULT): self._format_gemma_prompt_default,
+            (ModelFamily.MISTRAL, PromptMode.DEFAULT): self._format_mistral_prompt_default,
+        }
+        return format_funcs.get((self.lm_wrapper.family, self.mode), self._format_default_prompt)
+
+    def _format_llama_prompt_default(self, document: str, task: str) -> str:
+        llama_prompt = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Do not say anything other than the question. {json}"
+        llama_user_message = llama_prompt.format(document=document, task=task, n_clarifying_questions=1, plural="s", json="")
+
+        formatted_user_messages = [
+            {
+                "role": "system",
+                "content": f"You are trying to help the user with the task below.",
+            },
+            {
+                "role": "user",
+                "content": llama_user_message,
+            },
+        ]
+        
+        return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
+            formatted_user_messages, tokenize=False, add_generation_prompt=True
+        )
+
+    def _format_gpt_prompt_default(self, document: str, task: str) -> str:
+        benchmark_template = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Do not say anything other than the question. {json}"
+        bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
+        return benchmark_template.format(document=document, task=task, n_clarifying_questions=1, plural=False, json="")
+
+    def _format_gemma_prompt_default(self, document: str, task: str) -> str:
+        pass
+
+    def _format_mistral_prompt_default(self, document: str, task: str) -> str:
+        pass
+
+    def _format_default_prompt(self, document: str, task: str) -> str:
+        pass
+        
+    def forward_batch(self, documents: List[str], tasks: List[str]) -> List[List[str]]:
+        format_func = self._get_format_func()
+        formatted_instructions = [format_func(document, task) for document, task in zip(documents, tasks)]
+        
+        sequences = self.lm_wrapper.language_model.predict_many(
+            [LmPrompt(p, cache=False, max_tokens=512) for p in formatted_instructions],
+            completion_window=CompletionWindow.ASAP,
+        )
+
+        outputs = [loads(x.completion_text)["questions"] for x in sequences]
+        return outputs
+
+    def forward_single_generate_multiple_questions(self, document: str, task: str) -> List[str]:
+        format_func = self._get_format_func()
+        formatted_instruction = format_func(document, task)
+
+        sequences = self.lm_wrapper.language_model.predict_many(
+            ([LmPrompt(formatted_instruction, cache=False)]),
+            completion_window=CompletionWindow.ASAP,
+        )
+
+        output = sequences[0].completion_text
+        return loads(output)["questions"]
+    
+    def forward_batch_generate_single_question(self, documents: List[str], tasks: List[str]) -> List[str]:
+        format_func = self._get_format_func()
+        formatted_instructions = [format_func(document, task) for document, task in zip(documents, tasks)]
+        
+        sequences = self.lm_wrapper.language_model.predict_many(
+            [LmPrompt(p, cache=False, max_tokens=512) for p in formatted_instructions],
+            completion_window=CompletionWindow.ASAP,
+        )
+
+        outputs = [x.completion_text for x in sequences]
+
+        # for x in sequences:
+        #     if self.lm_wrapper.family in [ModelFamily.GPT]:
+        #         print(x.completion_text)
+        #         print("=====================")
+        #         print("=====================")    
+        #         outputs.append(loads(x.completion_text)["questions"])
+        #     else:
+        #         outputs.append(x.completion_text)
+        
+        return outputs
 
 if __name__ == "__main__":
     ### testing

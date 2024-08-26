@@ -54,6 +54,11 @@ parser.add_argument(
     help="Name of the experimental clarifying question model to use.",
 )
 parser.add_argument(
+    "--cq_ex_mode",
+    default="default",
+    help="Mode of prompting CQ Experimental Model - Default / COT",
+)
+parser.add_argument(
     "--pm_name",
     default="meta-llama/Meta-Llama-3-8B-Instruct",
     help="Name of the primary model to use.",
@@ -154,54 +159,25 @@ if "prompt" not in df.columns:
 else:
     print("Skipping prompt generation because it is already present")
 
-# Load the primary model
-pm_lm_wrapper = load_lm(args.pm_name)
-primary_model = BasePrimaryModel(pm_lm_wrapper)
-
 ###### CQ STEP ######
 
-# Run the cq model
-if "gpt" in args.bm_name:
-    bm_cq_model = GPTClarifyingQuestionModel(args.bm_name, args.use_cache)
-elif "Llama-3" in args.bm_name:
-    bm_lm_wrapper = load_lm(args.bm_name)
-    bm_cq_model = Llama3ClarifyingQuestionModel(
-        model_name=args.bm_name,
-        batch_size=args.bm_batch_size,
-        pipeline=bm_lm_wrapper.language_model,
-    )
-else:
-    raise ValueError(f"Unknown benchmark model name {args.bm_name}")
 print("running cq model...")
 
-df["bm_cq"] = bm_cq_model.forward(df["doc_summ"], df["prompt"])
+cq_bm_lm_wrapper = load_lm(args.bm_name)
+cq_bm_model = BaseClarifyingQuestionModel(cq_bm_lm_wrapper)
+
+df["bm_cq"] = cq_bm_model.forward_batch_generate_single_question(df["doc_summ"], df["prompt"])
 
 # generate cq, ca, output for experimental model
-if args.cq_name == "gpt-cot":
-    ex_cq_model = GPTCOTClarifyingQuestionModel(args.use_cache)
-elif "gpt-4" in args.cq_name.lower():
-    ex_cq_model = GPTClarifyingQuestionModel(args.use_cache)
-elif "imaginellama" in args.cq_name:
-    image_lm_wrapper = load_lm(args.cq_name.split(":")[-1])
-    ex_cq_model = Llama3ImagineClarifyingQuestionModel(
-        model_name=args.cq_name.split(":")[-1],
-        batch_size=args.pm_batch_size,
-        pipeline=image_lm_wrapper.language_model,
-    )
-elif "llama-3" in args.cq_name.lower():
-    cq_lm_wrapper = load_lm(args.cq_name)
-    ex_cq_model = Llama3ClarifyingQuestionModel(
-        model_name=args.cq_name,
-        batch_size=args.pm_batch_size,
-        pipeline=cq_lm_wrapper.language_model,
-    )
-else:
-    raise ValueError(
-        f"Unknown experimental clarifying question model name {args.cq_name}"
-    )
-
 print("running experimental cq model...")
-df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
+if args.cq_ex_mode == "cot":
+    # TODO - Write generic class for COT
+    ex_cq_model = GPTCOTClarifyingQuestionModel(args.use_cache)
+else:
+    cq_ex_model_wrapper = load_lm(args.cq_name)
+    ex_cq_model = BaseClarifyingQuestionModel(cq_ex_model_wrapper)
+
+df[f"ex_cq"] = ex_cq_model.forward_batch_generate_single_question(df["doc_summ"], df["prompt"])
 
 ###### ORACLE STEP ######
 oracle_lm_wrapper = load_lm(args.oracle_name)
@@ -214,6 +190,10 @@ df["bm_ca"] = oracle_model.forward_batch(df["doc_full"], df["bm_cq"])
 df[f"ex_ca"] = oracle_model.forward_batch(df["doc_full"], df["ex_cq"])
 
 ###### PRIMARY MODEL STEP ######
+# Load the primary model
+pm_lm_wrapper = load_lm(args.pm_name)
+primary_model = BasePrimaryModel(pm_lm_wrapper)
+
 print("preparing instructions")
 df["instructions_bm_ca"] = df.apply(
     lambda x: primary_model.prepare_ca_instruction(
