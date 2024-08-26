@@ -5,8 +5,8 @@ import click
 import json
 import re
 
-doc_orig_col_name = 'doc_orig'
-doc_summ_col_name = 'doc_summ'
+doc_orig_col_name = "doc_orig"
+doc_summ_col_name = "doc_summ"
 tldr_versions = [
     "tl dr",
     "tl;dr",
@@ -40,7 +40,7 @@ tldr_versions = [
     "tl;sdr",
     "tll;dr",
     "tl : dr",
-    "tld;dr"
+    "tld;dr",
 ]
 
 
@@ -56,7 +56,7 @@ def main(tldr: str):
     client = bigquery.Client()
 
     # Write your query
-    subreddits = "'AmItheAsshole'"
+    subreddits = "'AmItheAsshole','entitledparents','relationships','askwomenadvice','Advice','TwoXChromosomes','tifu','unpopularopinion','povertyfinance', 'AskMenAdvice', 'AskMen', 'AskWomen'"
     tables = [
         "2015_12",
         "2016_01",
@@ -107,17 +107,17 @@ def main(tldr: str):
     min_score = 10
     min_text_length = 1500
     max_text_length = 5000
-    top_k = 100
+    top_k = 10
 
     df_list = []
 
     for table in tqdm(tables):
         tldr_block = (
-                "AND (\n"
-                + " OR \n".join(
-            [f'(LOWER(selftext) LIKE "%{x.lower()}%")' for x in tldr_versions]
-        )
-                + "\n)\n"
+            "AND (\n"
+            + " OR \n".join(
+                [f'(LOWER(selftext) LIKE "%{x.lower()}%")' for x in tldr_versions]
+            )
+            + "\n)\n"
         )
         query = f"""
             SELECT subreddit, selftext, score
@@ -156,7 +156,8 @@ def main(tldr: str):
 
 def parse_and_apply_constraints(selftext, content, summary, df_row):
     """Parse content and summary and apply additional constraints.
-    Adds the modified content and summary to the dataframe row and returns the updated dataframe row if applicable."""
+    Adds the modified content and summary to the dataframe row and returns the updated dataframe row if applicable.
+    """
 
     # Summary does not starts with tldr (Stripped off before calling this function)
     # Remove these words from summary if it starts with :;,.
@@ -165,7 +166,7 @@ def parse_and_apply_constraints(selftext, content, summary, df_row):
 
     # If post is of the format - [Content-Part1(tldr)Summary \n\n Content-Part2] i.e. contains new line in summary
     # Then we are concatenating content part1 and part2 to form complete content and portion
-    newlines_index_in_summary = summary.find('\n\n')
+    newlines_index_in_summary = summary.find("\n\n")
 
     if newlines_index_in_summary != -1:
         content += summary[newlines_index_in_summary:]
@@ -186,12 +187,12 @@ def split_tldr_posts_into_content_and_summary(df: pd.DataFrame):
 
     # Regex check to replace more than one contiguous instances of '\n\n' with single '\n\n'
     # Eg: '\n\n\n\n' => '\n\n'
-    df['selftext'] = df['selftext'].apply(lambda x: re.sub(r'\n{3,}', r'\n\n', x))
+    df["selftext"] = df["selftext"].apply(lambda x: re.sub(r"\n{3,}", r"\n\n", x))
 
     filtered_rows = []
 
     for _, row in df.iterrows():
-        selftext = row['selftext']
+        selftext = row["selftext"]
 
         tldr_indexes = []
         final_tldr_versions = []
@@ -219,12 +220,14 @@ def split_tldr_posts_into_content_and_summary(df: pd.DataFrame):
         if tldr_index == 0:
             # selftext starting with tldr. split by first `\n\n` (only if present) - [(tldr)Summary \n\n Content]
             # Discard data points when post starts with tldr but there is no new line in the entire post
-            newlines_index = selftext.find('\n\n')
+            newlines_index = selftext.find("\n\n")
 
             if newlines_index != -1:
-                content = selftext[newlines_index + len('\n\n'):]
-                summary = selftext[len(final_tldr_version):newlines_index]
-                output_row = parse_and_apply_constraints(selftext, content, summary, row.copy())
+                content = selftext[newlines_index + len("\n\n") :]
+                summary = selftext[len(final_tldr_version) : newlines_index]
+                output_row = parse_and_apply_constraints(
+                    selftext, content, summary, row.copy()
+                )
 
                 if output_row is not None:
                     filtered_rows.append(output_row.to_frame().T)
@@ -232,13 +235,17 @@ def split_tldr_posts_into_content_and_summary(df: pd.DataFrame):
         else:
             # selftext does not starts with tldr. Then split by tldr: [Content (tldr)Summary]
             content = selftext[:tldr_index]
-            summary = selftext[tldr_index + len(final_tldr_version):]
-            output_row = parse_and_apply_constraints(selftext, content, summary, row.copy())
+            summary = selftext[tldr_index + len(final_tldr_version) :]
+            output_row = parse_and_apply_constraints(
+                selftext, content, summary, row.copy()
+            )
 
             if output_row is not None:
                 filtered_rows.append(output_row.to_frame().T)
 
-    output_df = pd.DataFrame(columns=list(df.columns) + [doc_orig_col_name, doc_summ_col_name])
+    output_df = pd.DataFrame(
+        columns=list(df.columns) + [doc_orig_col_name, doc_summ_col_name]
+    )
     if filtered_rows:
         output_df = pd.concat(filtered_rows, ignore_index=True)
 
