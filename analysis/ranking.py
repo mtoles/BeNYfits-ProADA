@@ -84,7 +84,7 @@ parser.add_argument(
 parser.add_argument(
     "--ds_path",
     help="Path to the dataset.",
-    default="dataset/reddit_tldr_dataset.jsonl",
+    # default="dataset/reddit_tldr_dataset.jsonl",
 )
 parser.add_argument(
     "--ds_downsample",
