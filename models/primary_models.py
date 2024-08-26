@@ -113,83 +113,6 @@ class GPTPrimaryModel(PrimaryModel):
         pm_output = instructions.progress_apply(lambda x: self.forward(x))
         return pm_output
 
-
-class Llama3PrimaryModel(PrimaryModel):
-    """
-    Llama3 chat primary model.
-    """
-
-    def __init__(self, model_name, batch_size, pipeline):
-        super().__init__()
-        self.model_name = model_name
-
-        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-        login(token=self.hf_api_key)
-        self.pipeline = pipeline
-        # if pipeline:
-        #     self.pipeline = pipeline
-        # else:
-        #     self.pipeline = transformers.pipeline(
-        #         "text-generation",
-        #         model=self.model_name,
-        #         torch_dtype=torch.bfloat16,
-        #         device_map="auto",
-        #     )
-
-        # self.system_prompt = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature."
-        self.system_prompt = "You are a helpful assistant. Always answer the question and be faithful to the provided document."
-
-        self.batch_size = batch_size
-
-    def process_single(self, instructions: pd.Series) -> pd.Series:
-        # llama_formatted_input = [
-        #     f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{instruction} [/INST]"
-        #     for instruction in instructions
-        # ]
-        formatted_user_messages = [
-            [
-                {
-                    "role": "system",
-                    "content": self.system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": instruction,
-                },
-            ]
-            for instruction in instructions
-        ]
-        llama_formatted_prompts = [
-            self.pipeline._tokenizer.apply_chat_template(
-                prompt, tokenize=False, add_generation_prompt=True
-            )
-            for prompt in formatted_user_messages
-        ]
-        # sequences = self.pipeline(
-        sequences = self.pipeline.predict_many(
-            [LmPrompt(p, cache=False) for p in llama_formatted_prompts],
-            completion_window=CompletionWindow.ASAP,
-        )
-
-        outputs = [x.completion_text for x in sequences]
-        # for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
-        #     llama_parsed_output = seq[0]["generated_text"]
-        #     llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
-        #     llama_parsed_output = llama_parsed_output.strip()
-
-        #     outputs.append(llama_parsed_output)
-
-        return pd.Series(outputs)
-
-    def process_list(self, instructions: pd.Series) -> pd.Series:
-        list_len = len(instructions[0])
-        flat_instructions = instructions.explode()
-        model_outputs = self.process_single(flat_instructions)
-        # unexplode
-        model_outputs = model_outputs.groupby(level=0).apply(list)
-        return model_outputs
-
-
 # Base class for primary model
 class BasePrimaryModel:
     def __init__(self, lm_wrapper):
@@ -312,22 +235,3 @@ class BasePrimaryModel:
 
 if __name__ == "__main__":
     hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-
-    # l3_pipeline = transformers.pipeline(
-    #     "text-generation",
-    #     model="meta-llama/Meta-Llama-3-8B-Instruct",
-    #     # model=lm,
-    #     torch_dtype=torch.bfloat16,
-    #     device_map="auto",
-    #     token=hf_api_key,
-    # )
-    lm = get_huggingface_lm("meta-llama/Meta-Llama-3-8B-Instruct")
-    # l3_pipeline.model = lm
-
-    l3_model = Llama3PrimaryModel("meta-llama/Meta-Llama-3-8B-Instruct", 1, lm)
-    doc = "I don't know how to cook spaghetti but my girlfriend is coming over and wants to eat it"
-    prompt = "What advice would you give to this person?"
-    instruction = l3_model.prepare_instruction(doc, prompt)
-    output = l3_model.process_single(pd.Series([instruction] * 2))
-    print(output)
-    print

@@ -5,21 +5,14 @@ import pandas as pd
 from models.summarization_models import GPTSummarizer
 from models.prompt_generator_models import GPTPromptGenerator
 from models.primary_models import (
-    GPTPrimaryModel,
-    Llama3PrimaryModel,
-    PrimaryModel,
     BasePrimaryModel,
 )
 from models.cq_models import *
 from models.oracle_models import (
-    GPTOracleAbstractiveModel,
-    Llama3OracleModel,
     BaseOracleModel,
 )
 
 from models.ranking_models import (
-    GPTClarifyingAnswersRankingModel,
-    GPTPMOutputRankingModel,
     GPTPMPairwiseRankingModel,
 )
 from tqdm import tqdm
@@ -114,36 +107,6 @@ parser.add_argument(
     help="Manual note to add to the results file for experiment tracking",
 )
 args = parser.parse_args()
-# Testing: Set testing args
-# args = parser.parse_args(args=[])
-# args.ds_path = "/local/data/mt/toa-modeling/full_data/reddit_tldr_dataset.jsonl"
-# args.ds_downsample = 3
-
-
-# %% Loading Models
-
-# llamas = [
-#     x for x in [args.bm_name, args.pm_name, args.oracle_name] if "llama-3" in x.lower()
-# ]
-# llama_pipelines = {
-#     "meta-llama/Meta-Llama-3-8B-Instruct": None,
-#     "meta-llama/Meta-Llama-3-70B-Instruct": None,
-# }
-# if "meta-llama/Meta-Llama-3-8B-Instruct" in llamas:
-#     llama_pipelines["meta-llama/Meta-Llama-3-8B-Instruct"] = get_huggingface_lm(
-#         "meta-llama/Meta-Llama-3-8B-Instruct"
-#     )
-# if "meta-llama/Meta-Llama-3-70B-Instruct" in llamas:
-#     llama_pipelines["meta-llama/Meta-Llama-3-70B-Instruct"] = get_huggingface_lm(
-#         "meta-llama/Meta-Llama-3-70B-Instruct"
-#     )
-# for pipeline in llama_pipelines.values():
-#     if pipeline is not None:
-#         pipeline._tokenizer.pad_token_id = pipeline._tokenizer.eos_token_id
-#         pipeline._tokenizer.padding_side = "left"
-
-
-#
 
 print_current_device()
 
@@ -241,7 +204,6 @@ print("running experimental cq model...")
 df[f"ex_cq"] = ex_cq_model.forward(df["doc_summ"], df["prompt"])
 
 ###### ORACLE STEP ######
-# Oracle Model should be declared independent of LM - GPT / Oracle
 oracle_lm_wrapper = load_lm(args.oracle_name)
 oracle_model = BaseOracleModel(oracle_lm_wrapper, args.oracle_batch_size)
 
