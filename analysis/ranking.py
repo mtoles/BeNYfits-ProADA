@@ -3,7 +3,7 @@
 import argparse
 import pandas as pd
 from models.summarization_models import GPTSummarizer
-from models.prompt_generator_models import GPTPromptGenerator
+from models.prompt_generator_models import *    
 from models.primary_models import (
     BasePrimaryModel,
 )
@@ -150,11 +150,13 @@ else:
     print("Skipping summarization because doc_summ is already present")
 
 # Generate primary tasks
-prompt_generator = GPTPromptGenerator(args.use_cache)
+# prompt_generator = GPTPromptGenerator(args.use_cache)
+prompt_generator = StaticAdviceGenerator()
 print("generating prompts...")
 if "prompt" not in df.columns:
     df["prompt"] = df["doc_full"].progress_apply(
-        lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
+        # lambda x: prompt_generator.forward(x, args.prompt_gen_temperature)
+        lambda x: prompt_generator.forward(x)
     )
 else:
     print("Skipping prompt generation because it is already present")

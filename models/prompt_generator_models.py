@@ -9,10 +9,13 @@ class PromptGeneratorModel:
     def __init__(self):
         pass
 
-    def forward(document_full: str) -> str:
+    def forward(self, document_full: str) -> str:
         # subclass this method
         return document_full
 
+class StaticAdviceGenerator(PromptGeneratorModel):
+    def forward(self, document_full: str) -> str:
+        return "What advice would you give to the speaker?"
 
 class GPTPromptGenerator(PromptGeneratorModel):
     def __init__(self, use_cache):

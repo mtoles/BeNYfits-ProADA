@@ -4,6 +4,7 @@ from tqdm import tqdm
 import click
 import json
 import re
+import os
 
 doc_orig_col_name = "doc_orig"
 doc_summ_col_name = "doc_summ"
@@ -56,7 +57,8 @@ def main(tldr: str):
     client = bigquery.Client()
 
     # Write your query
-    subreddits = "'AmItheAsshole','entitledparents','relationships','askwomenadvice','Advice','TwoXChromosomes','tifu','unpopularopinion','povertyfinance', 'AskMenAdvice', 'AskMen', 'AskWomen'"
+    # subreddits = "'AmItheAsshole','entitledparents','relationships','askwomenadvice','Advice','TwoXChromosomes','tifu','unpopularopinion','povertyfinance', 'AskMenAdvice', 'AskMen', 'AskWomen'"
+    subreddits = "'Advice'"
     tables = [
         "2015_12",
         "2016_01",
@@ -104,10 +106,10 @@ def main(tldr: str):
         "2019_07",
         "2019_08",
     ]
-    min_score = 10
-    min_text_length = 1500
-    max_text_length = 5000
-    top_k = 10
+    min_score = 5
+    min_text_length = 1000
+    max_text_length = 6000
+    # top_k = 10000000000
 
     df_list = []
 
@@ -120,7 +122,7 @@ def main(tldr: str):
             + "\n)\n"
         )
         query = f"""
-            SELECT subreddit, selftext, score
+            SELECT subreddit, selftext, score, title
             FROM (
                 SELECT *,
                     ROW_NUMBER() OVER(PARTITION BY subreddit ORDER BY score DESC) as rn
@@ -133,9 +135,9 @@ def main(tldr: str):
                 AND LENGTH(selftext) < {max_text_length}
                 AND LOWER(selftext) LIKE '% i %'
             ) as ranked
-            WHERE rn <= {top_k}
         ;
         """
+        # WHERE rn <= {top_k}
 
         # Run the query
         query_job = client.query(query)
@@ -145,12 +147,15 @@ def main(tldr: str):
 
     # concatenate all dataframes
     df = pd.concat(df_list)
+    output_dir = "full_data"
     output_path = (
-        "full_data/reddit_tldr_dataset.jsonl"
+        f"{output_dir}/reddit_tldr_dataset.jsonl"
         if tldr
-        else "full_data/reddit_all_dataset.jsonl"
+        else f"{output_dir}/reddit_all_dataset.jsonl"
     )
     df = split_tldr_posts_into_content_and_summary(df)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     df.to_json(output_path, orient="records", lines=True)
 
 

@@ -50,6 +50,7 @@ def openai_call(
     )
     return completion
 
+
 @cachetools.cached(pc)
 def cached_openai_call(*args, **kwargs):
     """
@@ -97,8 +98,8 @@ def df_to_md(df: pd.DataFrame, output_path: str):
         }
 
         # only include each substrs pair if the column exists in the dataframe
-        for row in df.iloc:
-            substrs = []
+        for i, row in enumerate(df.iloc):
+            substrs = [f"##### example {i}"]
             for col_name, val in row.items():
                 if col_name in col_to_header:
                     substrs.append(f"## {col_to_header[col_name]}")
@@ -112,6 +113,7 @@ def df_to_md(df: pd.DataFrame, output_path: str):
             substrs.append(f"\n\n{'='*50}\n\n")
             md_row = "\n\n".join(substrs)
             f.write(md_row)
+
 
 def print_device():
     if torch.cuda.is_available():

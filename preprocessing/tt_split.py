@@ -10,7 +10,10 @@ Make two train-test splits:
 import pandas as pd
 import numpy as np
 
-full_data_path = "full_data/reddit_tldr_dataset.jsonl"
+# set random seed
+np.random.seed(0)
+
+full_data_path = "full_data/reddit_advice_tldr_dataset.jsonl"
 
 # Load the dataset
 df = pd.read_json(full_data_path, lines=True)
