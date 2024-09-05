@@ -5,9 +5,11 @@ torchvision
 torchaudio
 transformers
 pandas
-lmwrapper[hf]==0.10.0.0
+lmwrapper[hf]
 openai==1.33.0
 cachetools
 python-dotenv
 shelved-cache
 sentence-transformers
+seaborn
+matplotlib
