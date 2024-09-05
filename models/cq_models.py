@@ -42,7 +42,7 @@ class Clarifying_Question_Model:
     def __init__(self):
         pass
 
-    def forward(document: str, task: str) -> str:
+    def forward(document: str) -> str:
         # subclass this method
         return "What is six times seven?"
 
@@ -132,7 +132,9 @@ class GPTClarifyingQuestionModel(Clarifying_Question_Model):
             )
         questions = []
         for completion in completions:
-            questions.append(loads(completion.choices[0].message.content)["questions"][0])
+            questions.append(
+                loads(completion.choices[0].message.content)["questions"][0]
+            )
         return questions
 
     # todo: add iterative question asking where the model accounts for the answer to each question before asking another one
@@ -215,9 +217,7 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
 
         self.batch_size = batch_size
 
-    def forward(
-        self, documents: List[str], tasks: List[str]
-    ) -> List[str]:
+    def forward(self, documents: List[str], tasks: List[str]) -> List[str]:
         candidate_cqs = []
         # for i in range(N_QUESTIONS):
         benchmark_content = [
@@ -354,9 +354,7 @@ class Llama3ImagineClarifyingQuestionModel(Llama3ClarifyingQuestionModel):
                 q_similarity[i, j] = similarities.mean()
         # get the question with the lowest answer similarity
         best_questions = []
-        np_candidate_cqs = np.array(candidate_cqs).reshape(
-            len(documents), N_QUESTIONS
-        )
+        np_candidate_cqs = np.array(candidate_cqs).reshape(len(documents), N_QUESTIONS)
         for i in range(len(documents)):
             best_questions.append(np_candidate_cqs[i][q_similarity[i].argmin()])
         return best_questions
@@ -364,6 +362,7 @@ class Llama3ImagineClarifyingQuestionModel(Llama3ClarifyingQuestionModel):
     def forward_list(self, document: str, questions: List[str]) -> List[str]:
         # forward but for a list of questions
         return self.forward([document] * len(questions), questions)
+
 
 class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
     def __init__(self, use_cache, model_name="gpt-4-1106-preview"):
@@ -437,8 +436,10 @@ class GPTCOTClarifyingQuestionModel(Clarifying_Question_Model):
             )
         return clarifying_questions
 
+
 class PromptMode(Enum):
     DEFAULT = "default"
+
 
 class BaseClarifyingQuestionModel:
     def __init__(self, lm_wrapper, mode: PromptMode = PromptMode.DEFAULT):
@@ -446,19 +447,33 @@ class BaseClarifyingQuestionModel:
         self.mode = mode
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
+        self.cq_template = (
+            "First, read the following document:\n\n"
+            "Document: {document}\n\n"
+            # "Post: {doc}\n\n"
+            # "Who do you think is the asshole? If the speaker is the asshole, answer AUTHOR. If another person is the asshole, answer OTHER. If all parties are assholes, answer EVERYBODY. If nobody is an asshole, answer NOBODY. Do not say anything besides AUTHOR, OTHER, EVERYBODY, or NOBODY.\n\n"
+            # "Although some details may be unclear, who do you think is the most at fault? If the speaker is at primarily at fault, answer AUTHOR. If any other person is primarily at fault, answer OTHER. If nobody has done anything wrong whatsoever, answer NOBODY. If both the author and another party are equally at fault, answer EVERYBODY. Do not say anything besides AUTHOR, OTHER, NOBODY, or EVERYBODY.\n\n"
+            "You are trying to determine who is primarily at fault in this situation. Ask a clarifying question that will help you determine whether the fault lies primarily with the author, another person, everyone, or no one. Return only the question itself."
+        )
 
     def _get_format_func(self) -> Callable:
         format_funcs = {
             (ModelFamily.LLAMA, PromptMode.DEFAULT): self._format_llama_prompt_default,
             (ModelFamily.GPT, PromptMode.DEFAULT): self._format_gpt_prompt_default,
             (ModelFamily.GEMMA, PromptMode.DEFAULT): self._format_gemma_prompt_default,
-            (ModelFamily.MISTRAL, PromptMode.DEFAULT): self._format_mistral_prompt_default,
+            (
+                ModelFamily.MISTRAL,
+                PromptMode.DEFAULT,
+            ): self._format_mistral_prompt_default,
         }
-        return format_funcs.get((self.lm_wrapper.family, self.mode), self._format_default_prompt)
+        return format_funcs.get(
+            (self.lm_wrapper.family, self.mode), self._format_default_prompt
+        )
 
-    def _format_llama_prompt_default(self, document: str, task: str) -> str:
-        llama_prompt = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Do not say anything other than the question. {json}"
-        llama_user_message = llama_prompt.format(document=document, task=task, n_clarifying_questions=1, plural="s", json="")
+    def _format_llama_prompt_default(self, document: str) -> str:
+
+        # llama_prompt = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Do not say anything other than the question. {json}"
+        llama_user_message = self.cq_template.format(document=document)
 
         formatted_user_messages = [
             {
@@ -470,29 +485,29 @@ class BaseClarifyingQuestionModel:
                 "content": llama_user_message,
             },
         ]
-        
+
         return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
             formatted_user_messages, tokenize=False, add_generation_prompt=True
         )
 
-    def _format_gpt_prompt_default(self, document: str, task: str) -> str:
-        benchmark_template = "Context: {document}\n\nTask:{task}\n\nYou are trying to complete the task but do not have enough information from the document. Ask {n_clarifying_questions} question{plural} about the situation that can help you complete the task. In each question, only ask for one fact at a time. If you can, reference something specific in the document. Do not merely rephrase the original task. Do not say anything other than the question. {json}"
-        bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
-        return benchmark_template.format(document=document, task=task, n_clarifying_questions=1, plural=False, json="")
+    def _format_gpt_prompt_default(self, document: str) -> str:
+        return self.cq_template.format(document=document)
 
-    def _format_gemma_prompt_default(self, document: str, task: str) -> str:
+    def _format_gemma_prompt_default(self, document: str) -> str:
         pass
 
-    def _format_mistral_prompt_default(self, document: str, task: str) -> str:
+    def _format_mistral_prompt_default(self, document: str) -> str:
         pass
 
-    def _format_default_prompt(self, document: str, task: str) -> str:
+    def _format_default_prompt(self, document: str) -> str:
         pass
-        
+
     def forward_batch(self, documents: List[str], tasks: List[str]) -> List[List[str]]:
         format_func = self._get_format_func()
-        formatted_instructions = [format_func(document, task) for document, task in zip(documents, tasks)]
-        
+        formatted_instructions = [
+            format_func(document, task) for document, task in zip(documents, tasks)
+        ]
+
         sequences = self.lm_wrapper.language_model.predict_many(
             [LmPrompt(p, cache=False, max_tokens=512) for p in formatted_instructions],
             completion_window=CompletionWindow.ASAP,
@@ -501,9 +516,9 @@ class BaseClarifyingQuestionModel:
         outputs = [loads(x.completion_text)["questions"] for x in sequences]
         return outputs
 
-    def forward_single_generate_multiple_questions(self, document: str, task: str) -> List[str]:
+    def forward_single_generate_multiple_questions(self, document: str) -> List[str]:
         format_func = self._get_format_func()
-        formatted_instruction = format_func(document, task)
+        formatted_instruction = format_func(document)
 
         sequences = self.lm_wrapper.language_model.predict_many(
             ([LmPrompt(formatted_instruction, cache=False)]),
@@ -512,11 +527,13 @@ class BaseClarifyingQuestionModel:
 
         output = sequences[0].completion_text
         return loads(output)["questions"]
-    
-    def forward_batch_generate_single_question(self, documents: List[str], tasks: List[str]) -> List[str]:
+
+    def forward_batch_generate_single_question(self, documents: List[str]) -> List[str]:
         format_func = self._get_format_func()
-        formatted_instructions = [format_func(document, task) for document, task in zip(documents, tasks)]
-        
+        formatted_instructions = [
+            format_func(document) for document in documents
+        ]
+
         sequences = self.lm_wrapper.language_model.predict_many(
             [LmPrompt(p, cache=False, max_tokens=512) for p in formatted_instructions],
             completion_window=CompletionWindow.ASAP,
@@ -528,12 +545,13 @@ class BaseClarifyingQuestionModel:
         #     if self.lm_wrapper.family in [ModelFamily.GPT]:
         #         print(x.completion_text)
         #         print("=====================")
-        #         print("=====================")    
+        #         print("=====================")
         #         outputs.append(loads(x.completion_text)["questions"])
         #     else:
         #         outputs.append(x.completion_text)
-        
+
         return outputs
+
 
 if __name__ == "__main__":
     ### testing

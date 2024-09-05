@@ -17,101 +17,111 @@ from models.utils import ModelFamily
 load_dotenv()
 
 
-class PrimaryModel:
-    """
-    Base class for primary models. Subclass this class to implement a new primary model.
-    """
+# class PrimaryModel:
+#     """
+#     Base class for primary models. Subclass this class to implement a new primary model.
+#     """
 
-    def __init__(self):
-        self.prompt_template = "Memorize the following document and then follow the instructions below:\n\nDocument:\n\n%s\n\nInstructions: %s\n\n"
-        pass
+#     def __init__(self):
+#         # self.prompt_template = "Memorize the following document and then follow the instructions below:\n\nDocument:\n\n%s\n\nInstructions: %s\n\n"
+#         self.prompt_template = (
+#             "First, read the following document:\n\n"
+#             "Document: {document}\n\n"
+#             "Although some details may be unclear, who do you think is the most at fault? If the speaker is at primarily at fault, answer AUTHOR. If any other person is primarily at fault, answer OTHER. If nobody has done anything wrong whatsoever, answer NOBODY. If both the author and another party are equally at fault, answer EVERYBODY. Do not say anything besides AUTHOR, OTHER, NOBODY, or EVERYBODY.\n\n"
+#         )
+#         pass
 
-    def forward(x: str) -> str:
-        """
-        Subclass this method to implement a new primary model.
+#     def forward(x: str) -> str:
+#         """
+#         Subclass this method to implement a new primary model.
 
-        Parameters:
-            x (str): the input document
+#         Parameters:
+#             x (str): the input document
 
-        Returns:
-            str: the output of the primary model
-        """
-        raise NotImplementedError
-        return x
+#         Returns:
+#             str: the output of the primary model
+#         """
+#         raise NotImplementedError
 
-    def prepare_instruction(self, doc: str, prompt: str) -> str:
-        """
-        Format the document and prompt into a single string that can be used as input for the primary model.
+#     def prepare_instruction(self, doc: str) -> str:
+#         """
+#         Format the document and prompt into a single string that can be used as input for the primary model.
 
-        Parameters:
-            doc (str): the input document
-            prompt (str): the input prompt
+#         Parameters:
+#             doc (str): the input document
+#             prompt (str): the input prompt
 
-        Returns:
-            str: the formatted instruction
-        """
-        return self.prompt_template % (doc, prompt)
+#         Returns:
+#             str: the formatted instruction
+#         """
+#         return self.prompt_template % (doc)
 
-    def prepare_ca_instruction(self, doc_summ: str, ca: str, prompt: str):
-        return self.prepare_instruction("\n\n".join([doc_summ, ca]), prompt)
+#     def prepare_ca_instruction(self, doc_summ: str, ca: str):
+#         return self.prepare_instruction("\n\n".join([doc_summ, ca]))
 
-    def process(self, instructions: pd.Series) -> pd.Series:
-        """
-        Helper method for running forward on an entire series of inputs. Subclass this method.
+#     def process(self, instructions: pd.Series) -> pd.Series:
+#         """
+#         Helper method for running forward on an entire series of inputs. Subclass this method.
 
-        Parameters:
-            instructions (pd.Series): the input instructions
+#         Parameters:
+#             instructions (pd.Series): the input instructions
 
-        Returns:
-            pd.Series: the output of the primary model
-        """
-        raise NotImplementedError
-        pass
+#         Returns:
+#             pd.Series: the output of the primary model
+#         """
+#         raise NotImplementedError
+#         pass
 
 
-class GPTPrimaryModel(PrimaryModel):
-    def __init__(self, model_name, use_cache):
-        super().__init__()
-        self.model_name = model_name
-        self.use_cache = use_cache
-        pass
+# class GPTPrimaryModel(PrimaryModel):
+#     def __init__(self, model_name, use_cache):
+#         super().__init__()
+#         self.model_name = model_name
+#         self.use_cache = use_cache
+#         self.prompt_template = (
+#             "First, read the following document:\n\n"
+#             "Document: {document}\n\n"
+#             "Although some details may be unclear, who do you think is the most at fault? If the speaker is at primarily at fault, answer AUTHOR. If any other person is primarily at fault, answer OTHER. If nobody has done anything wrong whatsoever, answer NOBODY. If both the author and another party are equally at fault, answer EVERYBODY. Do not say anything besides AUTHOR, OTHER, NOBODY, or EVERYBODY.\n\n"
+#         )
+#         pass
 
-    def forward(self, instruction: str, temperature=0.0) -> str:
-        """
-        Parameters:
-            instruction (str): the input instruction
-            temperature (float): the temperature to use for the GPT model
-            model (str): the name of the model to use
+#     def forward(self, instruction: str, temperature=0.0) -> str:
+#         """
+#         Parameters:
+#             instruction (str): the input instruction
+#             temperature (float): the temperature to use for the GPT model
+#             model (str): the name of the model to use
 
-        Returns:
-            str: the output of the GPT model
-        """
-        completion = conditional_openai_call(
-            instruction,
-            model=self.model_name,
-            temperature=temperature,
-            use_cache=self.use_cache,
-        )
-        openai_output = completion.choices[0].message.content
+#         Returns:
+#             str: the output of the GPT model
+#         """
+#         completion = conditional_openai_call(
+#             instruction,
+#             model=self.model_name,
+#             temperature=temperature,
+#             use_cache=self.use_cache,
+#         )
+#         openai_output = completion.choices[0].message.content
 
-        return openai_output
+#         return openai_output
 
-    def forward_list(self, instructions: List[str], temperature=0.0) -> List[str]:
-        """helper method to call forward when the input is a list of instructions"""
-        outputs = []
-        for instruction in instructions:
-            outputs.append(self.forward(instruction, temperature))
-        return outputs
+#     def forward_list(self, instructions: List[str], temperature=0.0) -> List[str]:
+#         """helper method to call forward when the input is a list of instructions"""
+#         outputs = []
+#         for instruction in instructions:
+#             outputs.append(self.forward(instruction, temperature))
+#         return outputs
 
-    def process_list(self, instructions: pd.Series) -> pd.Series:
-        "call forward on each item of a series where the item is a ***list***"
-        pm_output = instructions.progress_apply(lambda x: self.forward_list(x))
-        return pm_output
+#     def process_list(self, instructions: pd.Series) -> pd.Series:
+#         "call forward on each item of a series where the item is a ***list***"
+#         pm_output = instructions.progress_apply(lambda x: self.forward_list(x))
+#         return pm_output
 
-    def process_single(self, instructions: pd.Series) -> pd.Series:
-        "call forward on each item of a series where the item is a ***string***"
-        pm_output = instructions.progress_apply(lambda x: self.forward(x))
-        return pm_output
+#     def process_single(self, instructions: pd.Series) -> pd.Series:
+#         "call forward on each item of a series where the item is a ***string***"
+#         pm_output = instructions.progress_apply(lambda x: self.forward(x))
+#         return pm_output
+
 
 # Base class for primary model
 class BasePrimaryModel:
@@ -120,47 +130,18 @@ class BasePrimaryModel:
         self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         login(token=self.hf_api_key)
 
-    def prepare_instruction(self, doc: str, prompt: str) -> str:
-        instruction = "Memorize the following document and then follow the instructions below:\n\nDocument:\n\n%s\n\nInstructions: %s\n\n"
-        return instruction % (doc, prompt)
-
-    def prepare_ca_instruction(self, doc_summ: str, ca: str, prompt: str):
-        return self.prepare_instruction("\n\n".join([doc_summ, ca]), prompt)
-
-        formatted_user_messages = [
-            [
-                {
-                    "role": "system",
-                    "content": self.system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": instruction,
-                },
-            ]
-            for instruction in instructions
-        ]
-        llama_formatted_prompts = [
-            self.pipeline._tokenizer.apply_chat_template(
-                prompt, tokenize=False, add_generation_prompt=True
-            )
-            for prompt in formatted_user_messages
-        ]
-        # sequences = self.pipeline(
-        sequences = self.pipeline.predict_many(
-            ([LmPrompt(p, cache=False) for p in llama_formatted_prompts]),
-            completion_window=CompletionWindow.ASAP,
+        self.prompt_template = (
+            "First, read the following document:\n\n"
+            "Document: {document}\n\n"
+            "Although some details may be unclear, who do you think is the most at fault? If the speaker is at primarily at fault, answer AUTHOR. If any other person is primarily at fault, answer OTHER. If nobody has done anything wrong whatsoever, answer NOBODY. If both the author and another party are equally at fault, answer EVERYBODY. Do not say anything besides AUTHOR, OTHER, NOBODY, or EVERYBODY.\n\n"
         )
 
-        outputs = [x.completion_text for x in sequences]
-        # for seq, llama_formatted_prompt in zip(sequences, llama_formatted_prompts):
-        #     llama_parsed_output = seq[0]["generated_text"]
-        #     llama_parsed_output = llama_parsed_output[len(llama_formatted_prompt) :]
-        #     llama_parsed_output = llama_parsed_output.strip()
+    def prepare_instruction(self, doc: str) -> str:
+        instruction = self.prompt_template.format(document=doc)
+        return instruction
 
-        #     outputs.append(llama_parsed_output)
-
-        return pd.Series(outputs)
+    def prepare_ca_instruction(self, doc_summ: str, ca: str):
+        return self.prepare_instruction("\n\n".join([doc_summ, ca]))
 
     def forward(self, instruction: str) -> str:
         format_func = {
