@@ -13,3 +13,5 @@ shelved-cache
 sentence-transformers
 seaborn
 matplotlib
+schema
+names
