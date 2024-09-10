@@ -17,6 +17,7 @@ person_schema = Schema(
         Optional("investment_income"): And(int, lambda n: n >= 0),
         Optional("provides_over_half_of_own_financial_support"): Use(bool),
         # School Info
+        Optional("student"): Use(bool),
         Optional("current_school_level"): Or(
             "pk",
             "k",
@@ -35,7 +36,7 @@ person_schema = Schema(
             None,
         ),
         # Work Info
-        Optional("works_at_home"): Use(bool),
+        Optional("works_outside_home"): Use(bool),
         Optional("looking_for_work"): Use(bool),
         Optional("work_hours_per_week"): And(int, lambda n: n >= 0),
         Optional("days_looking_for_work"): And(int, lambda n: n >= 0),
@@ -90,6 +91,7 @@ def get_random_person():
         "work_income": np.random.randint(0, 100000),
         "investment_income": np.random.randint(0, 100000),
         "provides_over_half_of_own_financial_support": np.random.choice([True, False]),
+        "student": np.random.choice([True, False]),
         "current_school_level": np.random.choice(
             [
                 "pk",
@@ -106,10 +108,10 @@ def get_random_person():
                 "10",
                 "11",
                 "12",
-                None,
+                "other",
             ]
         ),
-        "works_at_home": np.random.choice([True, False]),
+        "works_outside_home": np.random.choice([True, False]),
         "looking_for_work": np.random.choice([True, False]),
         "work_hours_per_week": np.random.randint(0, 60),
         "days_looking_for_work": np.random.randint(0, 365),
@@ -149,23 +151,23 @@ def get_random_person():
 
 
 def _one_self(hh):
-    # check the household has exactly one self
-    selfs = 0
-    for member in hh:
-        try:
+    # check the household has exactly one self and that it is member 0
+    if hh["members"][0]["relation"] != "self":
+        raise SchemaError("Household must have exactly one `self`")
+    for member in hh["members"][1:]:
+        if "relation" in member.keys():
             if member["relation"] == "self":
-                selfs += 1
-        except KeyError:
-            pass
-    if selfs > 1:
-        raise SchemaError("Household cannot have more than one `self`")
+                raise SchemaError("Household cannot have more than one `self`")
     return True
 
 
 household_schema = Schema(
-    {
-        "members": And([person_schema], _one_self),
-    }
+    And(
+        {
+            "members": [person_schema],
+        },
+        _one_self,
+    )
 )
 
 
