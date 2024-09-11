@@ -16,6 +16,8 @@ person_schema = Schema(
         Optional("work_income"): And(int, lambda n: n >= 0),
         Optional("investment_income"): And(int, lambda n: n >= 0),
         Optional("provides_over_half_of_own_financial_support"): Use(bool),
+        Optional("receives_hra"): Use(bool),
+        Optional("receives_ssi"): Use(bool),
         # School Info
         Optional("student"): Use(bool),
         Optional("current_school_level"): Or(

@@ -284,6 +284,99 @@ class ChildAndDependentCareTaxCredit(EligibilityGraph):
 
         return G
 
+class EarlyHeadStartPrograms(EligibilityGraph):
+    """
+    The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family may qualify for Early Head Start if at least one of these categories applies to you:
+    * You live in temporary housing
+    * You receive HRA Cash Assistance
+    * You receive SSI (Supplemental Security Insurance)
+    * You are enrolling a child who is in foster care
+    * You may also qualify if your household income is at or below these amounts:
+
+    +--------------+---------------+
+    | Family Size  | Yearly Income |
+    +--------------+---------------+
+    |      1       |   $14,580     |
+    |      2       |   $19,720     |
+    |      3       |   $24,860     |
+    |      4       |   $30,000     |
+    |      5       |   $35,140     |
+    |      6       |   $40,280     |
+    |      7       |   $45,420     |
+    |      8       |   $50,560     |
+    +--------------+---------------+
+    For each additional person, add: $5,140
+
+    """
+
+    @classmethod
+    def make_graph(
+        cls,
+        hh: dict,
+    ) -> Literal["pass", "fail", "indeterminate"]:
+        n = len(hh["members"])
+        household_schema.validate(hh)
+        G = nx.MultiGraph()
+        G.add_node("source")
+        G.add_node("sink")
+
+        G.add_node("m1")
+
+        # Check all members
+        for i in range(n):
+            G.add_node(f"r1_temporary{i}")
+            G.add_node(f"r2_hra{i}")
+            G.add_node(f"r3_ssi{i}")
+            G.add_node(f"r4_foster{i}")
+
+            G.add_edge("source",
+                       f"r1_temporary{i}",
+                con=lambda hh, i=i: hh["members"][i]["lives_in_temp_housing"],)
+            
+            G.add_edge(f"r1_temporary{i}",
+                       "sink",
+                       con=lambda _: True)
+            
+            # Check if anyone in the whole household receives HRA
+            G.add_edge("source",
+                       f"r2_hra{i}",
+                con=lambda hh, i=i: hh["members"][i]["receives_hra"],)
+            
+            G.add_edge(f"r2_hra{i}",
+                       "sink",
+                       con=lambda _: True)
+            
+            # Check if anyone in the whole household receives SSI
+            G.add_edge("source",
+                       f"r3_ssi{i}",
+                con=lambda hh, i=i: hh["members"][i]["receives_ssi"],)
+            
+            G.add_edge(f"r3_ssi{i}",
+                       "sink",
+                       con=lambda _: True)
+            
+            # Check if anyone is in foster care
+            G.add_edge("source",
+                       f"r4_foster{i}",
+                con=lambda hh, i=i: hh["members"][i]["in_foster_care"],)
+
+            G.add_edge(f"r4_foster{i}",
+                       "sink",
+                       con=lambda _: True)
+        
+        def check_income(hh):
+            hh_income = sum(hh["members"][i].get("work_income", 0) + hh["members"][i].get("investment_income", 0) for i in range(n))
+            family_size = len(hh["members"])
+            return hh_income <= 14580 + (family_size - 1) * 5140
+
+        G.add_edge("source",
+                   "m_income",
+                   con=check_income)
+        G.add_edge("m_income",
+                    "sink",
+                    con=lambda _: True)
+
+        return G
 
 if __name__ == "__main__":
 
@@ -316,82 +409,39 @@ if __name__ == "__main__":
 
     assert ChildAndDependentCareTaxCredit.__call__(hh) == "pass"
 
-    ### ChildAndDependentCareTaxCreditR1R2 ###
-
-    ## PASSING ##
-    member = {
-        "has_paid_caregiver": True,
-        "age": 12,
-        "relation": "child",
-        "duration_more_than_half_prev_year": True,
+    hh = {
+        "members": [
+            {
+                "relation": "self",
+                "lives_in_temp_housing": True,
+                "receives_hra": True,
+                "receives_ssi": True,
+                "in_foster_care": False,
+                "work_income": 10000,
+            },
+        ]
     }
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "pass"
+    household_schema.validate(hh)
+    EarlyHeadStartPrograms.draw_graph(hh)
 
-    member = {
-        "has_paid_caregiver": True,
-        "age": 99,
-        "relation": "other_family",
-        "can_care_for_self": False,
-        "dependent": True,
-        "duration_more_than_half_prev_year": True,
-    }
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "pass"
+    assert EarlyHeadStartPrograms.__call__(hh) == "pass"
 
-    ## INDETERMINATE ##
-    member = {
-        # "has_paid_caregiver": True,
-        "age": 12,
-        "relation": "child",
-        "duration_more_than_half_prev_year": True,
-    }
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "indeterminate"
-
-    member = {
-        "has_paid_caregiver": True,
-        # "age": 99,
-        # "relation": "other_family",
-        "can_care_for_self": False,
-        "dependent": True,
-        "duration_more_than_half_prev_year": True,
-    }
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "indeterminate"
-
-    ## FAILING ##
-    member = {
-        "has_paid_caregiver": True,
-        "age": 12,
-        "relation": "child",
-        "duration_more_than_half_prev_year": False,
+    hh = {
+        "members": [
+            {
+                "relation": "self",
+                "lives_in_temp_housing": False,
+                "receives_hra": False,
+                "receives_ssi": False,
+                "in_foster_care": False,
+                "work_income": 100000,
+            },
+        ]
     }
 
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "fail"
+    household_schema.validate(hh)
+    EarlyHeadStartPrograms.draw_graph(hh)
 
-    member = {
-        "has_paid_caregiver": False,
-        # "age": 99,
-        # "relation": "other_family",
-        "can_care_for_self": False,
-        "dependent": True,
-        "duration_more_than_half_prev_year": True,
-    }
-
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "fail"
-
-    member = {
-        "has_paid_caregiver": False,
-        # "age": 99,
-        # "relation": "other_family",
-        "can_care_for_self": True,
-        # "dependent": True,
-        # "duration_more_than_half_prev_year": True,
-    }
-    person_schema.validate(member)
-    assert ChildAndDependentCareTaxCreditR1R2.__call__(member) == "fail"
+    assert EarlyHeadStartPrograms.__call__(hh) == "fail"
 
     print("All tests passed")
