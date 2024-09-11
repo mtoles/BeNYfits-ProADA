@@ -383,10 +383,11 @@ class EarlyHeadStartPrograms(EligibilityGraph):
 
 if __name__ == "__main__":
     for example in dataset:
-        program = eval(example["program"])
-        hh = example["hh"]
-        label = example["label"]
-        household_schema.validate(hh)
-        assert program.__call__(hh) == label
+        for i, program_string in enumerate(example["programs"]):
+            program = eval(program_string)
+            hh = example["hh"]
+            label = example["labels"][i]
+            household_schema.validate(hh)
+            assert program.__call__(hh) == label
 
     print("All tests passed")

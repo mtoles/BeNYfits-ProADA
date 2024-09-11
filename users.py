@@ -1,155 +1,76 @@
 from schema import Schema, And, Or, Use, Optional, SchemaError
 from names import get_full_name
 import numpy as np
+import pandas as pd
 
-person_schema = Schema(
-    {
-        # Demographic Info
-        Optional("name"): And(str, len),
-        Optional("age"): And(Use(int), lambda n: n >= 0),
-        Optional("disabled"): Use(bool),
-        Optional("has_ssn"): Use(bool),
-        Optional("has_atin"): Use(bool),
-        Optional("has_itin"): Use(bool),
-        Optional("can_care_for_self"): Use(bool),
-        # Financial Info
-        Optional("work_income"): And(int, lambda n: n >= 0),
-        Optional("investment_income"): And(int, lambda n: n >= 0),
-        Optional("provides_over_half_of_own_financial_support"): Use(bool),
-        Optional("receives_hra"): Use(bool),
-        Optional("receives_ssi"): Use(bool),
-        # School Info
-        Optional("student"): Use(bool),
-        Optional("current_school_level"): Or(
-            "pk",
-            "k",
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10",
-            "11",
-            "12",
-            None,
-        ),
-        # Work Info
-        Optional("works_outside_home"): Use(bool),
-        Optional("looking_for_work"): Use(bool),
-        Optional("work_hours_per_week"): And(int, lambda n: n >= 0),
-        Optional("days_looking_for_work"): And(int, lambda n: n >= 0),
-        # Family Info
-        Optional("in_foster_care"): Use(bool),
-        Optional("attending_service_for_domestic_violence"): Use(bool),
-        Optional("has_paid_caregiver"): Use(bool),
-        # Housing Info
-        Optional("lives_in_temp_housing"): Use(bool),
-        Optional("name_is_on_lease"): Use(bool),
-        Optional("monthly_rent_spending"): And(int, lambda n: n >= 0),
-        Optional("lives_in_rent_stabilized_apartment"): Use(bool),
-        Optional("lives_in_rent_controlled_apartment"): Use(bool),
-        Optional("lives_in_mitchell-lama"): Use(bool),
-        Optional("lives_in_limited_dividend_development"): Use(bool),
-        Optional("lives_in_redevelopment_company_development"): Use(bool),
-        Optional("lives_in_hdfc_development"): Use(bool),
-        Optional("lives_in_section_213_coop"): Use(bool),
-        Optional("lives_in_rent_regulated_hotel"): Use(bool),
-        Optional("lives_in_rent_regulated_single"): Use(bool),
-        # Relation Info
-        Optional("relation"): Or(  # relation to user
-            "self",
-            "spouse",
-            "child",
-            "stepchild",
-            "grandchild",
-            "foster_child",
-            "adopted_child",
-            "sibling_niece_nephew",
-            "other_family",
-            "other_non_family",
-        ),
-        Optional("duration_more_than_half_prev_year"): Use(bool),
-        Optional("lived_together_last_6_months"): Use(bool),
-        Optional("filing_jointly"): Use(bool),
-        Optional("dependent"): Use(bool),
-    }
-)
+# fmt: off
+# DefaultName is a 20 year old NEET who 
+# - qualifies for basically nothing 
+# - has SSN
+# - does not pay rent
+person_struct = [
+    # Demographic Info
+    ("name", And(str, len), get_full_name(), "DefaultName"),
+    ("age", And(Use(int), lambda n: n >= 0), np.random.randint(0, 100), 20),
+    ("disabled", Use(bool), np.random.choice([True, False]), False),
+    ("has_ssn", Use(bool), np.random.choice([True, False]), True),
+    ("has_atin", Use(bool), np.random.choice([True, False]), False),
+    ("has_itin", Use(bool), np.random.choice([True, False]), False),
+    ("can_care_for_self", Use(bool), np.random.choice([True, False]), True),
+    
+    # Financial Info
+    ("work_income", And(int, lambda n: n >= 0), np.random.randint(0, 100000), 0),
+    ("investment_income", And(int, lambda n: n >= 0), np.random.randint(0, 100000), 0),
+    ("provides_over_half_of_own_financial_support", Use(bool), np.random.choice([True, False]), True),
+    ("receives_hra", Use(bool), np.random.choice([True, False]), False),
+    ("receives_ssi", Use(bool), np.random.choice([True, False]), False),
+    
+    # School Info
+    ("student", Use(bool), np.random.choice([True, False]), False),
+    ("current_school_level", Or("pk", "k", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", None), 
+     np.random.choice(["pk", "k", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", None]), None),
+    
+    # Work Info
+    ("works_outside_home", Use(bool), np.random.choice([True, False]), False),
+    ("looking_for_work", Use(bool), np.random.choice([True, False]), False),
+    ("work_hours_per_week", And(int, lambda n: n >= 0), np.random.randint(0, 60), 0),
+    ("days_looking_for_work", And(int, lambda n: n >= 0), np.random.randint(0, 365), 0),
+    
+    # Family Info
+    ("in_foster_care", Use(bool), np.random.choice([True, False]), False),
+    ("attending_service_for_domestic_violence", Use(bool), np.random.choice([True, False]), False),
+    ("has_paid_caregiver", Use(bool), np.random.choice([True, False]), False),
+    
+    # Housing Info
+    ("lives_in_temp_housing", Use(bool), np.random.choice([True, False]), False),
+    ("name_is_on_lease", Use(bool), np.random.choice([True, False]), False),
+    ("monthly_rent_spending", And(int, lambda n: n >= 0), np.random.randint(0, 10000), 0),
+    ("lives_in_rent_stabilized_apartment", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_rent_controlled_apartment", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_mitchell-lama", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_limited_dividend_development", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_redevelopment_company_development", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_hdfc_development", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_section_213_coop", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_rent_regulated_hotel", Use(bool), np.random.choice([True, False]), False),
+    ("lives_in_rent_regulated_single", Use(bool), np.random.choice([True, False]), False),
+    
+    # Relation Info
+    ("relation", Or("self", "spouse", "child", "stepchild", "grandchild", "foster_child", "adopted_child", 
+                    "sibling_niece_nephew", "other_family", "other_non_family"), 
+     np.random.choice(["spouse", "child", "stepchild", "grandchild", "foster_child", "adopted_child", 
+                       "sibling_niece_nephew", "other_family", "other_non_family"]), "self"),
+    ("duration_more_than_half_prev_year", Use(bool), np.random.choice([True, False]), True),
+    ("lived_together_last_6_months", Use(bool), np.random.choice([True, False]), True),
+    ("filing_jointly", Use(bool), np.random.choice([True, False]), False),
+    ("dependent", Use(bool), np.random.choice([True, False]), False),
+]
+# fmt: on
 
+person_schema = Schema({Optional(f[0]): f[1] for f in person_struct})
 
-# random person generator
-def get_random_person():
-    person = {
-        "name": get_full_name(),
-        "age": np.random.randint(0, 100),
-        "disabled": np.random.choice([True, False]),
-        "has_ssn": np.random.choice([True, False]),
-        "has_atin": np.random.choice([True, False]),
-        "has_itin": np.random.choice([True, False]),
-        "can_care_for_self": np.random.choice([True, False]),
-        "work_income": np.random.randint(0, 100000),
-        "investment_income": np.random.randint(0, 100000),
-        "provides_over_half_of_own_financial_support": np.random.choice([True, False]),
-        "student": np.random.choice([True, False]),
-        "current_school_level": np.random.choice(
-            [
-                "pk",
-                "k",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "10",
-                "11",
-                "12",
-                "other",
-            ]
-        ),
-        "works_outside_home": np.random.choice([True, False]),
-        "looking_for_work": np.random.choice([True, False]),
-        "work_hours_per_week": np.random.randint(0, 60),
-        "days_looking_for_work": np.random.randint(0, 365),
-        "in_foster_care": np.random.choice([True, False]),
-        "attending_service_for_domestic_violence": np.random.choice([True, False]),
-        "lives_in_temp_housing": np.random.choice([True, False]),
-        "name_is_on_lease": np.random.choice([True, False]),
-        "monthly_rent_spending": np.random.randint(0, 10000),
-        "lives_in_rent_stabilized_apartment": np.random.choice([True, False]),
-        "lives_in_rent_controlled_apartment": np.random.choice([True, False]),
-        "lives_in_mitchell-lama": np.random.choice([True, False]),
-        "lives_in_limited_dividend_development": np.random.choice([True, False]),
-        "lives_in_redevelopment_company_development": np.random.choice([True, False]),
-        "lives_in_hdfc_development": np.random.choice([True, False]),
-        "lives_in_section_213_coop": np.random.choice([True, False]),
-        "lives_in_rent_regulated_hotel": np.random.choice([True, False]),
-        "lives_in_rent_regulated_single": np.random.choice([True, False]),
-        "relation": np.random.choice(
-            [
-                "spouse",
-                "child",
-                "stepchild",
-                "grandchild",
-                "foster_child",
-                "adopted_child",
-                "sibling_niece_nephew",
-                "other_family",
-                "other_non_family",
-            ]
-        ),
-        "duration_more_than_half_prev_year": np.random.choice([True, False]),
-        "lived_together_last_6_months": np.random.choice([True, False]),
-        "filing_jointly": np.random.choice([True, False]),
-        "dependent": np.random.choice([True, False]),
-    }
-    return person
+person_schema_df = pd.DataFrame(person_struct, columns=["field", "schema", "random", "default"]).set_index("field")
+
 
 
 def _one_self(hh):
@@ -172,6 +93,20 @@ household_schema = Schema(
     )
 )
 
+def get_default_person():
+    return person_schema_df["default"].to_dict()
+def get_random_person():
+    return person_schema_df["random"].apply(lambda x: x() if callable(x) else x).to_dict()
+def get_default_child():
+    child = get_default_person()
+    child["relation"] = "child"
+    child["provides_over_half_of_own_financial_support"] = False
+    child["can_care_for_self"] = False
+    child["age"] = 4
+    child["student"] = True
+    child["current_school_level"] = "pk"
+    child["dependent"] = True
+    return child
 
 def get_random_self_person():
     self_person = get_random_person()
@@ -180,6 +115,7 @@ def get_random_self_person():
 
 
 if __name__ == "__main__":
+    #
     for i in range(10):
         members = [get_random_self_person()]
         for n in range(3):  # num family members
@@ -187,6 +123,9 @@ if __name__ == "__main__":
         household = {"members": members}
         household_schema.validate(household)
 
+    # check default person
+    default_person = get_default_person()
+    household = {"members": [default_person]}
     print("Households are valid")
 
 
