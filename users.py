@@ -69,8 +69,9 @@ person_struct = [
 
 person_schema = Schema({Optional(f[0]): f[1] for f in person_struct})
 
-person_schema_df = pd.DataFrame(person_struct, columns=["field", "schema", "random", "default"]).set_index("field")
-
+person_schema_df = pd.DataFrame(
+    person_struct, columns=["field", "schema", "random", "default"]
+).set_index("field")
 
 
 def _one_self(hh):
@@ -93,12 +94,19 @@ household_schema = Schema(
     )
 )
 
-def get_default_person():
+
+def get_default_user():
     return person_schema_df["default"].to_dict()
+
+
 def get_random_person():
-    return person_schema_df["random"].apply(lambda x: x() if callable(x) else x).to_dict()
+    return (
+        person_schema_df["random"].apply(lambda x: x() if callable(x) else x).to_dict()
+    )
+
+
 def get_default_child():
-    child = get_default_person()
+    child = get_default_user()
     child["relation"] = "child"
     child["provides_over_half_of_own_financial_support"] = False
     child["can_care_for_self"] = False
@@ -107,6 +115,7 @@ def get_default_child():
     child["current_school_level"] = "pk"
     child["dependent"] = True
     return child
+
 
 def get_random_self_person():
     self_person = get_random_person()
@@ -124,7 +133,7 @@ if __name__ == "__main__":
         household_schema.validate(household)
 
     # check default person
-    default_person = get_default_person()
+    default_person = get_default_user()
     household = {"members": [default_person]}
     print("Households are valid")
 

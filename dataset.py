@@ -1,7 +1,7 @@
 # Temporary small, static dataset for ChatBot testing
 import numpy as np
 from names import get_full_name
-from users import get_default_person, get_default_child
+from users import get_default_user, get_default_child
 
 ex1 = (
     {
@@ -83,7 +83,7 @@ Earned Income Tax Credit:               pass
 Head Start:                             pass
 Comprehensive After School:             fail
 """
-dad = get_default_person()
+dad = get_default_user()
 dad["work_income"] = 500
 dad["work_hours_per_week"] = 40
 
