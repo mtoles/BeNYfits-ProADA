@@ -5,6 +5,7 @@ from typing import List, Dict, Literal, Tuple
 import string
 import inspect
 import matplotlib.pyplot as plt
+from dataset import dataset
 
 from users import (
     person_schema,
@@ -284,6 +285,7 @@ class ChildAndDependentCareTaxCredit(EligibilityGraph):
 
         return G
 
+
 class EarlyHeadStartPrograms(EligibilityGraph):
     """
     The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family may qualify for Early Head Start if at least one of these categories applies to you:
@@ -329,119 +331,62 @@ class EarlyHeadStartPrograms(EligibilityGraph):
             G.add_node(f"r3_ssi{i}")
             G.add_node(f"r4_foster{i}")
 
-            G.add_edge("source",
-                       f"r1_temporary{i}",
-                con=lambda hh, i=i: hh["members"][i]["lives_in_temp_housing"],)
-            
-            G.add_edge(f"r1_temporary{i}",
-                       "sink",
-                       con=lambda _: True)
-            
-            # Check if anyone in the whole household receives HRA
-            G.add_edge("source",
-                       f"r2_hra{i}",
-                con=lambda hh, i=i: hh["members"][i]["receives_hra"],)
-            
-            G.add_edge(f"r2_hra{i}",
-                       "sink",
-                       con=lambda _: True)
-            
-            # Check if anyone in the whole household receives SSI
-            G.add_edge("source",
-                       f"r3_ssi{i}",
-                con=lambda hh, i=i: hh["members"][i]["receives_ssi"],)
-            
-            G.add_edge(f"r3_ssi{i}",
-                       "sink",
-                       con=lambda _: True)
-            
-            # Check if anyone is in foster care
-            G.add_edge("source",
-                       f"r4_foster{i}",
-                con=lambda hh, i=i: hh["members"][i]["in_foster_care"],)
+            G.add_edge(
+                "source",
+                f"r1_temporary{i}",
+                con=lambda hh, i=i: hh["members"][i]["lives_in_temp_housing"],
+            )
 
-            G.add_edge(f"r4_foster{i}",
-                       "sink",
-                       con=lambda _: True)
-        
+            G.add_edge(f"r1_temporary{i}", "sink", con=lambda _: True)
+
+            # Check if anyone in the whole household receives HRA
+            G.add_edge(
+                "source",
+                f"r2_hra{i}",
+                con=lambda hh, i=i: hh["members"][i]["receives_hra"],
+            )
+
+            G.add_edge(f"r2_hra{i}", "sink", con=lambda _: True)
+
+            # Check if anyone in the whole household receives SSI
+            G.add_edge(
+                "source",
+                f"r3_ssi{i}",
+                con=lambda hh, i=i: hh["members"][i]["receives_ssi"],
+            )
+
+            G.add_edge(f"r3_ssi{i}", "sink", con=lambda _: True)
+
+            # Check if anyone is in foster care
+            G.add_edge(
+                "source",
+                f"r4_foster{i}",
+                con=lambda hh, i=i: hh["members"][i]["in_foster_care"],
+            )
+
+            G.add_edge(f"r4_foster{i}", "sink", con=lambda _: True)
+
         def check_income(hh):
-            hh_income = sum(hh["members"][i].get("work_income", 0) + hh["members"][i].get("investment_income", 0) for i in range(n))
+            hh_income = sum(
+                hh["members"][i].get("work_income", 0)
+                + hh["members"][i].get("investment_income", 0)
+                for i in range(n)
+            )
             family_size = len(hh["members"])
             return hh_income <= 14580 + (family_size - 1) * 5140
 
-        G.add_edge("source",
-                   "m_income",
-                   con=check_income)
-        G.add_edge("m_income",
-                    "sink",
-                    con=lambda _: True)
+        G.add_edge("source", "m_income", con=check_income)
+        G.add_edge("m_income", "sink", con=lambda _: True)
 
         return G
 
+
 if __name__ == "__main__":
-
-    #### TEST CASES ###
-    ### ChildAndDependentCareTaxCredit ###
-    ## PASSING ##
-    hh = {
-        "members": [
-            {
-                "relation": "self",
-                "works_outside_home": True,
-                "work_income": 10000,
-                "filing_jointly": True,
-            },
-            {
-                "relation": "spouse",
-                "student": True,
-                "works_outside_home": True,
-            },
-            {
-                "relation": "child",
-                "age": 12,
-                "has_paid_caregiver": True,
-                "duration_more_than_half_prev_year": True,
-            },
-        ]
-    }
-    household_schema.validate(hh)
-    ChildAndDependentCareTaxCredit.draw_graph(hh)
-
-    assert ChildAndDependentCareTaxCredit.__call__(hh) == "pass"
-
-    hh = {
-        "members": [
-            {
-                "relation": "self",
-                "lives_in_temp_housing": True,
-                "receives_hra": True,
-                "receives_ssi": True,
-                "in_foster_care": False,
-                "work_income": 10000,
-            },
-        ]
-    }
-    household_schema.validate(hh)
-    EarlyHeadStartPrograms.draw_graph(hh)
-
-    assert EarlyHeadStartPrograms.__call__(hh) == "pass"
-
-    hh = {
-        "members": [
-            {
-                "relation": "self",
-                "lives_in_temp_housing": False,
-                "receives_hra": False,
-                "receives_ssi": False,
-                "in_foster_care": False,
-                "work_income": 100000,
-            },
-        ]
-    }
-
-    household_schema.validate(hh)
-    EarlyHeadStartPrograms.draw_graph(hh)
-
-    assert EarlyHeadStartPrograms.__call__(hh) == "fail"
+    for example in dataset:
+        program = eval(example["program"])
+        hh = example["hh"]
+        label = example["label"]
+        household_schema.validate(hh)
+        assert program.__call__(hh) == label
 
     print("All tests passed")
