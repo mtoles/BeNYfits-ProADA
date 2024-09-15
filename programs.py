@@ -325,43 +325,51 @@ class EarlyHeadStartPrograms(EligibilityGraph):
         G.add_node("m1")
 
         # Check all members
-        for i in range(n):
-            G.add_node(f"r1_temporary{i}")
-            G.add_node(f"r2_hra{i}")
-            G.add_node(f"r3_ssi{i}")
+        G.add_node("r1_temporary")
+        G.add_node("r2_hra")
+        G.add_node("r3_ssi")
+        G.add_node("m_income")
+
+        G.add_edge(
+            "source",
+            f"r1_temporary",
+            con=lambda hh: hh["members"][0]["lives_in_temp_housing"],
+        )
+
+        G.add_edge(f"r1_temporary", "sink", con=lambda _: True)
+
+        # Check if anyone in the whole household receives HRA
+        G.add_edge(
+            "source",
+            f"r2_hra",
+            con=lambda hh: hh["members"][0]["receives_hra"],
+        )
+
+        G.add_edge(f"r2_hra", "sink", con=lambda _: True)
+
+        # Check if anyone in the whole household receives SSI
+        G.add_edge(
+            "source",
+            f"r3_ssi",
+            con=lambda hh: hh["members"][0]["receives_ssi"],
+        )
+
+        G.add_edge(f"r3_ssi", "sink", con=lambda _: True)
+
+        for i in range(1, n):
+            G.add_node(f"r4_child{i}")
             G.add_node(f"r4_foster{i}")
-
-            G.add_edge(
-                "source",
-                f"r1_temporary{i}",
-                con=lambda hh, i=i: hh["members"][i]["lives_in_temp_housing"],
-            )
-
-            G.add_edge(f"r1_temporary{i}", "sink", con=lambda _: True)
-
-            # Check if anyone in the whole household receives HRA
-            G.add_edge(
-                "source",
-                f"r2_hra{i}",
-                con=lambda hh, i=i: hh["members"][i]["receives_hra"],
-            )
-
-            G.add_edge(f"r2_hra{i}", "sink", con=lambda _: True)
-
-            # Check if anyone in the whole household receives SSI
-            G.add_edge(
-                "source",
-                f"r3_ssi{i}",
-                con=lambda hh, i=i: hh["members"][i]["receives_ssi"],
-            )
-
-            G.add_edge(f"r3_ssi{i}", "sink", con=lambda _: True)
-
             # Check if anyone is in foster care
             G.add_edge(
                 "source",
+                f"r4_child{i}",
+                con=lambda hh: hh["members"][i]["relation"] == "child",
+            )
+
+            G.add_edge(
+                "source",
                 f"r4_foster{i}",
-                con=lambda hh, i=i: hh["members"][i]["in_foster_care"],
+                con=lambda hh: hh["members"][i]["in_foster_care"],
             )
 
             G.add_edge(f"r4_foster{i}", "sink", con=lambda _: True)
@@ -379,6 +387,128 @@ class EarlyHeadStartPrograms(EligibilityGraph):
         G.add_edge("m_income", "sink", con=lambda _: True)
 
         return G
+
+class InfantsAndToddlersPrograms(EligibilityGraph):
+    """
+    You must have at least one of these approved reasons for care:
+
+    You work 10+ hours per week
+    You are in an educational or vocational training program
+    You are starting to look for work or have been looking for work for up to 6 months. This includes looking for work while receiving unemployment
+    You live in temporary housing
+    You are attending services for domestic violence
+    You are receiving treatment for substance abuse
+    You may qualify if your household income is at or below these amounts:
+
+    +-------------+----------------+---------------+
+    | Family Size | Monthly Income | Yearly Income |
+    +-------------+----------------+---------------+
+    | 1           | $4,301         | $51,610       |
+    | 2           | $5,624         | $67,490       |
+    | 3           | $6,948         | $83,370       |
+    | 4           | $8,271         | $99,250       |
+    | 5           | $9,594         | $115,130      |
+    | 6           | $10,918        | $131,010      |
+    | 7           | $11,166        | $133,987      |
+    | 8           | $11,414        | $136,965      |
+    | 9           | $11,662        | $139,942      |
+    | 10          | $11,910        | $142,920      |
+    | 11          | $12,158        | $145,897      |
+    | 12          | $12,406        | $148,875      |
+    | 13          | $12,654        | $151,852      |
+    | 14          | $12,903        | $154,830      |
+    | 15          | $13,151        | $157,807      |
+    +-------------+----------------+---------------+
+    """
+
+
+    @classmethod
+    def make_graph(
+        cls,
+        hh: dict,
+    ) -> Literal["pass", "fail", "indeterminate"]:
+        n = len(hh["members"])
+        household_schema.validate(hh)
+        G = nx.MultiGraph()
+        G.add_node("source")
+        G.add_node("sink")
+
+        G.add_node("m1")
+
+        G.add_node("r1_work_atleast_10_hours")
+        G.add_node("r2_training")
+        G.add_node("r3_looking_for_work")
+        G.add_node("r4_temporary")
+        G.add_node("r5_attending_services_for_domestic_violence")
+        G.add_node("r6_receiving_treatment_for_substance_abuse")
+        G.add_node("m_income")
+
+        G.add_edge(
+            "source",
+            f"r1_work_atleast_10_hours",
+            con=lambda hh: hh["members"][0]["work_hours_per_week"] >= 10,
+        )
+
+        G.add_edge(f"r1_work_atleast_10_hours", "sink", con=lambda _: True)
+
+        G.add_edge(
+            "source",
+            f"r2_training",
+            con=lambda hh: hh["members"][0]["enrolled_in_educational_training"] or hh["members"][0]["enrolled_in_vocational_training"],
+        )
+
+        G.add_edge(f"r2_training", "sink", con=lambda _: True)
+
+        G.add_edge(
+            "source",
+            f"r3_looking_for_work",
+            con=lambda hh: hh["members"][0]["looking_for_work"] and (hh["members"][0]["days_looking_for_work"] <= 180),
+        )
+
+        G.add_edge(f"r3_looking_for_work", "sink", con=lambda _: True)
+
+        G.add_edge(
+            "source",
+            f"r4_temporary",
+            con=lambda hh: hh["members"][0]["lives_in_temp_housing"],
+        )
+
+        G.add_edge(f"r4_temporary", "sink", con=lambda _: True)
+
+        G.add_edge(
+            "source",
+            f"r5_attending_services_for_domestic_violence",
+            con=lambda hh: hh["members"][0]["attending_services_for_domestic_violence"],
+        )
+
+        G.add_edge(f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True)
+
+        G.add_edge(
+            "source",
+            f"r6_receiving_treatment_for_substance_abuse",
+            con=lambda hh: hh["members"][0]["receiving_treatment_for_substance_abuse"],
+        )
+
+        G.add_edge(f"r6_receiving_treatment_for_substance_abuse", "sink", con=lambda _: True)
+        
+        def check_income(hh):
+            hh_income = sum(
+                hh["members"][i].get("work_income", 0)
+                + hh["members"][i].get("investment_income", 0)
+                for i in range(n)
+            )
+            family_size = len(hh["members"])
+            if family_size < 6:
+                return hh_income <= 12 * (1323.4 * family_size + 2977.6)
+            
+            return hh_income <= 12 * (248.11 * family_size + 9429.34)
+
+        G.add_edge("source", "m_income", con=check_income)
+        G.add_edge("m_income", "sink", con=lambda _: True)
+
+        return G
+    
+
 
 
 if __name__ == "__main__":

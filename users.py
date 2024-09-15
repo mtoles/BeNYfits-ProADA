@@ -17,6 +17,10 @@ person_struct = [
     ("has_atin", Use(bool), np.random.choice([True, False]), False),
     ("has_itin", Use(bool), np.random.choice([True, False]), False),
     ("can_care_for_self", Use(bool), np.random.choice([True, False]), True),
+
+    # Training Info
+    ("enrolled_in_educational_training", Use(bool), np.random.choice([True, False]), False),
+    ("enrolled_in_vocational_training", Use(bool), np.random.choice([True, False]), False),
     
     # Financial Info
     ("work_income", And(int, lambda n: n >= 0), np.random.randint(0, 100000), 0),
@@ -38,7 +42,7 @@ person_struct = [
     
     # Family Info
     ("in_foster_care", Use(bool), np.random.choice([True, False]), False),
-    ("attending_service_for_domestic_violence", Use(bool), np.random.choice([True, False]), False),
+    ("attending_services_for_domestic_violence", Use(bool), np.random.choice([True, False]), False),
     ("has_paid_caregiver", Use(bool), np.random.choice([True, False]), False),
     
     # Housing Info
@@ -64,6 +68,10 @@ person_struct = [
     ("lived_together_last_6_months", Use(bool), np.random.choice([True, False]), True),
     ("filing_jointly", Use(bool), np.random.choice([True, False]), False),
     ("dependent", Use(bool), np.random.choice([True, False]), False),
+
+    # Miscellaneous
+    ("receiving_treatment_for_substance_abuse", Use(bool), np.random.choice([True, False]), False),
+
 ]
 # fmt: on
 

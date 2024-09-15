@@ -29,7 +29,7 @@ ex1 = (
                 },
             ]
         },
-    },
+    }
 )
 
 ex2 = (
@@ -49,7 +49,7 @@ ex2 = (
                 },
             ]
         },
-    },
+    }
 )
 ex3 = (
     {
@@ -67,44 +67,32 @@ ex3 = (
                 },
             ]
         },
-    },
+    }
 )
-
-# ex4
-"""
-Single parent, low income, one kid aged 2, 
-
-Child and Dependent Care Tax Credit:    fail
-Early Head Start Programs:              pass
-Infant/Toddler Programs:                pass
-Child Tax Credit:                       pass
-Disability Rent Increase Exemption:     fail
-Earned Income Tax Credit:               pass
-Head Start:                             pass
-Comprehensive After School:             fail
-"""
-dad = get_default_user()
-dad["work_income"] = 500
-dad["work_hours_per_week"] = 40
-
-kid = get_default_child()
 
 ex4 = (
     {
-        # Single parent, low income, one kid,
-        "programs": [
-            "EarlyHeadStartPrograms",
-            "InfantToddlerPrograms",
-            "ChildTaxCredit",
-            "DisabilityRentIncreaseExemption",
-            "EarnedIncomeTaxCredit",
-            "HeadStart",
-            "ComprehensiveAfterSchool",
-        ],
-        "labels": ["fail", "pass", "pass", "pass", "fail", "pass", "pass", "fail"],
-        "hh": {[dad, kid]},
-    },
+        "programs": ["InfantsAndToddlersPrograms"],
+        "labels": ["fail"],
+        "hh": {
+            "members": [
+                {
+                    "relation": "self",
+                    "work_hours_per_week": 9,
+                    "enrolled_in_educational_training": False,
+                    "enrolled_in_vocational_training": False,
+                    "looking_for_work": False,
+                    "days_looking_for_work": 5,
+                    "lives_in_temp_housing": False,
+                    "attending_services_for_domestic_violence": False,
+                    "receiving_treatment_for_substance_abuse": False,
+                    "work_income": 180000,
+                },
+            ]
+        },
+    }
 )
+
 
 ### Dataset ###
 
