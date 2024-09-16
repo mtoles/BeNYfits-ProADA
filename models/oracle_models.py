@@ -62,11 +62,11 @@ class BaseOracleModel:
             for doc, question in zip(documents, questions)
         ]
 
-        print("--"*20)
-        print(f"Prompt for Oracle Model:")
-        for p in formatted_prompts:
-            print(p)
-        print("--"*20)
+        # print("--"*20)
+        # print(f"Prompt for Oracle Model:")
+        # for p in formatted_prompts:
+        #     print(p)
+        # print("--"*20)
 
         sequences = self.lm_wrapper.language_model.predict_many(
             [LmPrompt(p, cache=False) for p in formatted_prompts],

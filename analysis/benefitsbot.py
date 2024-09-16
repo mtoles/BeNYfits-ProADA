@@ -68,8 +68,8 @@ for index, row in df.iterrows():
 
     user = UserProfile()
     no_of_benefits = len(programs)
-    print(f"Total number of programs: {no_of_benefits}")
-    print(f"Household Description: {hh_nl_desc}")
+    # print(f"Total number of programs: {no_of_benefits}")
+    # print(f"Household Description: {hh_nl_desc}")
 
     # Load language models and pipeline setup
     chatbot_model_wrapper = load_lm(args.chatbot_model_name)

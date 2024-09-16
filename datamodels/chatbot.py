@@ -52,10 +52,10 @@ class ChatBot:
 
         formatted_prompt = format_func(benefits_ready_question)
 
-        print("--"*20)
-        print(f"Prompt for Checking Benefits are Ready:")
-        print(formatted_prompt)
-        print("--"*20)
+        # print("--"*20)
+        # print(f"Prompt for Checking Benefits are Ready:")
+        # print(formatted_prompt)
+        # print("--"*20)
 
         sequences = list(self.lm_wrapper.language_model.predict_many(
             ([LmPrompt(formatted_prompt, cache=False, max_tokens=512)]),
