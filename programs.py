@@ -10,8 +10,8 @@ from dataset import dataset
 from users import (
     person_schema,
     household_schema,
-    get_random_person,
-    get_random_self_person,
+    random_person,
+    random_self_person,
 )
 
 
