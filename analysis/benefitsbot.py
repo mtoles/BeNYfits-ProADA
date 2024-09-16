@@ -1,4 +1,3 @@
-
 import json
 import argparse
 import pandas as pd
@@ -12,6 +11,7 @@ from lmwrapper.batch_config import CompletionWindow
 from datamodels.userprofile import UserProfile
 from datamodels.chatbot import ChatBot
 from datamodels.syntheticuser import SyntheticUser
+from sklearn.metrics import f1_score
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -25,27 +25,28 @@ parser.add_argument(
     help="Name of the synthetic user model to use.",
 )
 parser.add_argument(
-    "--max_chat_iterations",
+    "--max_dialog_turns",
     default=10,
     help="Maximum number of iterations between benefits bot and synthetic user",
     type=int,
 )
 parser.add_argument(
     "--chat_history",
-    default="./dataset/benefits_short_v0.0.1_manual.txt",
+    default="./dataset/benefits_short_v0.1.0.txt",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
     "--dataset_path",
-    default="./dataset/benefits_dataset_v0.1.0.jsonl",
+    default="./dataset/dataset_v0.1.0.jsonl",
     help="Path to the chat history or benefits description",
 )
 args = parser.parse_args()
 
+
 # Read the chat history from the file
-def read_chat_history(file_path):
+def read_eligibility_requirements(file_path):
     try:
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             return file.read()
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' does not exist.")
@@ -54,45 +55,53 @@ def read_chat_history(file_path):
         print(f"Error reading file '{file_path}': {e}")
         return None
 
+
 # Description about all the benefits eligbility in natural language
-chat_history = read_chat_history(args.chat_history)
+eligibility_requirements = read_eligibility_requirements(args.chat_history)
 
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
 
+predictions = []
 for index, row in df.iterrows():
     print(f"Index: {index}")
-    programs = row['programs']
-    labels = row['labels']
-    hh_nl_desc = row['hh_nl_desc']
+    programs = row["programs"]
+    labels = row["labels"]
+    hh_nl_desc = row["hh_nl_desc"]
 
     user = UserProfile()
-    no_of_benefits = len(programs)
+    num_benefits = len(programs)
     # print(f"Total number of programs: {no_of_benefits}")
     # print(f"Household Description: {hh_nl_desc}")
 
     # Load language models and pipeline setup
     chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-    chatbot = ChatBot(chatbot_model_wrapper, no_of_benefits, chat_history)
+    chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
 
     synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
     synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
 
     cur_iter_count = 0
-    max_chat_iterations = args.max_chat_iterations
+    max_dialog_turns = args.max_dialog_turns
 
-    while cur_iter_count<max_chat_iterations and chatbot.benefits_ready() != True:
+    while cur_iter_count < max_dialog_turns and chatbot.benefits_ready() != True:
         cur_iter_count += 1
         print(f"Iteration Count: {cur_iter_count}")
         cq = chatbot.ask_cq()
         print(f"Clarifying Question: {cq}")
         cq_answer = synthetic_user.answer_cq(cq)
         print(f"Answer: {cq_answer}")
-        print("=="*20)
+        print("==" * 20)
         chatbot.append_chat_history_with_cq_answer(cq_answer)
 
-    benefits_prediction = chatbot.predict_benefits_eligibility()
-
+    benefits_prediction_str = chatbot.predict_benefits_eligibility()
+    benefits_prediction = chatbot.extract_prediction(benefits_prediction_str, num_benefits)
+    predictions.append(benefits_prediction)
     print(f"Benefits Prediction: {benefits_prediction}")
+    print("==" * 30)
 
-    print("=="*30)
+df["predictions"] = predictions
+df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
+df["f1"] = df.apply(lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1)
+print(f"Total F1 Score: {df['f1'].mean()}")
+

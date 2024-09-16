@@ -16,7 +16,8 @@ class BaseOracleModel:
         self.lm_wrapper = lm_wrapper
         self.batch_size = batch_size
 
-        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+                # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        self.hf_api_key = os.getenv("HF_TOKEN")
         login(token=self.hf_api_key)
 
     def _format_llama_prompt(self, document: str, question: str) -> str:

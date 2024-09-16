@@ -4,9 +4,17 @@ from typing import List
 from models.utils import ModelFamily
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
+import re
+import ast
+import numpy as np
+
+np.random.seed(42)
+
 
 class ChatBot:
-    def __init__(self, lm_wrapper: LanguageModelWrapper, no_of_programs: str, history: str):
+    def __init__(
+        self, lm_wrapper: LanguageModelWrapper, no_of_programs: str, history: str
+    ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
@@ -31,11 +39,15 @@ class ChatBot:
         )
 
     def _format_gpt_prompt(self, question: str) -> str:
-        json_instruction = "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        json_instruction = (
+            "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        )
         return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def _format_default_prompt(self, question: str) -> str:
-        json_instruction = "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        json_instruction = (
+            "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        )
         return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def benefits_ready(self) -> bool:
@@ -47,7 +59,7 @@ class ChatBot:
             ModelFamily.LLAMA: self._format_llama_prompt,
             ModelFamily.GPT: self._format_gpt_prompt,
             ModelFamily.GEMMA: self._format_default_prompt,
-            ModelFamily.MISTRAL: self._format_default_prompt
+            ModelFamily.MISTRAL: self._format_default_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_prompt = format_func(benefits_ready_question)
@@ -57,10 +69,12 @@ class ChatBot:
         # print(formatted_prompt)
         # print("--"*20)
 
-        sequences = list(self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(formatted_prompt, cache=False, max_tokens=512)]),
-            completion_window=CompletionWindow.ASAP,
-        ))
+        sequences = list(
+            self.lm_wrapper.language_model.predict_many(
+                ([LmPrompt(formatted_prompt, cache=False, max_tokens=512)]),
+                completion_window=CompletionWindow.ASAP,
+            )
+        )
 
         output = sequences[0].completion_text
 
@@ -69,7 +83,7 @@ class ChatBot:
         # print("--"*20)
 
         return output
-    
+
     def predict_benefits_eligibility(self) -> List[bool]:
         """
         Predict what all benefits user or its household is eligible for.
@@ -83,33 +97,67 @@ class ChatBot:
 
         formatted_prompt = format_func(benefits_ready_question)
 
-        print("--"*20)
+        print("--" * 20)
         print(f"Prompt for Predicting Benefits Eligbility:")
         print(formatted_prompt)
-        print("--"*20)
+        print("--" * 20)
 
-        sequences = list(self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(formatted_prompt, cache=False)]),
-            completion_window=CompletionWindow.ASAP,
-        ))
+        sequences = list(
+            self.lm_wrapper.language_model.predict_many(
+                ([LmPrompt(formatted_prompt, cache=False)]),
+                completion_window=CompletionWindow.ASAP,
+            )
+        )
 
         output = sequences[0].completion_text
         # TODO - Ensure output is a list of boolean
         return output
-        
+
     def ask_cq(self) -> str:
         """
         Function to generate clarifying question.
         """
         task = "You are a language model trying to help user to determine eligbility of user for benefits."
-        cq = self.cq_model.forward_batch_generate_single_question([self.history], [task])[0]
+        cq = self.cq_model.forward_batch_generate_single_question(
+            [self.history], [task]
+        )[0]
         return cq
-    
+
     def append_chat_history_with_cq_answer(self, cq_answer: str):
         self.history = self.history + cq_answer
 
     def print_chat_history(self):
-        print("=="*30)
+        print("==" * 30)
         print("Chat History: ")
         print(self.history)
-        print("=="*30)
+        print("==" * 30)
+
+    def extract_prediction(self, prediction: str, num_programs: int) -> List[bool]:
+        """
+        Extract the prediction from the model output
+        """
+        # Regex to match a list-like structure in the string
+        pattern = r"\[.*?\]"
+        # Find the first list-like match in the string
+        match = re.search(pattern, prediction)
+        if match:
+            # Extract the matched portion and safely evaluate it
+            extracted_list_str = match.group(0)
+            # Safely evaluate the string into a Python list
+            try:
+                extracted_list = ast.literal_eval(extracted_list_str)
+                assert isinstance(extracted_list, list)
+            except (SyntaxError, NameError, ValueError, AssertionError):
+                # return None  # If the string can't be evaluated as a list, return None
+                # return random list of boolean
+                return [bool(np.random.randint(0, 2)) for _ in range(num_programs)]
+            extracted_list = extracted_list + [
+                bool(np.random.randint(0, 2))
+                for _ in range(num_programs - len(extracted_list))
+            ]
+            extracted_list = ["pass" if x else "fail" for x in extracted_list]
+            return extracted_list
+        else:
+            # return None  # If no list-like structure is found, return None
+            # return random list of boolean
+            return ["pass" if x else "fail" for x in [bool(np.random.randint(0, 2)) for _ in range(num_programs)]]

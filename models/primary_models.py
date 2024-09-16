@@ -117,7 +117,8 @@ class GPTPrimaryModel(PrimaryModel):
 class BasePrimaryModel:
     def __init__(self, lm_wrapper):
         self.lm_wrapper = lm_wrapper
-        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        self.hf_api_key = os.getenv("HF_TOKEN")
         login(token=self.hf_api_key)
 
     def prepare_instruction(self, doc: str, prompt: str) -> str:

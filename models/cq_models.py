@@ -444,7 +444,8 @@ class BaseClarifyingQuestionModel:
     def __init__(self, lm_wrapper, mode: PromptMode = PromptMode.DEFAULT):
         self.lm_wrapper = lm_wrapper
         self.mode = mode
-        self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        self.hf_api_key = os.getenv("HF_TOKEN")
         login(token=self.hf_api_key)
 
     def _get_format_func(self) -> Callable:
