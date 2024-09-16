@@ -50,14 +50,24 @@ class ChatBot:
             ModelFamily.MISTRAL: self._format_default_prompt
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
-        formatted_prompts = format_func(benefits_ready_question)
+        formatted_prompt = format_func(benefits_ready_question)
+
+        print("--"*20)
+        print(f"Prompt for Checking Benefits are Ready:")
+        print(formatted_prompt)
+        print("--"*20)
 
         sequences = list(self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(formatted_prompts, cache=False, max_tokens=512)]),
+            ([LmPrompt(formatted_prompt, cache=False, max_tokens=512)]),
             completion_window=CompletionWindow.ASAP,
         ))
 
         output = sequences[0].completion_text
+
+        print("--"*20)
+        print(f"RESULT: Are Benefits Ready? : {output}")
+        print("--"*20)
+
         return output
     
     def predict_benefits_eligibility(self) -> List[bool]:
@@ -71,10 +81,15 @@ class ChatBot:
             ModelFamily.GPT: self._format_gpt_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
-        formatted_prompts = format_func(benefits_ready_question)
+        formatted_prompt = format_func(benefits_ready_question)
+
+        print("--"*20)
+        print(f"Prompt for Predicting Benefits Eligbility:")
+        print(formatted_prompt)
+        print("--"*20)
 
         sequences = list(self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(formatted_prompts, cache=False)]),
+            ([LmPrompt(formatted_prompt, cache=False)]),
             completion_window=CompletionWindow.ASAP,
         ))
 

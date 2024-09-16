@@ -1,5 +1,7 @@
 
+import json
 import argparse
+import pandas as pd
 from models.utils import load_lm, LanguageModelWrapper
 from models.cq_models import BaseClarifyingQuestionModel
 from models.oracle_models import BaseOracleModel
@@ -28,44 +30,69 @@ parser.add_argument(
     help="Maximum number of iterations between benefits bot and synthetic user",
     type=int,
 )
+parser.add_argument(
+    "--chat_history",
+    default="./dataset/benefits_short_v0.0.1_manual.txt",
+    help="Path to the chat history or benefits description",
+)
+parser.add_argument(
+    "--dataset_path",
+    default="./dataset/benefits_dataset_v0.1.0.jsonl",
+    help="Path to the chat history or benefits description",
+)
 args = parser.parse_args()
 
-# TODO - Plug history and user profile in from arguments
-user = UserProfile()
+# Read the chat history from the file
+def read_chat_history(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            return file.read()
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' does not exist.")
+        return None
+    except IOError as e:
+        print(f"Error reading file '{file_path}': {e}")
+        return None
 
 # Description about all the benefits eligbility in natural language
-chat_history = """
-    To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to these questions:
+chat_history = read_chat_history(args.chat_history)
 
-    1. Did you pay someone to care for your dependent so that you (and your spouse, if filing a joint return) could work or look for work? Qualifying dependents are:
-        - a child under age 13 at the time of care;
-        - a spouse or adult dependent who cannot physically or mentally care for themselves.
-    2. Did the dependent live with you for more than half of 2023?
-    3. Did you (and your spouse if you file taxes jointly) earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
-    4. If you are married, do both you and your spouse work outside of the home?
-        - Or, do one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
-    """
-no_of_benefits = 1
+# Load the dataset
+df = pd.read_json(args.dataset_path, lines=True)
 
-chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-chatbot = ChatBot(chatbot_model_wrapper, no_of_benefits, chat_history)
+for index, row in df.iterrows():
+    print(f"Index: {index}")
+    programs = row['programs']
+    labels = row['labels']
+    hh_nl_desc = row['hh_nl_desc']
 
-synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
-synthetic_user = SyntheticUser(user, synthetic_user_model_wrapper)
+    user = UserProfile()
+    no_of_benefits = len(programs)
+    print(f"Total number of programs: {no_of_benefits}")
+    print(f"Household Description: {hh_nl_desc}")
 
-cur_iter_count = 0
-max_chat_iterations = args.max_chat_iterations
+    # Load language models and pipeline setup
+    chatbot_model_wrapper = load_lm(args.chatbot_model_name)
+    chatbot = ChatBot(chatbot_model_wrapper, no_of_benefits, chat_history)
 
-while cur_iter_count<max_chat_iterations and chatbot.benefits_ready() != True:
-    cur_iter_count += 1
-    print(f"Iteration Count: {cur_iter_count}")
-    cq = chatbot.ask_cq()
-    print(f"Clarifying Question: {cq}")
-    cq_answer = synthetic_user.answer_cq(cq)
-    print(f"Answer: {cq_answer}")
-    print("=="*20)
-    chatbot.append_chat_history_with_cq_answer(cq_answer)
+    synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
+    synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
 
-benefits_prediction = chatbot.predict_benefits_eligibility()
+    cur_iter_count = 0
+    max_chat_iterations = args.max_chat_iterations
 
-print(f"Benefits Prediction: {benefits_prediction}")
+    while cur_iter_count<max_chat_iterations and chatbot.benefits_ready() != True:
+        cur_iter_count += 1
+        print(f"Iteration Count: {cur_iter_count}")
+        cq = chatbot.ask_cq()
+        print(f"Clarifying Question: {cq}")
+        cq_answer = synthetic_user.answer_cq(cq)
+        print(f"Answer: {cq_answer}")
+        print("=="*20)
+        chatbot.append_chat_history_with_cq_answer(cq_answer)
+
+    benefits_prediction = chatbot.predict_benefits_eligibility()
+
+    print(f"Benefits Prediction: {benefits_prediction}")
+
+    print("=="*30)

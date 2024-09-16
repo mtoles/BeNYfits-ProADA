@@ -517,21 +517,17 @@ class BaseClarifyingQuestionModel:
         format_func = self._get_format_func()
         formatted_instructions = [format_func(document, task) for document, task in zip(documents, tasks)]
         
+        print(f"Prompt for Clariying Question Model:")
+        for p in formatted_instructions:
+            print(p)
+        print("--"*20)
+
         sequences = self.lm_wrapper.language_model.predict_many(
             [LmPrompt(p, cache=False, max_tokens=512) for p in formatted_instructions],
             completion_window=CompletionWindow.ASAP,
         )
 
         outputs = [x.completion_text for x in sequences]
-
-        # for x in sequences:
-        #     if self.lm_wrapper.family in [ModelFamily.GPT]:
-        #         print(x.completion_text)
-        #         print("=====================")
-        #         print("=====================")    
-        #         outputs.append(loads(x.completion_text)["questions"])
-        #     else:
-        #         outputs.append(x.completion_text)
         
         return outputs
 
