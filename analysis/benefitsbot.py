@@ -24,7 +24,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_chat_iterations",
-    default=2,
+    default=10,
     help="Maximum number of iterations between benefits bot and synthetic user",
     type=int,
 )
@@ -34,8 +34,18 @@ args = parser.parse_args()
 user = UserProfile()
 
 # Description about all the benefits eligbility in natural language
-chat_history = "Blah blah blah blah"
-no_of_benefits = 5
+chat_history = """
+    To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to these questions:
+
+    1. Did you pay someone to care for your dependent so that you (and your spouse, if filing a joint return) could work or look for work? Qualifying dependents are:
+        - a child under age 13 at the time of care;
+        - a spouse or adult dependent who cannot physically or mentally care for themselves.
+    2. Did the dependent live with you for more than half of 2023?
+    3. Did you (and your spouse if you file taxes jointly) earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
+    4. If you are married, do both you and your spouse work outside of the home?
+        - Or, do one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
+    """
+no_of_benefits = 1
 
 chatbot_model_wrapper = load_lm(args.chatbot_model_name)
 chatbot = ChatBot(chatbot_model_wrapper, no_of_benefits, chat_history)
@@ -48,8 +58,12 @@ max_chat_iterations = args.max_chat_iterations
 
 while cur_iter_count<max_chat_iterations and chatbot.benefits_ready() != True:
     cur_iter_count += 1
+    print(f"Iteration Count: {cur_iter_count}")
     cq = chatbot.ask_cq()
+    print(f"Clarifying Question: {cq}")
     cq_answer = synthetic_user.answer_cq(cq)
+    print(f"Answer: {cq_answer}")
+    print("=="*20)
     chatbot.append_chat_history_with_cq_answer(cq_answer)
 
 benefits_prediction = chatbot.predict_benefits_eligibility()

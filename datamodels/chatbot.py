@@ -65,7 +65,7 @@ class ChatBot:
         Predict what all benefits user or its household is eligible for.
         Return a boolean array of length equal to number of benefits.
         """
-        benefits_ready_question = f"Return a boolean array of length {self.no_of_programs} determining if the user or any member in its houehold is eligible for the benefits."
+        benefits_ready_question = f"Return only a boolean array of length {self.no_of_programs} determining if the user or any member in its houehold is eligible for the benefits. Do not return anything else in the response."
         format_func = {
             ModelFamily.LLAMA: self._format_llama_prompt,
             ModelFamily.GPT: self._format_gpt_prompt,
@@ -92,3 +92,9 @@ class ChatBot:
     
     def append_chat_history_with_cq_answer(self, cq_answer: str):
         self.history = self.history + cq_answer
+
+    def print_chat_history(self):
+        print("=="*30)
+        print("Chat History: ")
+        print(self.history)
+        print("=="*30)

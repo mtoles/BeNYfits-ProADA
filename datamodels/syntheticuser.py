@@ -18,7 +18,7 @@ class SyntheticUser:
         Function to return the description of the user profile in natural language
         """
         # TODO - Convert user to NL user
-        return ""
+        return "You are user who works outside home, income is 10000 and filing jointly. Your spouse is a student and works outside home. Your child is 12 years old, has paid caregiver and has lived with me for more than half of previous year."
     
     def answer_cq(self, cq: str):
         """
