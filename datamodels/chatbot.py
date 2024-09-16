@@ -64,9 +64,9 @@ class ChatBot:
 
         output = sequences[0].completion_text
 
-        print("--"*20)
-        print(f"RESULT: Are Benefits Ready? : {output}")
-        print("--"*20)
+        # print("--"*20)
+        # print(f"RESULT: Are Benefits Ready? : {output}")
+        # print("--"*20)
 
         return output
     
