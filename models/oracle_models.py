@@ -11,7 +11,7 @@ class BaseOracleModel:
     def __init__(self, lm_wrapper, batch_size):
         super().__init__()
 
-        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person, as if you are the original writer of the Reddit post. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.'"
+        self.main_instruction = "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.' Answer concisely. Answer only 'yes' or 'no' to yes/no questions."
 
         self.lm_wrapper = lm_wrapper
         self.batch_size = batch_size

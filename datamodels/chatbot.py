@@ -1,6 +1,6 @@
 from models.utils import load_lm, LanguageModelWrapper
 from models.cq_models import BaseClarifyingQuestionModel
-from typing import List
+from typing import List, Optional
 from models.utils import ModelFamily
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
@@ -89,7 +89,11 @@ class ChatBot:
         Predict what all benefits user or its household is eligible for.
         Return a boolean array of length equal to number of benefits.
         """
-        benefits_ready_question = f"Return only a boolean array of length {self.no_of_programs} determining if the user or any member in its houehold is eligible for the benefits. Do not return anything else in the response."
+
+        def example_array(n):
+            return str([bool(x % 2) for x in range(n)])
+
+        benefits_ready_question = f"Return only a boolean array of length {self.no_of_programs}, e.g. {example_array(self.no_of_programs)} determining if the user or any member in its houehold is eligible for the benefits. Only return the array. Do not return anything else in the response."
         format_func = {
             ModelFamily.LLAMA: self._format_llama_prompt,
             ModelFamily.GPT: self._format_gpt_prompt,
@@ -132,7 +136,9 @@ class ChatBot:
         print(self.history)
         print("==" * 30)
 
-    def extract_prediction(self, prediction: str, num_programs: int) -> List[bool]:
+    def extract_prediction(
+        self, prediction: str, num_programs: int
+    ) -> List[Optional[str]]:
         """
         Extract the prediction from the model output
         """
@@ -145,19 +151,23 @@ class ChatBot:
             extracted_list_str = match.group(0)
             # Safely evaluate the string into a Python list
             try:
-                extracted_list = ast.literal_eval(extracted_list_str)
-                assert isinstance(extracted_list, list)
+                bool_output = ast.literal_eval(extracted_list_str)
+                assert isinstance(bool_output, list)
+                assert len(bool_output) == num_programs
             except (SyntaxError, NameError, ValueError, AssertionError):
-                # return None  # If the string can't be evaluated as a list, return None
-                # return random list of boolean
-                return [bool(np.random.randint(0, 2)) for _ in range(num_programs)]
-            extracted_list = extracted_list + [
-                bool(np.random.randint(0, 2))
-                for _ in range(num_programs - len(extracted_list))
-            ]
-            extracted_list = ["pass" if x else "fail" for x in extracted_list]
-            return extracted_list
+                # If the string can't be evaluated as a list, return None
+                return None
+            str_output = ["pass" if x else "fail" for x in bool_output]
+            return str_output
         else:
-            # return None  # If no list-like structure is found, return None
-            # return random list of boolean
-            return ["pass" if x else "fail" for x in [bool(np.random.randint(0, 2)) for _ in range(num_programs)]]
+            return None
+        #     # If no list-like structure is found, return None
+        #     bool_output = [None] * num_programs
+        # # extracted_list = ["pass" if x else "fail" for x in extracted_list]
+        # str_output = []
+        # for i, x in enumerate(bool_output):
+        #     if x is None:
+        #         str_output.append(None)
+        #     else:
+        #         str_output.append("pass" if x else "fail")
+        # return str_output

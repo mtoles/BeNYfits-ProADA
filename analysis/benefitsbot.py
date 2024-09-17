@@ -1,3 +1,4 @@
+import os
 import json
 import argparse
 import pandas as pd
@@ -12,6 +13,7 @@ from datamodels.userprofile import UserProfile
 from datamodels.chatbot import ChatBot
 from datamodels.syntheticuser import SyntheticUser
 from sklearn.metrics import f1_score
+from datetime import datetime
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -42,6 +44,8 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+
 
 # Read the chat history from the file
 def read_eligibility_requirements(file_path):
@@ -63,6 +67,7 @@ eligibility_requirements = read_eligibility_requirements(args.chat_history)
 df = pd.read_json(args.dataset_path, lines=True)
 
 predictions = []
+transcripts = []
 for index, row in df.iterrows():
     print(f"Index: {index}")
     programs = row["programs"]
@@ -84,6 +89,7 @@ for index, row in df.iterrows():
     cur_iter_count = 0
     max_dialog_turns = args.max_dialog_turns
 
+    transcript = [chatbot.history]
     while cur_iter_count < max_dialog_turns and chatbot.benefits_ready() != True:
         cur_iter_count += 1
         print(f"Iteration Count: {cur_iter_count}")
@@ -93,15 +99,39 @@ for index, row in df.iterrows():
         print(f"Answer: {cq_answer}")
         print("==" * 20)
         chatbot.append_chat_history_with_cq_answer(cq_answer)
+        transcript.append(f"BOT: {cq}")
+        transcript.append(f"USER: {cq_answer}")
 
     benefits_prediction_str = chatbot.predict_benefits_eligibility()
-    benefits_prediction = chatbot.extract_prediction(benefits_prediction_str, num_benefits)
+    benefits_prediction = chatbot.extract_prediction(
+        benefits_prediction_str, num_benefits
+    )
     predictions.append(benefits_prediction)
     print(f"Benefits Prediction: {benefits_prediction}")
     print("==" * 30)
+    transcript.append(benefits_prediction_str)
+    transcript.append(f"Predicted Benefits: {benefits_prediction}")
+    transcripts.append("\n\n".join(transcript))
 
 df["predictions"] = predictions
 df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
-df["f1"] = df.apply(lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1)
+df["f1"] = None
+df["f1"][~df["predictions"].isnull()] = df[~df["predictions"].isnull()].apply(
+    lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
+)
+df["f1"][df["predictions"].isnull()] = 0  # Set F1 score to 0 if no prediction was made
 print(f"Total F1 Score: {df['f1'].mean()}")
 
+### Save results file and chat history ###
+output_dir = f"./results/{now}"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+with open(f"{output_dir}/results.json", "w") as f:
+    for key, value in args.__dict__.items():
+        f.write(f"{key}: {value}\n")
+    f.write(f"Total F1 Score: {df['f1'].mean()}\n")
+with open(f"{output_dir}/transcript.md", "w") as f:
+    for i, transcript in enumerate(transcripts):
+        f.write(f"Transcript {i}\n")
+        f.write(f"{transcript}\n")
+        f.write("\n\n==========\n\n")
