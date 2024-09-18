@@ -1,0 +1,99 @@
+# v0.2.2
+Below is the list of programs alon gwith their eligibility criterias:
+
+1. Child and Dependent Care Tax Credit
+To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to the following questions:
+1. Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or adult dependent who cannot physically or mentally care for themselves.
+2. Did the dependent live with you for more than half of 2023?
+3. Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
+4. If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
+
+2. Early Head Start Programs
+The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:  
+1. You live in temporary housing.  
+2. You receive HRA Cash Assistance.  
+3. You receive SSI (Supplemental Security Insurance).  
+4. You are enrolling a child who is in foster care.  
+5. If your household income is at or below these amounts:  
+Family size and yearly income:  
+1 - $14,580  
+2 - $19,720  
+3 - $24,860  
+4 - $30,000  
+5 - $35,140  
+6 - $40,280  
+7 - $45,420  
+8 - $50,560  
+For each additional person, add $5,140.
+
+3. Infant/Toddler Programs
+You must have a child age 5 or younger and both parents have at least one of these approved reasons for care:  
+1. You work 10+ hours per week.  
+2. You are in an educational or vocational training program.  
+3. You are starting to look for work or have been looking for work for up to 6 months, including looking for work while receiving unemployment.  
+4. You live in temporary housing.  
+5. You are attending services for domestic violence.  
+6. You are receiving treatment for substance abuse.  
+7. Your household income is at or below these amounts:
+Family size, monthly income, and yearly income:  
+1 - $4,301 (monthly), $51,610 (yearly)  
+2 - $5,624 (monthly), $67,490 (yearly)  
+3 - $6,948 (monthly), $83,370 (yearly)  
+4 - $8,271 (monthly), $99,250 (yearly)  
+5 - $9,594 (monthly), $115,130 (yearly)  
+6 - $10,918 (monthly), $131,010 (yearly)  
+7 - $11,166 (monthly), $133,987 (yearly)  
+8 - $11,414 (monthly), $136,965 (yearly)  
+9 - $11,662 (monthly), $139,942 (yearly)  
+10 - $11,910 (monthly), $142,920 (yearly)  
+11 - $12,158 (monthly), $145,897 (yearly)  
+12 - $12,406 (monthly), $148,875 (yearly)  
+13 - $12,654 (monthly), $151,852 (yearly)  
+14 - $12,903 (monthly), $154,830 (yearly)  
+15 - $13,151 (monthly), $157,807 (yearly)
+
+4. Child Tax Credit
+To be eligible for the credit in the 2023 tax year, you should meet these requirements:  
+1. You earned up to $200,000, and up to $400,000 if you are married filing jointly.  
+2. You're claiming a child on your tax return who is 16 or younger. The child must have a Social Security Number (SSN) or Adoption Tax Identification Number (ATIN). The filer may use an SSN or Individual Taxpayer Identification Number (ITIN). Qualifying children must be your child, stepchild, grandchild, eligible foster child, adopted child, sibling, niece, or nephew.  
+3. Your child or dependent lived with you for over half of the year in the U.S. and you are claiming them as a dependent on your tax return. Your child cannot provide more than half of their own financial support.
+
+5. Disability Rent Increase Exemption
+To be eligible for DRIE, you should be able to answer "yes" to all of these questions:  
+1. Are you 18 years old or older?  
+2. Is your name on the lease?  
+3. Is your combined household income $50,000 or less in a year?  
+4. Do you spend more than one-third of your monthly income on rent?  
+5. Do you live in NYC in one of these types of housing: a rent stabilized apartment, a rent controlled apartment, a Mitchell-Lama development, a Limited Dividend development, a redevelopment company development, a Housing Development Fund Company (HDFC) Cooperative development, a Section 213 Cooperative unit, or a rent regulated hotel or single room occupancy unit?  
+6. Do you have income from the following benefits: Supplemental Security Income (SSI), Federal Social Security Disability Insurance (SSDI), U.S. Department of Veterans Affairs (VA) disability pension or compensation, or disability-related Medicaid if you received either SSI or SSDI in the past?
+
+6. Earned Income Tax Credit
+To claim the EITC credit on your 2023 tax return, these must apply to you:  
+1. You have a valid Social Security Number.  
+2. Your income, marital, and parental status in 2023 were one of these: Married with qualifying children and earning up to $63,398, Married with no qualifying children and earning up to $24,210, Single with qualifying children and earning up to $56,838, Single with no qualifying children and earning up to $17,640.  
+3. Qualifying children include biological children, stepchildren, foster children, and grandchildren.  
+4. If you have no children, the EITC is only available to filers between ages 25 and 64.  
+5. Married Filing Separate: A spouse who is not filing a joint return may claim the EITC if you had a qualifying child who lived with you for more than half of the year and you were legally separated according to state law at the end of 2023, or you lived apart from your spouse for the last 6 months of 2023.  
+6. You had investment income of less than $11,000 in 2023.  
+
+7. Head Start
+Your family qualifies for Head Start if you have a child aged 3-4 and one or more of these apply to you:  
+1. You live in temporary housing.  
+2. You receive HRA Cash Assistance.  
+3. You receive SNAP.  
+4. You receive SSI (Supplemental Security Income).  
+5. You're enrolling a child who is in foster care.  
+6. Your family income falls below the amounts below:
+Household size and yearly income:  
+2 - $20,440  
+3 - $25,820  
+4 - $31,200  
+5 - $36,580  
+6 - $41,960  
+7 - $47,340  
+8 - $52,720  
+For each additional person, add $5,380.  
+The best way to find out if your family is eligible for Head Start is to contact a program directly.
+
+7. Comprehensive After School System of NYC
+All NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs. Each program may have different age and eligibility requirements.
