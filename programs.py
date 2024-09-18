@@ -592,62 +592,61 @@ class ChildTaxCredit(EligibilityGraph):
             G.add(f"more_than_half{i}",
                   f"over_half_financial_support{i}",
                   con=lambda hh: (hh["members"][i]["provides_over_half_of_own_financial_support"]))
+            
+            G.add(f"over_half_financial_support{i}",
+                  "sink",
+                  con=lambda _: True
+                  )
 
         return G
 
-class DisabilityRentIncreaseExemption(EligibilityGraph):
-    """
-    To be eligible for DRIE, you should be able to answer "yes" to all of these questions:
+import networkx as nx
+from typing import Literal
 
-    1. Are you 18 years old or older?
-    2. Is your name on the lease?
-    3. Is your combined household income $50,000 or less in a year?
-    4. Do you spend more than one-third of your monthly income on rent?
-    5. Do you live in NYC in one of these types of housing?
-        * a rent stabilized apartment
-        * a rent controlled apartment
-        * a Mitchell-Lama development
-        * a Limited Dividend development
-        * a redevelopment company development
-        * a Housing Development Fund Company (HDFC) Cooperative development
-        * a Section 213 Cooperative unit
-        * a rent regulated hotel or single room occupancy unit
-    6. Do you have income from the following benefits?
+class DRIE(EligibilityGraph):
+    """
+    To be eligible for DRIE, you should meet these requirements:
+    
+    1. You are 18 years old or older.
+    2. Your name is on the lease.
+    3. Your combined household income is $50,000 or less in a year.
+    4. You spend more than one-third of your monthly income on rent.
+    5. You live in NYC in one of these types of housing:
+        * rent stabilized apartment
+        * rent controlled apartment
+        * Mitchell-Lama development
+        * Limited Dividend development
+        * redevelopment company development
+        * Housing Development Fund Company (HDFC) Cooperative development
+        * Section 213 Cooperative unit
+        * rent regulated hotel or single room occupancy unit.
+    6. You have income from one of these benefits:
         * Supplemental Security Income (SSI)
-        * Federal Social Security Disability Insurance (SSDI)
-        * U.S. Department of Veterans Affairs (VA) disability pension or compensation
-        * Disability-related Medicaid if you received either SSI or SSDI in the past
+        * Social Security Disability Insurance (SSDI)
+        * Veterans Affairs (VA) disability pension or compensation
+        * Disability-related Medicaid if you received either SSI or SSDI in the past.
     """
-
-
+    
     @classmethod
-    def make_graph(
-        cls,
-        hh: dict,
-    ) -> Literal["pass", "fail", "indeterminate"]:
+    def make_graph(cls, hh: dict) -> Literal["pass", "fail", "indeterminate"]:
         n = len(hh["members"])
         household_schema.validate(hh)
         G = nx.MultiGraph()
         G.add_node("source")
         G.add_node("sink")
-        
-        G.add_edge("source",
-                   "not_filing_jointly",
-                   con=lambda hh: not hh["members"][0]["filing_jointly"])
-        G.add_edge("source",
-                   "filing_jointly",
-                   con=lambda hh: hh["members"][0]["filing_jointly"])
-        
-        G.add_edge("not_filing_jointly",
-                   "m1_income",
-                   con=lambda hh: hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 200000)
-        # Requirement 1
 
-        G.add_node("r1_18_years")
-        G.add_node("r2_name_on_lease")
-        G.add_node("r3_hh_income")
-        G.add_node("r4_rent_spending")
+        # Adding nodes for each requirement
+        G.add_node("age_check")
+        G.add_node("lease_check")
+        G.add_node("income_check")
+        G.add_node("rent_check")
+        G.add_node("housing_type_check")
+        G.add_node("benefits_check")
 
+        # Edges connecting the source to various checks
+        G.add_edge("source", "age_check", con=lambda hh: hh["members"][0]["age"] >= 18)
+        G.add_edge("age_check", "lease_check", con=lambda hh: hh["members"][0]["name_is_on_lease"])
+        
         def check_income(hh):
             hh_income = sum(
                 hh["members"][i].get("work_income", 0)
@@ -655,12 +654,39 @@ class DisabilityRentIncreaseExemption(EligibilityGraph):
                 for i in range(n)
             )
             family_size = len(hh["members"])
-            if family_size < 6:
-                return hh_income <= 12 * (1323.4 * family_size + 2977.6)
-            
-            return hh_income <= 12 * (248.11 * family_size + 9429.34)
+            return hh_income <= 50000
+        
+        G.add_edge("lease_check", "income_check", con=check_income)
+        G.add_edge("income_check", "rent_check", con=lambda hh: hh["members"][0]["monthly_rent_spending"] > (hh["members"][0]["work_income"] + hh["members"][0]["investment_income"]) / 3)
+
+        # Check for eligible housing type
+        G.add_edge(
+            "rent_check", "housing_type_check", 
+            con=lambda hh: hh["members"][0]["lives_in_rent_stabilized_apartment"] or 
+                           hh["members"][0]["lives_in_rent_controlled_apartment"] or 
+                           hh["members"][0]["lives_in_mitchell-lama"] or 
+                           hh["members"][0]["lives_in_limited_dividend_development"] or 
+                           hh["members"][0]["lives_in_redevelopment_company_development"] or 
+                           hh["members"][0]["lives_in_hdfc_development"] or 
+                           hh["members"][0]["lives_in_section_213_coop"] or 
+                           hh["members"][0]["lives_in_rent_regulated_hotel"] or 
+                           hh["members"][0]["lives_in_rent_regulated_single"]
+        )
+
+        # Check for benefit income
+        G.add_edge(
+            "housing_type_check", "benefits_check", 
+            con=lambda hh: hh["members"][0]["receives_ssi"] or 
+                           hh["members"][0]["receives_ssi"] or 
+                           hh["members"][0]["receives_ssi"] or 
+                           hh["members"][0]["receives_ssi"]
+        )
+
+        # Final pass or fail edge
+        G.add_edge("benefits_check", "sink", con=lambda _: True)
 
         return G
+
 
 if __name__ == "__main__":
     for example in dataset:
