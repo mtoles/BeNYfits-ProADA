@@ -71,6 +71,7 @@ person_struct = [
 
     # Miscellaneous
     ("receiving_treatment_for_substance_abuse", Use(bool), np.random.choice([True, False]), False),
+    ("dependent_on_tax_return", Use(bool), np.random.choice([True, False]), False)
 
 ]
 # fmt: on

@@ -575,7 +575,7 @@ class ChildTaxCredit(EligibilityGraph):
             
             G.add_edge(
                 "m1_income",
-                "child{i}",
+                f"child{i}",
                 con=lambda hh: hh["members"][i]["relation"] in ["child", "stepchild", "grandchild", "foster_child", "adopted_child"]
             )
 
@@ -595,6 +595,72 @@ class ChildTaxCredit(EligibilityGraph):
 
         return G
 
+class DisabilityRentIncreaseExemption(EligibilityGraph):
+    """
+    To be eligible for DRIE, you should be able to answer "yes" to all of these questions:
+
+    1. Are you 18 years old or older?
+    2. Is your name on the lease?
+    3. Is your combined household income $50,000 or less in a year?
+    4. Do you spend more than one-third of your monthly income on rent?
+    5. Do you live in NYC in one of these types of housing?
+        * a rent stabilized apartment
+        * a rent controlled apartment
+        * a Mitchell-Lama development
+        * a Limited Dividend development
+        * a redevelopment company development
+        * a Housing Development Fund Company (HDFC) Cooperative development
+        * a Section 213 Cooperative unit
+        * a rent regulated hotel or single room occupancy unit
+    6. Do you have income from the following benefits?
+        * Supplemental Security Income (SSI)
+        * Federal Social Security Disability Insurance (SSDI)
+        * U.S. Department of Veterans Affairs (VA) disability pension or compensation
+        * Disability-related Medicaid if you received either SSI or SSDI in the past
+    """
+
+
+    @classmethod
+    def make_graph(
+        cls,
+        hh: dict,
+    ) -> Literal["pass", "fail", "indeterminate"]:
+        n = len(hh["members"])
+        household_schema.validate(hh)
+        G = nx.MultiGraph()
+        G.add_node("source")
+        G.add_node("sink")
+        
+        G.add_edge("source",
+                   "not_filing_jointly",
+                   con=lambda hh: not hh["members"][0]["filing_jointly"])
+        G.add_edge("source",
+                   "filing_jointly",
+                   con=lambda hh: hh["members"][0]["filing_jointly"])
+        
+        G.add_edge("not_filing_jointly",
+                   "m1_income",
+                   con=lambda hh: hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 200000)
+        # Requirement 1
+
+        G.add_node("r1_18_years")
+        G.add_node("r2_name_on_lease")
+        G.add_node("r3_hh_income")
+        G.add_node("r4_rent_spending")
+
+        def check_income(hh):
+            hh_income = sum(
+                hh["members"][i].get("work_income", 0)
+                + hh["members"][i].get("investment_income", 0)
+                for i in range(n)
+            )
+            family_size = len(hh["members"])
+            if family_size < 6:
+                return hh_income <= 12 * (1323.4 * family_size + 2977.6)
+            
+            return hh_income <= 12 * (248.11 * family_size + 9429.34)
+
+        return G
 
 if __name__ == "__main__":
     for example in dataset:
