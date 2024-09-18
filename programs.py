@@ -566,65 +566,32 @@ class ChildTaxCredit(EligibilityGraph):
                 hh["members"][i]["work_income"] + hh["members"][i]["investment_income"] <= 400000,
             )
 
-            G.add_edge(f"m1_income", "sink", con=lambda _: True)
 
-
-        G.add_edge(f"r1_work_atleast_10_hours", "sink", con=lambda _: True)
-
-        G.add_edge(
-            "source",
-            f"r2_training",
-            con=lambda hh: hh["members"][0]["enrolled_in_educational_training"] or hh["members"][0]["enrolled_in_vocational_training"],
-        )
-
-        G.add_edge(f"r2_training", "sink", con=lambda _: True)
-
-        G.add_edge(
-            "source",
-            f"r3_looking_for_work",
-            con=lambda hh: hh["members"][0]["looking_for_work"] and (hh["members"][0]["days_looking_for_work"] <= 180),
-        )
-
-        G.add_edge(f"r3_looking_for_work", "sink", con=lambda _: True)
-
-        G.add_edge(
-            "source",
-            f"r4_temporary",
-            con=lambda hh: hh["members"][0]["lives_in_temp_housing"],
-        )
-
-        G.add_edge(f"r4_temporary", "sink", con=lambda _: True)
-
-        G.add_edge(
-            "source",
-            f"r5_attending_services_for_domestic_violence",
-            con=lambda hh: hh["members"][0]["attending_services_for_domestic_violence"],
-        )
-
-        G.add_edge(f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True)
-
-        G.add_edge(
-            "source",
-            f"r6_receiving_treatment_for_substance_abuse",
-            con=lambda hh: hh["members"][0]["receiving_treatment_for_substance_abuse"],
-        )
-
-        G.add_edge(f"r6_receiving_treatment_for_substance_abuse", "sink", con=lambda _: True)
-        
-        def check_income(hh):
-            hh_income = sum(
-                hh["members"][i].get("work_income", 0)
-                + hh["members"][i].get("investment_income", 0)
-                for i in range(n)
-            )
-            family_size = len(hh["members"])
-            if family_size < 6:
-                return hh_income <= 12 * (1323.4 * family_size + 2977.6)
+        for i in range(1, n):
+            G.add_node(f"child{i}")
+            G.add_node(f"valid_tax_info{i}")
+            G.add_node(f"more_than_half{i}")
+            G.add_node(f"over_half_financial_support{i}")
             
-            return hh_income <= 12 * (248.11 * family_size + 9429.34)
+            G.add_edge(
+                "m1_income",
+                "child{i}",
+                con=lambda hh: hh["members"][i]["relation"] in ["child", "stepchild", "grandchild", "foster_child", "adopted_child"]
+            )
 
-        G.add_edge("source", "m_income", con=check_income)
-        G.add_edge("m_income", "sink", con=lambda _: True)
+            G.add_edge(
+                f"child{i}",
+                f"valid_tax_info{i}",
+                con=lambda hh: (hh["members"][i]["has_atin"] or hh["members"][i]["has_ssn"]) and (hh["members"][0]["has_ssn"] or hh["members"][0]["has_itin "])
+            )
+
+            G.add(f"valid_tax_info{i}",
+                  f"more_than_half{i}",
+                  con=lambda hh: (hh["members"][i]["duration_more_than_half_prev_year"]))
+            
+            G.add(f"more_than_half{i}",
+                  f"over_half_financial_support{i}",
+                  con=lambda hh: (hh["members"][i]["provides_over_half_of_own_financial_support"]))
 
         return G
 
