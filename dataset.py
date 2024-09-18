@@ -55,6 +55,7 @@ ex1 = {
     "programs": top_8_programs,
     "labels": ["pass", "fail", "fail", "pass", "pass", "pass", "pass", "fail"],
     "hh": {"members": [mom, kid]},
+    "note": "Single parent, low income, one kid, paid caregiver, rent stabilized apartment",
 }
 
 ### ex2 ###
@@ -80,6 +81,7 @@ ex2 = {
     "programs": top_8_programs,
     "labels": ["pass", "fail", "fail", "fail", "fail", "fail", "fail", "pass"],
     "hh": {"members": [mom, dad, kid1, kid2, kid3]},
+    "note": "Two parent, high income, two young kids, one adult child, paid caregiver, filing jointly",
 }
 
 ### Dataset ###

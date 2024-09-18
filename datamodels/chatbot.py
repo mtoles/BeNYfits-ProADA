@@ -40,19 +40,21 @@ class ChatBot:
 
     def _format_gpt_prompt(self, question: str) -> str:
         json_instruction = (
-            "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+            # "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+            "" # Not using JSON here, match with Llama
         )
         return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def _format_default_prompt(self, question: str) -> str:
         json_instruction = (
-            "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+            # "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+            "" # Not using JSON here, match with Llama
         )
         return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def benefits_ready(self) -> bool:
         """
-        Check whether chatbot history has sufficient information to determine eligbility of all beenfits
+        Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
         benefits_ready_question = "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False."
         format_func = {

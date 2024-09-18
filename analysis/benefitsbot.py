@@ -34,7 +34,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--chat_history",
-    default="./dataset/benefits_short_v0.1.0.txt",
+    default="./dataset/benefits_short_v0.1.1.txt",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
