@@ -22,13 +22,16 @@ def random_members():
     ### Generate the User ###
     user = default_unemployed(random_name=False)
     ## 50% chance of high income ##
-    if np.random.rand() > 0.5:
+    x = np.random.rand()
+    if x > 0.5:
         user["work_income"] = 500000
         user["investment_income"] = 500000
     ## 25% chance of middle income ##
-    elif np.random.rand() > 0.25:
+    # np.random.rand() # to keep the random seed in sync with v0.1.3
+    if x > 0.25 and x <= 0.5:
         user["work_income"] = 40000
     ## 50% chance of special bool ##
+    # np.random.rand() # to keep the random seed in sync with v0.1.3
     if np.random.rand() > 0.5:
         bools = [
             "receives_hra",
@@ -45,6 +48,7 @@ def random_members():
     ## 50% chance of paying rent ##
     if np.random.rand() > 0.5:
         user["monthly_rent_spending"] = 1000
+        user["name_is_on_lease"] = True
     ## 50% chance of spouse ##
     if np.random.rand() > 0.5:
         spouse = default_unemployed(random_name=False)
@@ -63,6 +67,22 @@ def random_members():
                 user["filing_jointly"] = True
             if choice == "has_paid_caregiver":
                 spouse["can_care_for_self"] = False
+                spouse["disabled"] = True
+        if np.random.rand() > 0.5:
+            bools = [
+                "receives_hra",
+                "receives_ssi",
+                # "lives_in_temp_housing",
+                # "lives_in_rent_stabilized_apartment",
+                "has_ssn",
+                "receives_snap",
+            ]
+            choice = np.random.choice(bools)
+            spouse[choice] = not spouse[choice]
+        if user["lives_in_temp_housing"]:
+            spouse["lives_in_temp_housing"] = True
+        if user["lives_in_rent_stabilized_apartment"]:
+            spouse["lives_in_rent_stabilized_apartment"] = True
         members.append(spouse)
     ## 50% chance of 3yo child ##
     if np.random.rand() > 0.5:
@@ -147,5 +167,7 @@ if __name__ == "__main__":
     for hh in unique_hhs:
         hh_diffs.append(show_household(hh))
     df = pd.DataFrame(hh_diffs)
-    df.to_csv("procedural_hh_dataset_0.0.2.csv")
+    df.to_csv("procedural_hh_dataset_0.1.3.csv", index=False)
+    df["hh"] = unique_hhs
+    df.to_json("procedural_hh_dataset_0.1.3.jsonl", orient="records", lines=True)
     print

@@ -7,6 +7,7 @@ from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 from models.utils import ModelFamily
 
+
 class BaseOracleModel:
     def __init__(self, lm_wrapper, batch_size):
         super().__init__()
@@ -16,7 +17,7 @@ class BaseOracleModel:
         self.lm_wrapper = lm_wrapper
         self.batch_size = batch_size
 
-                # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         self.hf_api_key = os.getenv("HF_TOKEN")
         login(token=self.hf_api_key)
 
@@ -37,7 +38,8 @@ class BaseOracleModel:
         )
 
     def _format_gpt_prompt(self, document: str, question: str) -> str:
-        json_instruction = "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        # json_instruction = "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        json_instruction = "Use the following context to answer the user's question: "  # no json instruction for GPT
         return f"Context: {document}\n\n{self.main_instruction} {json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def _format_gemma_prompt(self, document: str, question: str) -> str:
@@ -47,7 +49,8 @@ class BaseOracleModel:
         return f"[INST] Context: {document}\n\n{self.main_instruction}\n\nQuestion: {question} [/INST]"
 
     def _format_default_prompt(self, document: str, question: str) -> str:
-        json_instruction = "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        # json_instruction = "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
+        json_instruction = "Use the following context to answer the user's question: "  # no json instruction
         return f"Context: {document}\n\n{self.main_instruction} {json_instruction}\n\nQuestion:\n\n{question}"
 
     def forward_batch(self, documents: List[str], questions: List[str]) -> List[str]:
@@ -55,12 +58,11 @@ class BaseOracleModel:
             ModelFamily.LLAMA: self._format_llama_prompt,
             ModelFamily.GPT: self._format_gpt_prompt,
             ModelFamily.GEMMA: self._format_gemma_prompt,
-            ModelFamily.MISTRAL: self._format_mistral_prompt
+            ModelFamily.MISTRAL: self._format_mistral_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_prompts = [
-            format_func(doc, question)
-            for doc, question in zip(documents, questions)
+            format_func(doc, question) for doc, question in zip(documents, questions)
         ]
 
         # print("--"*20)
@@ -76,7 +78,8 @@ class BaseOracleModel:
 
         outputs = [x.completion_text for x in sequences]
         return outputs
-    
+
+
 # testing
 if __name__ == "__main__":
     document = (

@@ -34,13 +34,19 @@ parser.add_argument(
 )
 parser.add_argument(
     "--chat_history",
-    default="./dataset/benefits_short_v0.1.1.txt",
+    default="./dataset/benefits_short.txt",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
     "--dataset_path",
     default="./dataset/dataset_v0.1.0.jsonl",
     help="Path to the chat history or benefits description",
+)
+parser.add_argument(
+    "--downsample_size",
+    default=None,
+    type=int,
+    help="Downsample the dataset to this size",
 )
 args = parser.parse_args()
 
@@ -51,7 +57,13 @@ now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 def read_eligibility_requirements(file_path):
     try:
         with open(file_path, "r") as file:
-            return file.read()
+            file_content = file.read()
+            # strip lines at the top starting with #
+            file_content = "\n".join(
+                [line for line in file_content.split("\n") if not line.startswith("#")]
+            )
+            assert len(file_content) > 0, "File is empty"
+            return file_content
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' does not exist.")
         return None
@@ -65,6 +77,8 @@ eligibility_requirements = read_eligibility_requirements(args.chat_history)
 
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
+if args.downsample_size:
+    df = df[: args.downsample_size]
 
 predictions = []
 transcripts = []
@@ -116,9 +130,11 @@ for index, row in df.iterrows():
 df["predictions"] = predictions
 df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
 df["f1"] = None
-df["f1"][~df["predictions"].isnull()] = df[~df["predictions"].isnull()].apply(
-    lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
-)
+non_null_predictions = ~df["predictions"].isnull()
+if non_null_predictions.sum() > 0:  # pandas gets confused if there are no actual indices to set
+    df["f1"][non_null_predictions] = df[non_null_predictions].apply(
+        lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
+    )
 df["f1"][df["predictions"].isnull()] = 0  # Set F1 score to 0 if no prediction was made
 print(f"Total F1 Score: {df['f1'].mean()}")
 
@@ -128,7 +144,9 @@ if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 with open(f"{output_dir}/results.json", "w") as f:
     for key, value in args.__dict__.items():
+        f.write("### Args ###\n")
         f.write(f"{key}: {value}\n")
+    f.write("### Results ###\n")
     f.write(f"Total F1 Score: {df['f1'].mean()}\n")
 with open(f"{output_dir}/transcript.md", "w") as f:
     for i, transcript in enumerate(transcripts):
