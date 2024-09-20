@@ -236,7 +236,7 @@ class Llama3ClarifyingQuestionModel(Clarifying_Question_Model):
         # use predict instead of predict_many until David adds batching to the lib
         for i in range(len(llama_formatted_prompts)):
             sequence = self.pipeline.predict(
-                LmPrompt(llama_formatted_prompts[i], cache=False),
+                LmPrompt(llama_formatted_prompts[i], cache=False, max_tokens=512),
                 # completion_window=CompletionWindow.ASAP,
             )
             candidate_cqs.append(sequence.completion_text)
@@ -321,7 +321,7 @@ class Llama3ImagineClarifyingQuestionModel(Llama3ClarifyingQuestionModel):
         for i in range(len(llama_formatted_prompts)):
             sequences = self.pipeline.predict(
                 LmPrompt(
-                    llama_formatted_prompts[i], num_completions=N_QUESTIONS, cache=False
+                    llama_formatted_prompts[i], num_completions=N_QUESTIONS, cache=False, max_tokens=512
                 ),
                 # completion_window=CompletionWindow.ASAP,
             )
@@ -336,7 +336,7 @@ class Llama3ImagineClarifyingQuestionModel(Llama3ClarifyingQuestionModel):
         )
         sequences = []
         for i, p in enumerate(llama_formatted_imagine_prompts):
-            lm_prompt = LmPrompt(p, num_completions=N_ANSWERS, cache=False)
+            lm_prompt = LmPrompt(p, num_completions=N_ANSWERS, cache=False, max_tokens=512)
             sequences.extend(self.pipeline.predict(lm_prompt))
         completions = []
         completions.extend(sequences)
@@ -507,7 +507,7 @@ class BaseClarifyingQuestionModel:
         formatted_instruction = format_func(document, task)
 
         sequences = self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(formatted_instruction, cache=False)]),
+            ([LmPrompt(formatted_instruction, cache=False, max_tokens=512)]),
             completion_window=CompletionWindow.ASAP,
         )
 

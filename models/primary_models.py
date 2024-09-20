@@ -149,7 +149,7 @@ class BasePrimaryModel:
         ]
         # sequences = self.pipeline(
         sequences = self.pipeline.predict_many(
-            ([LmPrompt(p, cache=False) for p in llama_formatted_prompts]),
+            ([LmPrompt(p, cache=False, max_tokens=512) for p in llama_formatted_prompts]),
             completion_window=CompletionWindow.ASAP,
         )
 
@@ -174,7 +174,7 @@ class BasePrimaryModel:
         formatted_instruction = format_func(instruction)
 
         sequences = self.lm_wrapper.language_model.predict_many(
-            ([LmPrompt(formatted_instruction, cache=False)]),
+            ([LmPrompt(formatted_instruction, cache=False, max_tokens=512)]),
             completion_window=CompletionWindow.ASAP,
         )
         return sequences[0].completion_text

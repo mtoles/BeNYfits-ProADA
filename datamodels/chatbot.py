@@ -110,7 +110,7 @@ class ChatBot:
 
         sequences = list(
             self.lm_wrapper.language_model.predict_many(
-                ([LmPrompt(formatted_prompt, cache=False)]),
+                ([LmPrompt(formatted_prompt, cache=False, max_tokens=512)]),
                 completion_window=CompletionWindow.ASAP,
             )
         )

@@ -14,6 +14,7 @@ from datamodels.chatbot import ChatBot
 from datamodels.syntheticuser import SyntheticUser
 from sklearn.metrics import f1_score
 from datetime import datetime
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -82,7 +83,7 @@ if args.downsample_size:
 
 predictions = []
 transcripts = []
-for index, row in df.iterrows():
+for index, row in tqdm(df.iterrows()):
     print(f"Index: {index}")
     programs = row["programs"]
     labels = row["labels"]
@@ -142,7 +143,7 @@ print(f"Total F1 Score: {df['f1'].mean()}")
 output_dir = f"./results/{now}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-with open(f"{output_dir}/results.json", "w") as f:
+with open(f"{output_dir}/results.md", "w") as f:
     for key, value in args.__dict__.items():
         f.write("### Args ###\n")
         f.write(f"{key}: {value}\n")
@@ -153,3 +154,4 @@ with open(f"{output_dir}/transcript.md", "w") as f:
         f.write(f"Transcript {i}\n")
         f.write(f"{transcript}\n")
         f.write("\n\n==========\n\n")
+df.to_json(f"{output_dir}/results.jsonl", lines=True, orient="records")
