@@ -97,6 +97,11 @@ person_struct = [
     ("has_atin", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has an adoption taxpayer ID number (ATIN)." if x else f"{n} does not have adoption taxpayer ID number (ATIN)."), # John has a TIN
     ("has_itin", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has an individual taxpayer ID number (ITIN)." if x else f"{n} does not have an individual taxpayer ID number (ITIN)."), # John has a TIN
     ("can_care_for_self", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} can care for themselves." if x else f"{n} cannot care for themselves."),
+
+
+    # Training Info
+    ("enrolled_in_educational_training", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is enrolled in educational training." if x else f"{n} is not enrolled in educational training."),
+    ("enrolled_in_vocational_training", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is enrolled in vocational training." if x else f"{n} is not enrolled in vocational training."),
     
     # Financial Info
     ("work_income", And(int, lambda n: n >= 0), np.random.randint(0, 100000), 0, lambda n, x: f"{n} makes {x} per year working."), # annual
@@ -150,6 +155,8 @@ person_struct = [
     ("lived_together_last_6_months", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} lived with you for the last 6 months." if x else f"{n} did not live with you for the last 6 months."),
     ("filing_jointly", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is filing taxes jointly with you." if x else f"{n} is not filing taxes jointly with you."),
     ("dependent", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is your dependent." if x else f"{n} is not your dependent."),
+    # Miscellaneous
+    ("receiving_treatment_for_substance_abuse", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is receiving treatment for substance abuse." if x else f"{n} is not receiving treatment for substance abuse."),
 ]
 # fmt: on
 
