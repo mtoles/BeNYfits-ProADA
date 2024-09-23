@@ -12,7 +12,7 @@ from users import (
 )
 from dataset import top_8_programs
 
-ds_path = "dataset/procedural_hh_dataset_0.1.3_annotated.csv"
+ds_path = "dataset/procedural_hh_dataset_0.1.5_annotated.csv"
 
 df = pd.read_csv(ds_path, header=0).iloc[:50]  # not annotated past 50
 
@@ -24,12 +24,16 @@ for i, row in df.iterrows():
 
     members = []
     for member_str in member_strs:
-        member_str = member_str.lower().strip()
-        feature_kvs = [x.split(": ") for x in member_str.split("\n")]
+        member_str = member_str.strip()
+        feature_kvs = list(x.split(": ") for x in member_str.split("\n"))
+        # cast keys to lowercase
+        feature_kvs = [(k.lower(), v) for k, v in feature_kvs]
         # cast to int if possible
         for j, (k, v) in enumerate(feature_kvs):
             if v.isnumeric():
                 feature_kvs[j] = (k, int(v))
+            if v=="True" or v=="False":
+                feature_kvs[j] = (k, bool(v))
         non_default_features = dict(feature_kvs)
         relation = non_default_features["relation"]
         if relation == "self":
@@ -53,6 +57,8 @@ df["programs"] = [top_8_programs] * len(df)
 df["note"] = [""] * len(df)
 df["hh_nl_desc"] = df.apply(nl_household_profile, axis=1)
 df[["programs", "labels", "hh", "note", "hh_nl_desc"]].to_json(
-    "dataset/procedural_hh_dataset_0.1.3_annotated_50.jsonl", orient="records", lines=True
+    "dataset/procedural_hh_dataset_0.1.5_annotated_50.jsonl",
+    orient="records",
+    lines=True,
 )
 print(hh)

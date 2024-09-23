@@ -5,7 +5,13 @@ from typing import List, Dict, Literal, Tuple
 import string
 import inspect
 import matplotlib.pyplot as plt
-from dataset import dataset
+import argparse
+import pandas as pd
+from dataset_procedural import show_household
+import re
+import os
+
+# from dataset import dataset
 
 from users import (
     person_schema,
@@ -13,6 +19,10 @@ from users import (
     random_person,
     random_self_person,
 )
+
+
+def has_paid_caregiver(hh: dict, i: int) -> bool:
+    return hh["members"][i]["has_paid_caregiver"]
 
 
 class EligibilityGraph:
@@ -65,7 +75,7 @@ class EligibilityGraph:
     @classmethod
     def draw_graph(cls, hh: dict):
         G = cls.make_graph(hh)
-        # colors
+        ## COLORS ##
         graph_color, G = cls.evaluate_graph(G, hh)
         pos = nx.spring_layout(G)
         edge_colors = [G[u][v][key]["color"] for u, v, key in G.edges(keys=True)]
@@ -75,6 +85,25 @@ class EligibilityGraph:
             "indeterminate": "blue",
         }
         edge_colors = [color_map[color] for color in edge_colors]
+        ## FUNCTION LABELS ##
+        edge_fns = [G[u][v][key]["con"] for u, v, key in G.edges(keys=True)]
+
+        def _clean_fn_name(fn):
+            """
+            con=lambda hh, i=i: hh["members"][i]["relation"] == "spouse",\n'
+            to
+            hh["members"][i]["relation"] == "spouse"
+            """
+            try:
+                fn_str = inspect.getsource(fn)
+                fn_str = re.sub(r"con=lambda hh, i=i: ", "", fn_str)
+                fn_str = re.sub(r",\n", "", fn_str)
+                return fn_str
+            except:
+                return "fn stringification error"
+
+        edge_labels = [_clean_fn_name(fn) for fn in edge_fns]
+
         # edge labels
         # conditions = nx.get_edge_attributes(G, "con")
         # labels = [inspect.getsource(cond) for cond in conditions.values()]
@@ -84,16 +113,44 @@ class EligibilityGraph:
 
         node_label_offset = {node: (x, y - 0.05) for node, (x, y) in pos.items()}
 
-        nx.draw(
-            G,
-            pos=layout(G),
-            with_labels=False,
-            edge_color=edge_colors,
-            node_size=20,
-        )
+        # nx.draw(
+        #     G,
+        #     pos=layout(G),
+        #     with_labels=False,
+        #     edge_color=edge_colors,
+        #     node_size=20,
+        # )
+
+        edge_dict = dict()  # set : list of all parallel edges
+        es = list(G.edges())
+        # populate edge_dict with unique edges
+        for e in list(G.edges()):
+            edge_dict[e] = []
+        for i, e in enumerate(es):
+            edge_dict[e].append(i)
+        for e_set, e_list in edge_dict.items():
+            for count, edge_idx in enumerate(e_list):
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edge_color=edge_colors[edge_idx],
+                    edgelist=[es[edge_idx]],
+                    connectionstyle=f"arc3, rad = {0.7/len(e_list)*((count+1)//2*(-1)**(count+1))}",
+                )
+        # nx.draw_networkx_edges(G, pos, edge_color=edge_colors)
+        nx.draw_networkx_nodes(G, pos, node_size=20)
+
         labels = {n: n for n in G.nodes()}
         nx.draw_networkx_labels(
             G, node_label_offset, labels, bbox=dict(alpha=0), font_size=6
+        )
+        nx.draw_networkx_edge_labels(
+            G,
+            pos,
+            edge_labels={e: l for e, l in zip(G.edges(), edge_labels)},
+            font_size=2,
+            rotate=True,
+            bbox=dict(alpha=0),
         )
         x_offset = -0.1  # Horizontal offset (negative moves left)
         y_offset = 0.1  # Vertical offset (positive moves up)
@@ -106,8 +163,12 @@ class EligibilityGraph:
         #         horizontalalignment="right",
         #         verticalalignment="bottom",
         #     )
-
-        plt.savefig("graph.png")
+        if "graph.png" in os.listdir():
+            os.remove("graph.png")
+        plt.savefig(
+            "graph.png",
+            dpi=400,
+        )
         pass
 
     @classmethod
@@ -151,6 +212,7 @@ class ChildAndDependentCareTaxCredit(EligibilityGraph):
                 "source",
                 f"r1_caregiver{i}",
                 con=lambda hh, i=i: hh["members"][i]["has_paid_caregiver"],
+                # con=lambda hh, i=i: has_paid_caregiver(hh, i),
             )
             G.add_edge(
                 f"r1_caregiver{i}",
@@ -161,6 +223,11 @@ class ChildAndDependentCareTaxCredit(EligibilityGraph):
                 f"r1_caregiver{i}",
                 f"r1_dependent{i}",
                 con=lambda hh, i=i: hh["members"][i]["dependent"],
+            )
+            G.add_edge(
+                f"r1_caregiver{i}",
+                f"r1_dependent{i}",
+                con=lambda hh, i=i: hh["members"][i]["relation"] == "spouse",
             )
             G.add_edge(
                 f"r1_dependent{i}",
@@ -388,7 +455,8 @@ class EarlyHeadStartPrograms(EligibilityGraph):
 
         return G
 
-class InfantsAndToddlersPrograms(EligibilityGraph):
+
+class InfantToddlerPrograms(EligibilityGraph):
     """
     You must have at least one of these approved reasons for care:
 
@@ -420,7 +488,6 @@ class InfantsAndToddlersPrograms(EligibilityGraph):
     | 15          | $13,151        | $157,807      |
     +-------------+----------------+---------------+
     """
-
 
     @classmethod
     def make_graph(
@@ -454,7 +521,8 @@ class InfantsAndToddlersPrograms(EligibilityGraph):
         G.add_edge(
             "source",
             f"r2_training",
-            con=lambda hh: hh["members"][0]["enrolled_in_educational_training"] or hh["members"][0]["enrolled_in_vocational_training"],
+            con=lambda hh: hh["members"][0]["enrolled_in_educational_training"]
+            or hh["members"][0]["enrolled_in_vocational_training"],
         )
 
         G.add_edge(f"r2_training", "sink", con=lambda _: True)
@@ -462,7 +530,8 @@ class InfantsAndToddlersPrograms(EligibilityGraph):
         G.add_edge(
             "source",
             f"r3_looking_for_work",
-            con=lambda hh: hh["members"][0]["looking_for_work"] and (hh["members"][0]["days_looking_for_work"] <= 180),
+            con=lambda hh: hh["members"][0]["looking_for_work"]
+            and (hh["members"][0]["days_looking_for_work"] <= 180),
         )
 
         G.add_edge(f"r3_looking_for_work", "sink", con=lambda _: True)
@@ -481,7 +550,9 @@ class InfantsAndToddlersPrograms(EligibilityGraph):
             con=lambda hh: hh["members"][0]["attending_services_for_domestic_violence"],
         )
 
-        G.add_edge(f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True)
+        G.add_edge(
+            f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True
+        )
 
         G.add_edge(
             "source",
@@ -489,8 +560,10 @@ class InfantsAndToddlersPrograms(EligibilityGraph):
             con=lambda hh: hh["members"][0]["receiving_treatment_for_substance_abuse"],
         )
 
-        G.add_edge(f"r6_receiving_treatment_for_substance_abuse", "sink", con=lambda _: True)
-        
+        G.add_edge(
+            f"r6_receiving_treatment_for_substance_abuse", "sink", con=lambda _: True
+        )
+
         def check_income(hh):
             hh_income = sum(
                 hh["members"][i].get("work_income", 0)
@@ -500,14 +573,14 @@ class InfantsAndToddlersPrograms(EligibilityGraph):
             family_size = len(hh["members"])
             if family_size < 6:
                 return hh_income <= 12 * (1323.4 * family_size + 2977.6)
-            
+
             return hh_income <= 12 * (248.11 * family_size + 9429.34)
 
         G.add_edge("source", "m_income", con=check_income)
         G.add_edge("m_income", "sink", con=lambda _: True)
 
         return G
-    
+
 
 class ChildTaxCredit(EligibilityGraph):
     """
@@ -521,7 +594,6 @@ class ChildTaxCredit(EligibilityGraph):
     4. Your child or dependent lived with you for over half of the year in the U.S. and you are claiming them as a dependent on your tax return.
     5. Your child cannot provide more than half of their own financial support.
     """
-
 
     @classmethod
     def make_graph(
@@ -537,21 +609,29 @@ class ChildTaxCredit(EligibilityGraph):
         G.add_node("m1_income")
         G.add_node("filing_jointly")
         G.add_node("not_filing_jointly")
-        
-        G.add_edge("source",
-                   "not_filing_jointly",
-                   con=lambda hh: not hh["members"][0]["filing_jointly"])
-        G.add_edge("source",
-                   "filing_jointly",
-                   con=lambda hh: hh["members"][0]["filing_jointly"])
-        
-        G.add_edge("not_filing_jointly",
-                   "m1_income",
-                   con=lambda hh: hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 200000)
-        
+
+        G.add_edge(
+            "source",
+            "not_filing_jointly",
+            con=lambda hh: not hh["members"][0]["filing_jointly"],
+        )
+        G.add_edge(
+            "source",
+            "filing_jointly",
+            con=lambda hh: hh["members"][0]["filing_jointly"],
+        )
+
+        G.add_edge(
+            "not_filing_jointly",
+            "m1_income",
+            con=lambda hh: hh["members"][0]["work_income"]
+            + hh["members"][0]["investment_income"]
+            <= 200000,
+        )
+
         for i in range(1, n):
             G.add_node(f"spouse{i}")
-            
+
             # Check if anyone is in foster care
             G.add_edge(
                 "filing_jointly",
@@ -562,19 +642,22 @@ class ChildTaxCredit(EligibilityGraph):
             G.add_edge(
                 f"spouse{i}",
                 f"m1_income",
-                con=lambda hh: hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] + 
-                hh["members"][i]["work_income"] + hh["members"][i]["investment_income"] <= 400000,
+                con=lambda hh: hh["members"][0]["work_income"]
+                + hh["members"][0]["investment_income"]
+                + hh["members"][i]["work_income"]
+                + hh["members"][i]["investment_income"]
+                <= 400000,
             )
 
             G.add_edge(f"m1_income", "sink", con=lambda _: True)
-
 
         G.add_edge(f"r1_work_atleast_10_hours", "sink", con=lambda _: True)
 
         G.add_edge(
             "source",
             f"r2_training",
-            con=lambda hh: hh["members"][0]["enrolled_in_educational_training"] or hh["members"][0]["enrolled_in_vocational_training"],
+            con=lambda hh: hh["members"][0]["enrolled_in_educational_training"]
+            or hh["members"][0]["enrolled_in_vocational_training"],
         )
 
         G.add_edge(f"r2_training", "sink", con=lambda _: True)
@@ -582,7 +665,8 @@ class ChildTaxCredit(EligibilityGraph):
         G.add_edge(
             "source",
             f"r3_looking_for_work",
-            con=lambda hh: hh["members"][0]["looking_for_work"] and (hh["members"][0]["days_looking_for_work"] <= 180),
+            con=lambda hh: hh["members"][0]["looking_for_work"]
+            and (hh["members"][0]["days_looking_for_work"] <= 180),
         )
 
         G.add_edge(f"r3_looking_for_work", "sink", con=lambda _: True)
@@ -601,7 +685,9 @@ class ChildTaxCredit(EligibilityGraph):
             con=lambda hh: hh["members"][0]["attending_services_for_domestic_violence"],
         )
 
-        G.add_edge(f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True)
+        G.add_edge(
+            f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True
+        )
 
         G.add_edge(
             "source",
@@ -609,8 +695,10 @@ class ChildTaxCredit(EligibilityGraph):
             con=lambda hh: hh["members"][0]["receiving_treatment_for_substance_abuse"],
         )
 
-        G.add_edge(f"r6_receiving_treatment_for_substance_abuse", "sink", con=lambda _: True)
-        
+        G.add_edge(
+            f"r6_receiving_treatment_for_substance_abuse", "sink", con=lambda _: True
+        )
+
         def check_income(hh):
             hh_income = sum(
                 hh["members"][i].get("work_income", 0)
@@ -620,7 +708,7 @@ class ChildTaxCredit(EligibilityGraph):
             family_size = len(hh["members"])
             if family_size < 6:
                 return hh_income <= 12 * (1323.4 * family_size + 2977.6)
-            
+
             return hh_income <= 12 * (248.11 * family_size + 9429.34)
 
         G.add_edge("source", "m_income", con=check_income)
@@ -630,12 +718,81 @@ class ChildTaxCredit(EligibilityGraph):
 
 
 if __name__ == "__main__":
-    for example in dataset:
-        for i, program_string in enumerate(example["programs"]):
-            program = eval(program_string)
-            hh = example["hh"]
-            label = example["labels"][i]
-            household_schema.validate(hh)
-            assert program.__call__(hh) == label
+    parser = argparse.ArgumentParser(description="Test the eligibility programs")
+    parser.add_argument(
+        "--dataset_path",
+        default="dataset/procedural_hh_dataset_0.1.5_annotated_50.jsonl",
+        help="Path to the chat history or benefits description",
+    )
+    parser.add_argument(
+        "--ds_shift",
+        default=0,
+        type=int,
+        help="Shift the dataset by n rows",
+    )
+    args = parser.parse_args()
 
-    print("All tests passed")
+    df = pd.read_json(args.dataset_path, lines=True)
+    # move the first n rows to the end
+    df = pd.concat([df[args.ds_shift :], df[: args.ds_shift]], ignore_index=True)
+    predictionss = []
+    agreementss = []
+    for i, row in df.iterrows():
+        hh = row["hh"]
+        labels = row["labels"]
+
+        print(f"Index: {i}")
+        predictions = []
+        agreements = []
+        for j, program_string in enumerate(row["programs"]):
+            try:
+                program = eval(program_string)
+                label = row["labels"][j]
+                household_schema.validate(hh)
+                G = program.make_graph(hh)
+                prediction, G = program.evaluate_graph(G, hh)
+                predictions.append(prediction)
+            except NameError:
+                prediction = None
+            predictions.append(None)
+            if prediction is not None:
+                # agreement.append(prediction == label)
+                a = prediction == label
+                if a:
+                    pass
+                else:
+                    # print graph
+                    program = eval(program_string)
+                    print(f"Program: {program_string}")
+                    print(f"Annotation: {label}")
+                    print(f"Prediction: {prediction}")
+                    print(show_household(hh))
+                    G = program.make_graph(hh)
+                    program.evaluate_graph(G, hh)
+                    if program_string == "EarlyHeadStartPrograms":
+                        program.draw_graph(hh)
+                        print
+                    print("=================")
+                agreements.append(a)
+
+            else:
+                agreements.append(None)
+        predictionss.append(predictions)
+
+        agreementss.append(agreements)
+    df["predictions"] = predictionss
+
+    # check agreement between predictions and labels
+    df["agreements"] = agreementss
+    print(df["agreements"])
+
+    # for example in dataset:
+    #     for i, program_string in enumerate(example["programs"]):
+    #         program = eval(program_string)
+    #         hh = example["hh"]
+    #         label = example["labels"][i]
+    #         household_schema.validate(hh)
+    #         assert program.__call__(hh) == label
+
+    # print("All tests passed")
+    print
