@@ -91,28 +91,28 @@ person_struct = [
     #| Field Name | Schema | Random | Default | NL Function |
     # Demographic Info
     ("name", And(str, len), get_full_name(), "DefaultName", lambda n, x: f"Name: {n}"),
-    ("age", And(Use(int), lambda n: n >= 0), np.random.randint(0, 100), 20, lambda n, x: f"{n} is {x} years old."),
-    ("disabled", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is disabled." if x else f"{n} is not disabled."),
-    ("has_ssn", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} has a social security number (SSN)." if x else f"{n} does not have a social security number (SSN)."),
-    ("has_atin", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has an adoption taxpayer ID number (ATIN)." if x else f"{n} does not have adoption taxpayer ID number (ATIN)."), # John has a TIN
-    ("has_itin", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has an individual taxpayer ID number (ITIN)." if x else f"{n} does not have an individual taxpayer ID number (ITIN)."), # John has a TIN
-    ("can_care_for_self", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} can care for themselves." if x else f"{n} cannot care for themselves."),
+    ("age", And(int, lambda n: n >= 0), np.random.randint(0, 100), 20, lambda n, x: f"{n} is {x} years old."),
+    ("disabled", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is disabled." if x else f"{n} is not disabled."),
+    ("has_ssn", And(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} has a social security number (SSN)." if x else f"{n} does not have a social security number (SSN)."),
+    ("has_atin", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has an adoption taxpayer ID number (ATIN)." if x else f"{n} does not have adoption taxpayer ID number (ATIN)."), # John has a TIN
+    ("has_itin", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has an individual taxpayer ID number (ITIN)." if x else f"{n} does not have an individual taxpayer ID number (ITIN)."), # John has a TIN
+    ("can_care_for_self", And(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} can care for themselves." if x else f"{n} cannot care for themselves."),
 
 
     # Training Info
-    ("enrolled_in_educational_training", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is enrolled in educational training." if x else f"{n} is not enrolled in educational training."),
-    ("enrolled_in_vocational_training", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is enrolled in vocational training." if x else f"{n} is not enrolled in vocational training."),
+    ("enrolled_in_educational_training", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is enrolled in educational training." if x else f"{n} is not enrolled in educational training."),
+    ("enrolled_in_vocational_training", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is enrolled in vocational training." if x else f"{n} is not enrolled in vocational training."),
     
     # Financial Info
     ("work_income", And(int, lambda n: n >= 0), np.random.randint(0, 100000), 0, lambda n, x: f"{n} makes {x} per year working."), # annual
     ("investment_income", And(int, lambda n: n >= 0), np.random.randint(0, 100000), 0, lambda n, x: f"{n} makes {x} per year from investments."), # annual
-    ("provides_over_half_of_own_financial_support", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} provides over half of their own financial support." if x else f"{n} does not provide over half of their own financial support."),
-    ("receives_hra", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} receives Health Reimbursement Arrangement (HRA)." if x else f"{n} does not receive Health Reimbursement Arrangement (HRA)."),
-    ("receives_ssi", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} receives Supplemental Security Income (SSI)." if x else f"{n} does not receive Supplemental Security Income (SSI)."),
-    ("receives_snap", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} receives Supplemental Nutrition Assistance Program (SNAP)." if x else f"{n} does not receive Supplemental Nutrition Assistance Program (SNAP)."),
+    ("provides_over_half_of_own_financial_support", And(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} provides over half of their own financial support." if x else f"{n} does not provide over half of their own financial support."),
+    ("receives_hra", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} receives Health Reimbursement Arrangement (HRA)." if x else f"{n} does not receive Health Reimbursement Arrangement (HRA)."),
+    ("receives_ssi", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} receives Supplemental Security Income (SSI)." if x else f"{n} does not receive Supplemental Security Income (SSI)."),
+    ("receives_snap", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} receives Supplemental Nutrition Assistance Program (SNAP)." if x else f"{n} does not receive Supplemental Nutrition Assistance Program (SNAP)."),
     
     # School Info
-    ("student", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is a student." if x else f"{n} is not a student."),
+    ("student", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is a student." if x else f"{n} is not a student."),
     ("current_school_level", 
         Or("pk", "k", 1,2,3,4,5,6,7,8,9,10,11,12, None),  # john is in 9th grade
         np.random.choice(["pk", 1,2,3,4,5,6,7,8,9,10,11,12, None]), 
@@ -121,29 +121,29 @@ person_struct = [
     ),
     
     # Work Info
-    ("works_outside_home", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} works outside the home." if x else f"{n} does not work outside the home."),
-    ("looking_for_work", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is looking for work." if x else f"{n} is not looking for work."),
+    ("works_outside_home", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} works outside the home." if x else f"{n} does not work outside the home."),
+    ("looking_for_work", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is looking for work." if x else f"{n} is not looking for work."),
     ("work_hours_per_week", And(int, lambda n: n >= 0), np.random.randint(0, 60), 0, lambda n, x: f"{n} works {x} hours per week."), # weekly
     ("days_looking_for_work", And(int, lambda n: n >= 0), np.random.randint(0, 365), 0, lambda n, x: f"{n} has been looking for work for {x} days." if x else f"{n} is not looking for work."), # daily
     
     # Family Info
-    ("in_foster_care", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is in foster care." if x else f"{n} is not in foster care."),
-    ("attending_service_for_domestic_violence", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is attending a service for domestic violence." if x else f"{n} is not attending a service for domestic violence."),
-    ("has_paid_caregiver", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has a paid caregiver." if x else f"{n} does not have a paid caregiver."),
+    ("in_foster_care", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is in foster care." if x else f"{n} is not in foster care."),
+    ("attending_service_for_domestic_violence", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is attending a service for domestic violence." if x else f"{n} is not attending a service for domestic violence."),
+    ("has_paid_caregiver", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} has a paid caregiver." if x else f"{n} does not have a paid caregiver."),
     
     # Housing Info
-    ("lives_in_temp_housing", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in temporary housing." if x else f"{n} does not live in temporary housing."),
-    ("name_is_on_lease", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is on the household lease." if x else f"{n} is not on the household lease."),
+    ("lives_in_temp_housing", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in temporary housing." if x else f"{n} does not live in temporary housing."),
+    ("name_is_on_lease", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is on the household lease." if x else f"{n} is not on the household lease."),
     ("monthly_rent_spending", And(int, lambda n: n >= 0), np.random.randint(0, 10000), 0, lambda n, x: f"{n} spends {x} per month on rent."),
-    ("lives_in_rent_stabilized_apartment", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent stabilized apartment." if x else f"{n} does not live in a rent stabilized apartment."),
-    ("lives_in_rent_controlled_apartment", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent controlled apartment." if x else f"{n} does not live in a rent controlled apartment."),
-    ("lives_in_mitchell-lama", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a Mitchell-Lama development." if x else f"{n} does not live in a Mitchell-Lama development."),
-    ("lives_in_limited_dividend_development", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a limited dividend development." if x else f"{n} does not live in a limited dividend development."),
-    ("lives_in_redevelopment_company_development", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a redevelopment company development." if x else f"{n} does not live in a redevelopment company development."),
-    ("lives_in_hdfc_development", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a Housing Development Fund Corporation (HDFC) development." if x else f"{n} does not live in a Housing Developtment Fund Corporation (HDFC) development."),
-    ("lives_in_section_213_coop", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a Section 213 coop." if x else f"{n} does not live in a Section 213 coop."),
-    ("lives_in_rent_regulated_hotel", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent regulated hotel." if x else f"{n} does not live in a rent regulated hotel."),
-    ("lives_in_rent_regulated_single", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent regulated single room occupancy (SRO)." if x else f"{n} does not live in a rent regulated single room occupancy (SRO)."),
+    ("lives_in_rent_stabilized_apartment", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent stabilized apartment." if x else f"{n} does not live in a rent stabilized apartment."),
+    ("lives_in_rent_controlled_apartment", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent controlled apartment." if x else f"{n} does not live in a rent controlled apartment."),
+    ("lives_in_mitchell-lama", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a Mitchell-Lama development." if x else f"{n} does not live in a Mitchell-Lama development."),
+    ("lives_in_limited_dividend_development", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a limited dividend development." if x else f"{n} does not live in a limited dividend development."),
+    ("lives_in_redevelopment_company_development", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a redevelopment company development." if x else f"{n} does not live in a redevelopment company development."),
+    ("lives_in_hdfc_development", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a Housing Development Fund Corporation (HDFC) development." if x else f"{n} does not live in a Housing Developtment Fund Corporation (HDFC) development."),
+    ("lives_in_section_213_coop", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a Section 213 coop." if x else f"{n} does not live in a Section 213 coop."),
+    ("lives_in_rent_regulated_hotel", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent regulated hotel." if x else f"{n} does not live in a rent regulated hotel."),
+    ("lives_in_rent_regulated_single", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} lives in a rent regulated single room occupancy (SRO)." if x else f"{n} does not live in a rent regulated single room occupancy (SRO)."),
     
     # Relation Info
     ("relation", 
@@ -151,12 +151,12 @@ person_struct = [
         np.random.choice(["spouse", "child", "stepchild", "grandchild", "foster_child", "adopted_child", "sibling_niece_nephew", "other_family", "other_non_family"]), "self",
         lambda n, x: f"You are {n}" if x == "self" else f"{n} is your {x}"
     ),
-    ("duration_more_than_half_prev_year", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} lived with you more than half of the previous year." if x else f"{n} did not live with you more than half of the previous year."),
-    ("lived_together_last_6_months", Use(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} lived with you for the last 6 months." if x else f"{n} did not live with you for the last 6 months."),
-    ("filing_jointly", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is filing taxes jointly with you." if x else f"{n} is not filing taxes jointly with you."),
-    ("dependent", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is your dependent." if x else f"{n} is not your dependent."),
+    ("duration_more_than_half_prev_year", And(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} lived with you more than half of the previous year." if x else f"{n} did not live with you more than half of the previous year."),
+    ("lived_together_last_6_months", And(bool), np.random.choice([True, False]), True, lambda n, x: f"{n} lived with you for the last 6 months." if x else f"{n} did not live with you for the last 6 months."),
+    ("filing_jointly", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is filing taxes jointly with you." if x else f"{n} is not filing taxes jointly with you."),
+    ("dependent", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is your dependent." if x else f"{n} is not your dependent."),
     # Miscellaneous
-    ("receiving_treatment_for_substance_abuse", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is receiving treatment for substance abuse." if x else f"{n} is not receiving treatment for substance abuse."),
+    ("receiving_treatment_for_substance_abuse", And(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is receiving treatment for substance abuse." if x else f"{n} is not receiving treatment for substance abuse."),
 ]
 # fmt: on
 
@@ -178,6 +178,11 @@ household_schema = Schema(
 
 if __name__ == "__main__":
     #
+    user = default_unemployed()
+    # user["disabled"] = "whatever"
+    hh = {"members": [user]}
+    household_schema.validate(hh)
+
     for i in range(10):
         members = [random_self_person()]
         for n in range(3):  # num family members
