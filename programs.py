@@ -686,6 +686,178 @@ class DRIE(EligibilityGraph):
         G.add_edge("benefits_check", "sink", con=lambda _: True)
 
         return G
+    
+class EITCCredit(EligibilityGraph):
+    """
+    To be eligible for the EITC on your 2023 tax return, you must meet these requirements:
+
+    1. You have a valid Social Security Number (SSN).
+    2. Your income, marital, and parental status must meet one of these conditions:
+        - Married with qualifying children and earning up to $63,398.
+        - Married with no qualifying children and earning up to $24,210.
+        - Single with qualifying children and earning up to $56,838.
+        - Single with no qualifying children and earning up to $17,640.
+    3. If you have no children, you must be between ages 25 and 64.
+    4. Married Filing Separately can claim the EITC if:
+        - You had a qualifying child who lived with you for more than half the year.
+        - You were legally separated or lived apart from your spouse for the last 6 months of 2023.
+    5. You had investment income of less than $11,000 in 2023.
+    """
+
+    @classmethod
+    def make_graph(
+        cls,
+        hh: dict,
+    ) -> Literal["pass", "fail", "indeterminate"]:
+        n = len(hh["members"])
+        household_schema.validate(hh)
+        G = nx.MultiGraph()
+        G.add_node("source")
+        G.add_node("sink")
+
+        G.add_node("m1_income")
+        G.add_node("has_ssn")
+        G.add_node("investment_income")
+        G.add_node("age_eligibility")
+        G.add_node("marital_status")
+        G.add_node("has_qualifying_children")
+        G.add_node("does_not_have_qualifying_children")
+
+        # Validate SSN requirement
+        G.add_edge("source", "has_ssn", con=lambda hh: hh["members"][0]["has_ssn"])
+
+        # Check if there are qualifying children
+        G.add_edge("has_ssn", "has_qualifying_children", con=lambda hh: any(
+            member["relation"] in ["child", "stepchild", "grandchild", "foster_child", "adopted_child"] for member in hh["members"]
+        ))
+
+        # Check if there are no qualifying children
+        G.add_edge("has_ssn", "does_not_have_qualifying_children", con=lambda hh: not any(
+            member["relation"] in ["child", "stepchild", "grandchild", "foster_child", "adopted_child"] for member in hh["members"]
+        ))
+
+                # Income thresholds for households with qualifying children
+        G.add_edge("has_qualifying_children", "m1_income", con=lambda hh: (
+            any(member["relation"] == "spouse" for member in hh["members"]) and (
+                (hh["members"][0]["filing_jointly"] and hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 63398) or
+                (not hh["members"][0]["filing_jointly"] and hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 56838)
+            ) or (
+                not any(member["relation"] == "spouse" for member in hh["members"]) and
+                hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 56838
+            )
+        ))
+
+        # Income thresholds for households without qualifying children
+        G.add_edge("does_not_have_qualifying_children", "m1_income", con=lambda hh: (
+            any(member["relation"] == "spouse" for member in hh["members"]) and (
+                (hh["members"][0]["filing_jointly"] and hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 24210) or
+                (not hh["members"][0]["filing_jointly"] and hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 17640)
+            ) or (
+                not any(member["relation"] == "spouse" for member in hh["members"]) and
+                hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 17640
+            )
+        ))
+
+
+        # Validate investment income requirement
+        G.add_edge("m1_income", "investment_income", con=lambda hh: hh["members"][0]["investment_income"] < 11000)
+
+        # Validate age range for filers without children
+        G.add_edge("investment_income", "age_eligibility", con=lambda hh: (
+            hh["members"][0]["relation"] == "self" and
+            25 <= hh["members"][0]["age"] <= 64 and
+            not any(member["relation"] in ["child", "stepchild", "grandchild", "foster_child", "adopted_child"] for member in hh["members"])
+        ))
+
+        # Marital status condition for those filing separately
+        G.add_edge("age_eligibility", "marital_status", con=lambda hh: (
+            (not hh["members"][0]["filing_jointly"]) and 
+            ((hh["members"][0]["relation"] == "self" and hh["members"][0]["dependent"]) or 
+            hh["members"][0]["duration_more_than_half_prev_year"])
+        ))
+
+        # Connect to sink for valid EITC claim
+        G.add_edge("marital_status", "sink", con=lambda _: True)
+
+        return G
+
+class HeadStartProgram(EligibilityGraph):
+    """
+    Your family may qualify for Head Start if one or more of these apply to you:
+
+    - You live in temporary housing
+    - You receive HRA Cash Assistance
+    - You receive SNAP
+    - You receive SSI (Supplemental Security Income)
+    - You're enrolling a child who is in foster care
+    
+    Your family income falls below the amounts below:
+
+    +----------------+---------------+
+    | Household Size | Yearly Income |
+    +-------------+------------------+
+    |      2         |    20440.00   |
+    |      3         |    25820.00   |
+    |      4         |    31200.00   |
+    |      5         |    36580.00   |
+    |      6         |    41960.00   |
+    |      7         |    47340.00   |
+    |      8         |    52720.00   |
+    +-------------+------------------+
+
+    Each Additional Person
+
+    $5,380
+    """
+
+    @classmethod
+    def make_graph(cls, hh: dict) -> Literal["pass", "fail", "indeterminate"]:
+        n = len(hh["members"])
+        household_schema.validate(hh)
+        G = nx.MultiGraph()
+        
+        G.add_node("source")
+        G.add_node("sink")
+
+        # Temporary housing condition
+        G.add_node("temp_housing")
+        G.add_edge("source", "temp_housing", con=lambda hh: hh["members"][0]["lives_in_temp_housing"])
+
+        # Receiving HRA Cash Assistance
+        G.add_node("hra_cash_assistance")
+        G.add_edge("source", "hra_cash_assistance", con=lambda hh: hh["members"][0]["receives_hra"])
+
+        # Receiving SNAP
+        G.add_node("snap")
+        G.add_edge("source", "snap", con=lambda hh: hh["members"][0]["receives_snap"])
+
+        # Receiving SSI (Supplemental Security Income)
+        G.add_node("ssi")
+        G.add_edge("source", "ssi", con=lambda hh: hh["members"][0]["receives_ssi"])
+
+        # Foster care condition
+        G.add_node("foster_care")
+        G.add_edge("source", "foster_care", con=lambda hh: any(member["relation"] == "foster_child" for member in hh["members"]))
+
+        # Income threshold based on household size
+        income_thresholds = {2: 20440, 3: 25820, 4: 31200, 5: 36580, 6: 41960, 7: 47340, 8: 52720}
+        G.add_node("income_below_threshold")
+        G.add_edge("source", "income_below_threshold", con=lambda hh: (
+            hh["members"][0]["work_income"] + hh["members"][0]["investment_income"] <= 
+            income_thresholds.get(n, 52720 + (n - 8) * 5380)
+        ))
+
+        # Combine all conditions for eligibility
+        G.add_edge("temp_housing", "sink", con=lambda _: True)
+        G.add_edge("hra_cash_assistance", "sink", con=lambda _: True)
+        G.add_edge("snap", "sink", con=lambda _: True)
+        G.add_edge("ssi", "sink", con=lambda _: True)
+        G.add_edge("foster_care", "sink", con=lambda _: True)
+        G.add_edge("income_below_threshold", "sink", con=lambda _: True)
+
+        return G
+
+
 
 
 if __name__ == "__main__":
