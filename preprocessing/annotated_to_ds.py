@@ -11,8 +11,14 @@ from users import (
     household_schema,
 )
 from dataset import top_8_programs
+import argparse
+from pathlib import PurePath
 
-ds_path = "dataset/procedural_hh_dataset_0.1.5_annotated.csv"
+# ds_path = "dataset/procedural_hh_dataset_0.1.5_annotated.csv"
+parser = argparse.ArgumentParser()
+parser.add_argument("--ds_path", type=str)
+args = parser.parse_args()
+ds_path = args.ds_path
 
 df = pd.read_csv(ds_path, header=0).iloc[:50]  # not annotated past 50
 
@@ -32,7 +38,7 @@ for i, row in df.iterrows():
         for j, (k, v) in enumerate(feature_kvs):
             if v.isnumeric():
                 feature_kvs[j] = (k, int(v))
-            if v=="True" or v=="False":
+            if v == "True" or v == "False":
                 feature_kvs[j] = (k, bool(v))
         non_default_features = dict(feature_kvs)
         relation = non_default_features["relation"]
@@ -56,9 +62,11 @@ df["labels"] = evs
 df["programs"] = [top_8_programs] * len(df)
 df["note"] = [""] * len(df)
 df["hh_nl_desc"] = df.apply(nl_household_profile, axis=1)
+output_path = ".".join(ds_path.split(".")[:-1]) + "_50.jsonl"
 df[["programs", "labels", "hh", "note", "hh_nl_desc"]].to_json(
-    "dataset/procedural_hh_dataset_0.1.5_annotated_50.jsonl",
+    # "dataset/procedural_hh_dataset_0.1.5_annotated_50.jsonl",
+    output_path,
     orient="records",
     lines=True,
 )
-print(hh)
+print(f"ds saved to: {output_path}")

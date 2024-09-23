@@ -717,11 +717,38 @@ class ChildTaxCredit(EligibilityGraph):
         return G
 
 
+class ComprehensiveAfterSchool(EligibilityGraph):
+    """
+    All NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs. Each program may have different age and eligibility requirements.
+    """
+
+    @classmethod
+    def make_graph(cls, hh: dict) -> Literal["pass", "fail", "indeterminate"]:
+        n = len(hh["members"])
+        household_schema.validate(hh)
+        G = nx.MultiGraph()
+        G.add_node("source")
+        G.add_node("sink")
+        for i in range(0, n):
+            G.add_edge(
+                "source",
+                "sink",
+                con=lambda hh, i=i: hh["members"][i]["current_school_level"]
+                in [
+                    "pk",
+                    "k",
+                    1,2,3,4,5,6,7,8,9,10,11,12
+                ],
+            )
+
+        return G
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test the eligibility programs")
     parser.add_argument(
         "--dataset_path",
-        default="dataset/procedural_hh_dataset_0.1.5_annotated_50.jsonl",
+        default="dataset/procedural_hh_dataset_0.1.6_annotated_50.jsonl",
         help="Path to the chat history or benefits description",
     )
     parser.add_argument(
@@ -758,7 +785,7 @@ if __name__ == "__main__":
             if prediction is not None:
                 # agreement.append(prediction == label)
                 a = prediction == label
-                if a:
+                if a or not program_string == "ComprehensiveAfterSchool":
                     pass
                 else:
                     # print graph
@@ -769,9 +796,9 @@ if __name__ == "__main__":
                     print(show_household(hh))
                     G = program.make_graph(hh)
                     program.evaluate_graph(G, hh)
-                    if program_string == "EarlyHeadStartPrograms":
-                        program.draw_graph(hh)
-                        print
+
+                    program.draw_graph(hh)
+                    print
                     print("=================")
                 agreements.append(a)
 

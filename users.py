@@ -115,7 +115,7 @@ person_struct = [
     ("student", Use(bool), np.random.choice([True, False]), False, lambda n, x: f"{n} is a student." if x else f"{n} is not a student."),
     ("current_school_level", 
         Or("pk", "k", 1,2,3,4,5,6,7,8,9,10,11,12, None),  # john is in 9th grade
-        np.random.choice(["pk", "k", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", None]), 
+        np.random.choice(["pk", 1,2,3,4,5,6,7,8,9,10,11,12, None]), 
         None, 
         lambda n, x: f"{n} is in {grade_dict[x]}." if x else f"{n} is not in school."
     ),
