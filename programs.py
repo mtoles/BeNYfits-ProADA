@@ -14,8 +14,10 @@ import os
 # from dataset import dataset
 
 from users import (
-    person_schema,
-    household_schema,
+    # person_schema,
+    # household_schema,
+    Person,
+    Household,
     random_person,
     random_self_person,
 )
@@ -37,7 +39,7 @@ class EligibilityGraph:
     @classmethod
     def evaluate_graph(
         self, G: nx.MultiGraph, profile: dict
-    ) -> Tuple[Literal["pass", "fail", "indeterminate"], nx.MultiGraph]:
+    ) -> Tuple[Literal["pass", "fail", "indeterminate"], nx.MultiGraph, pd.DataFrame]:
         # for e in list(G.edges()):
         for u, v, key, data in G.edges(data=True, keys=True):
             try:
@@ -49,8 +51,10 @@ class EligibilityGraph:
                 # set the color of the edge
                 if edge_color == True:
                     data["color"] = "pass"
-                else:
+                elif edge_color == False:
                     data["color"] = "fail"
+                else:
+                    data["color"] = "indeterminate"
             except KeyError:
                 data["color"] = "indeterminate"
         # copy nodes
@@ -70,7 +74,40 @@ class EligibilityGraph:
         )
         if nx.has_path(G_pass, "source", "sink"):
             return "indeterminate", G
+
         return "fail", G
+
+    @classmethod
+    def describe_graph(cls, G):
+        # create a description of the graph
+        # each line containing nodes, edges, edge description, edge color
+        desc_rows = []
+        for u, v, key, data in G.edges(data=True, keys=True):
+            desc_rows.append(
+                {
+                    "n1": u,
+                    "n2": v,
+                    "color": data["color"],
+                    "fn": cls._clean_fn_name(data["con"]),
+                }
+            )
+        desc_df = pd.DataFrame(desc_rows)
+        return desc_df
+
+    @classmethod
+    def _clean_fn_name(cls, fn):
+        """
+        con=lambda hh, i=i: hh["members"][i]["relation"] == "spouse",\n'
+        to
+        hh["members"][i]["relation"] == "spouse"
+        """
+        try:
+            fn_str = inspect.getsource(fn)
+            fn_str = re.sub(r"con=lambda hh, i=i: ", "", fn_str)
+            fn_str = re.sub(r",\n", "", fn_str)
+            return fn_str
+        except:
+            return "fn stringification error"
 
     @classmethod
     def draw_graph(cls, hh: dict):
@@ -88,21 +125,7 @@ class EligibilityGraph:
         ## FUNCTION LABELS ##
         edge_fns = [G[u][v][key]["con"] for u, v, key in G.edges(keys=True)]
 
-        def _clean_fn_name(fn):
-            """
-            con=lambda hh, i=i: hh["members"][i]["relation"] == "spouse",\n'
-            to
-            hh["members"][i]["relation"] == "spouse"
-            """
-            try:
-                fn_str = inspect.getsource(fn)
-                fn_str = re.sub(r"con=lambda hh, i=i: ", "", fn_str)
-                fn_str = re.sub(r",\n", "", fn_str)
-                return fn_str
-            except:
-                return "fn stringification error"
-
-        edge_labels = [_clean_fn_name(fn) for fn in edge_fns]
+        edge_labels = [cls._clean_fn_name(fn) for fn in edge_fns]
 
         # edge labels
         # conditions = nx.get_edge_attributes(G, "con")
@@ -174,21 +197,19 @@ class EligibilityGraph:
     @classmethod
     def __call__(cls, profile: dict) -> Literal["pass", "fail", "indeterminate"]:
         G = cls.make_graph(profile)
-        graph_color, G = cls.evaluate_graph(G, profile)
+        graph_color, G, graph_description = cls.evaluate_graph(G, profile)
         return graph_color
 
 
 class ChildAndDependentCareTaxCredit(EligibilityGraph):
     """
-    To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to these questions:
+    1. Child and Dependent Care Tax Credit
 
-    1. Did you pay someone to care for your dependent so that you (and your spouse, if filing a joint return) could work or look for work? Qualifying dependents are:
-        - a child under age 13 at the time of care;
-        - a spouse or adult dependent who cannot physically or mentally care for themselves.
+    To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to the following questions:
+    1. Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or adult dependent who cannot physically or mentally care for themselves.
     2. Did the dependent live with you for more than half of 2023?
-    3. Did you (and your spouse if you file taxes jointly) earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
-    4. If you are married, do both you and your spouse work outside of the home?
-        - Or, do one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
+    3. Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
+    4. If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
     """
 
     @classmethod
@@ -197,7 +218,7 @@ class ChildAndDependentCareTaxCredit(EligibilityGraph):
         hh: dict,
     ) -> Literal["pass", "fail", "indeterminate"]:
         n = len(hh["members"])
-        household_schema.validate(hh)
+        hh.validate()
         G = nx.MultiGraph()
         G.add_node("source")
         G.add_node("sink")
@@ -355,26 +376,24 @@ class ChildAndDependentCareTaxCredit(EligibilityGraph):
 
 class EarlyHeadStartPrograms(EligibilityGraph):
     """
-    The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family may qualify for Early Head Start if at least one of these categories applies to you:
-    * You live in temporary housing
-    * You receive HRA Cash Assistance
-    * You receive SSI (Supplemental Security Insurance)
-    * You are enrolling a child who is in foster care
-    * You may also qualify if your household income is at or below these amounts:
+    2. Early Head Start Programs
 
-    +--------------+---------------+
-    | Family Size  | Yearly Income |
-    +--------------+---------------+
-    |      1       |   $14,580     |
-    |      2       |   $19,720     |
-    |      3       |   $24,860     |
-    |      4       |   $30,000     |
-    |      5       |   $35,140     |
-    |      6       |   $40,280     |
-    |      7       |   $45,420     |
-    |      8       |   $50,560     |
-    +--------------+---------------+
-    For each additional person, add: $5,140
+    The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
+    1. You live in temporary housing.
+    2. You receive HRA Cash Assistance.
+    3. You receive SSI (Supplemental Security Insurance).
+    4. You are enrolling a child who is in foster care.
+    5. If your household income is at or below these amounts:
+    Family size and yearly income:
+    1 - $14,580
+    2 - $19,720
+    3 - $24,860
+    4 - $30,000
+    5 - $35,140
+    6 - $40,280
+    7 - $45,420
+    8 - $50,560
+    For each additional person, add $5,140.
 
     """
 
@@ -384,7 +403,7 @@ class EarlyHeadStartPrograms(EligibilityGraph):
         hh: dict,
     ) -> Literal["pass", "fail", "indeterminate"]:
         n = len(hh["members"])
-        household_schema.validate(hh)
+        hh.validate()
         G = nx.MultiGraph()
         G.add_node("source")
         G.add_node("sink")
@@ -392,54 +411,63 @@ class EarlyHeadStartPrograms(EligibilityGraph):
         G.add_node("m1")
 
         # Check all members
-        G.add_node("r1_temporary")
-        G.add_node("r2_hra")
-        G.add_node("r3_ssi")
-        G.add_node("m_income")
+        # G.add_node("r1_temporary")
+        # G.add_node("r2_hra")
+        # G.add_node("r3_ssi")
+        # G.add_node("m_income")
 
         G.add_edge(
-            "source",
-            f"r1_temporary",
+            "source", "m1", con=lambda hh: any([c["age"] <= 3 for c in hh.children()])
+        )
+
+        G.add_edge(
+            "m1",
+            f"sink",
             con=lambda hh: hh["members"][0]["lives_in_temp_housing"],
         )
 
-        G.add_edge(f"r1_temporary", "sink", con=lambda _: True)
+        # G.add_edge(f"r1_temporary", "sink", con=lambda _: True)
 
         # Check if anyone in the whole household receives HRA
         G.add_edge(
-            "source",
-            f"r2_hra",
+            "m1",
+            f"sink",
             con=lambda hh: hh["members"][0]["receives_hra"],
         )
 
-        G.add_edge(f"r2_hra", "sink", con=lambda _: True)
+        # G.add_edge(f"r2_hra", "sink", con=lambda _: True)
 
         # Check if anyone in the whole household receives SSI
         G.add_edge(
-            "source",
-            f"r3_ssi",
+            "m1",
+            f"sink",
             con=lambda hh: hh["members"][0]["receives_ssi"],
         )
 
-        G.add_edge(f"r3_ssi", "sink", con=lambda _: True)
+        # G.add_edge(f"r3_ssi", "sink", con=lambda _: True)
 
-        for i in range(1, n):
-            G.add_node(f"r4_child{i}")
-            G.add_node(f"r4_foster{i}")
-            # Check if anyone is in foster care
-            G.add_edge(
-                "source",
-                f"r4_child{i}",
-                con=lambda hh: hh["members"][i]["relation"] == "child",
-            )
+        # for i in range(1, n):
+        # G.add_node(f"r4_child{i}")
+        # G.add_node(f"r4_foster{i}")
+        # Check if anyone is in foster care
+        # G.add_edge(
+        #     "m1",
+        #     f"r4_child{i}",
+        #     con=lambda hh: hh["members"][i]["relation"] == "child",
+        # )
 
-            G.add_edge(
-                "source",
-                f"r4_foster{i}",
-                con=lambda hh: hh["members"][i]["in_foster_care"],
-            )
+        # G.add_edge(
+        #     "m1",
+        #     f"r4_foster{i}",
+        #     con=lambda hh: hh["members"][i]["in_foster_care"],
+        # )
 
-            G.add_edge(f"r4_foster{i}", "sink", con=lambda _: True)
+        # G.add_edge(f"r4_foster{i}", "sink", con=lambda _: True)
+        G.add_edge(
+            "m1",
+            "sink",
+            con=lambda hh: any([c for c in hh.children() if c["in_foster_care"]]),
+        )
 
         def check_income(hh):
             hh_income = sum(
@@ -450,43 +478,40 @@ class EarlyHeadStartPrograms(EligibilityGraph):
             family_size = len(hh["members"])
             return hh_income <= 14580 + (family_size - 1) * 5140
 
-        G.add_edge("source", "m_income", con=check_income)
-        G.add_edge("m_income", "sink", con=lambda _: True)
+        G.add_edge("m1", "sink", con=check_income)
+        # G.add_edge("m_income", "sink", con=lambda _: True)
 
         return G
 
 
 class InfantToddlerPrograms(EligibilityGraph):
     """
-    You must have at least one of these approved reasons for care:
+    3. Infant/Toddler Programs
 
-    You work 10+ hours per week
-    You are in an educational or vocational training program
-    You are starting to look for work or have been looking for work for up to 6 months. This includes looking for work while receiving unemployment
-    You live in temporary housing
-    You are attending services for domestic violence
-    You are receiving treatment for substance abuse
-    You may qualify if your household income is at or below these amounts:
-
-    +-------------+----------------+---------------+
-    | Family Size | Monthly Income | Yearly Income |
-    +-------------+----------------+---------------+
-    | 1           | $4,301         | $51,610       |
-    | 2           | $5,624         | $67,490       |
-    | 3           | $6,948         | $83,370       |
-    | 4           | $8,271         | $99,250       |
-    | 5           | $9,594         | $115,130      |
-    | 6           | $10,918        | $131,010      |
-    | 7           | $11,166        | $133,987      |
-    | 8           | $11,414        | $136,965      |
-    | 9           | $11,662        | $139,942      |
-    | 10          | $11,910        | $142,920      |
-    | 11          | $12,158        | $145,897      |
-    | 12          | $12,406        | $148,875      |
-    | 13          | $12,654        | $151,852      |
-    | 14          | $12,903        | $154,830      |
-    | 15          | $13,151        | $157,807      |
-    +-------------+----------------+---------------+
+    You must have a child age 5 or younger and both parents have at least one of these approved reasons for care:
+    1. You work 10+ hours per week.
+    2. You are in an educational or vocational training program.
+    3. You are starting to look for work or have been looking for work for up to 6 months, including looking for work while receiving unemployment.
+    4. You live in temporary housing.
+    5. You are attending services for domestic violence.
+    6. You are receiving treatment for substance abuse.
+    7. Your household income is at or below these amounts:
+    Family size, monthly income, and yearly income:
+    1 - $4,301 (monthly), $51,610 (yearly)
+    2 - $5,624 (monthly), $67,490 (yearly)
+    3 - $6,948 (monthly), $83,370 (yearly)
+    4 - $8,271 (monthly), $99,250 (yearly)
+    5 - $9,594 (monthly), $115,130 (yearly)
+    6 - $10,918 (monthly), $131,010 (yearly)
+    7 - $11,166 (monthly), $133,987 (yearly)
+    8 - $11,414 (monthly), $136,965 (yearly)
+    9 - $11,662 (monthly), $139,942 (yearly)
+    10 - $11,910 (monthly), $142,920 (yearly)
+    11 - $12,158 (monthly), $145,897 (yearly)
+    12 - $12,406 (monthly), $148,875 (yearly)
+    13 - $12,654 (monthly), $151,852 (yearly)
+    14 - $12,903 (monthly), $154,830 (yearly)
+    15 - $13,151 (monthly), $157,807 (yearly)
     """
 
     @classmethod
@@ -495,7 +520,7 @@ class InfantToddlerPrograms(EligibilityGraph):
         hh: dict,
     ) -> Literal["pass", "fail", "indeterminate"]:
         n = len(hh["members"])
-        household_schema.validate(hh)
+        hh.validate()
         G = nx.MultiGraph()
         G.add_node("source")
         G.add_node("sink")
@@ -506,7 +531,7 @@ class InfantToddlerPrograms(EligibilityGraph):
         G.add_node("r2_training")
         G.add_node("r3_looking_for_work")
         G.add_node("r4_temporary")
-        G.add_node("r5_attending_services_for_domestic_violence")
+        G.add_node("r5_attending_service_for_domestic_violence")
         G.add_node("r6_receiving_treatment_for_substance_abuse")
         G.add_node("m_income")
 
@@ -546,12 +571,12 @@ class InfantToddlerPrograms(EligibilityGraph):
 
         G.add_edge(
             "source",
-            f"r5_attending_services_for_domestic_violence",
-            con=lambda hh: hh["members"][0]["attending_services_for_domestic_violence"],
+            f"r5_attending_service_for_domestic_violence",
+            con=lambda hh: hh["members"][0]["attending_service_for_domestic_violence"],
         )
 
         G.add_edge(
-            f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True
+            f"r5_attending_service_for_domestic_violence", "sink", con=lambda _: True
         )
 
         G.add_edge(
@@ -584,15 +609,12 @@ class InfantToddlerPrograms(EligibilityGraph):
 
 class ChildTaxCredit(EligibilityGraph):
     """
-    To be eligible for the credit in the 2023 tax year, you should meet these requirements:
+    4. Child Tax Credit
 
-    1. You earned up to $200,000 and up to $400,000 if you are married filing jointly.
-    2. You're claiming a child on your tax return who is:
-        * 16 or younger
-        * The child must have a Social Security Number (SSN) or Adoption Tax Identification Number (ATIN). The filer may use an SSN or Individual Taxpayer Identification Number (ITIN).
-    3. Qualifying children must be your child, stepchild, grandchild, eligible foster child, adopted child, sibling, niece, or nephew.
-    4. Your child or dependent lived with you for over half of the year in the U.S. and you are claiming them as a dependent on your tax return.
-    5. Your child cannot provide more than half of their own financial support.
+    To be eligible for the credit in the 2023 tax year, you should meet these requirements:
+    1. You earned up to $200,000, and up to $400,000 if you are married filing jointly.
+    2. You're claiming a child on your tax return who is 16 or younger. The child must have a Social Security Number (SSN) or Adoption Tax Identification Number (ATIN). The filer may use an SSN or Individual Taxpayer Identification Number (ITIN). Qualifying children must be your child, stepchild, grandchild, eligible foster child, adopted child, sibling, niece, or nephew.
+    3. Your child or dependent lived with you for over half of the year in the U.S. and you are claiming them as a dependent on your tax return. Your child cannot provide more than half of their own financial support.
     """
 
     @classmethod
@@ -601,7 +623,7 @@ class ChildTaxCredit(EligibilityGraph):
         hh: dict,
     ) -> Literal["pass", "fail", "indeterminate"]:
         n = len(hh["members"])
-        household_schema.validate(hh)
+        hh.validate()
         G = nx.MultiGraph()
         G.add_node("source")
         G.add_node("sink")
@@ -681,12 +703,12 @@ class ChildTaxCredit(EligibilityGraph):
 
         G.add_edge(
             "source",
-            f"r5_attending_services_for_domestic_violence",
-            con=lambda hh: hh["members"][0]["attending_services_for_domestic_violence"],
+            f"r5_attending_service_for_domestic_violence",
+            con=lambda hh: hh["members"][0]["attending_service_for_domestic_violence"],
         )
 
         G.add_edge(
-            f"r5_attending_services_for_domestic_violence", "sink", con=lambda _: True
+            f"r5_attending_service_for_domestic_violence", "sink", con=lambda _: True
         )
 
         G.add_edge(
@@ -719,13 +741,15 @@ class ChildTaxCredit(EligibilityGraph):
 
 class ComprehensiveAfterSchool(EligibilityGraph):
     """
+    8. Comprehensive After School System of NYC
+
     All NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs. Each program may have different age and eligibility requirements.
     """
 
     @classmethod
     def make_graph(cls, hh: dict) -> Literal["pass", "fail", "indeterminate"]:
         n = len(hh["members"])
-        household_schema.validate(hh)
+        hh.validate()
         G = nx.MultiGraph()
         G.add_node("source")
         G.add_node("sink")
@@ -734,11 +758,7 @@ class ComprehensiveAfterSchool(EligibilityGraph):
                 "source",
                 "sink",
                 con=lambda hh, i=i: hh["members"][i]["current_school_level"]
-                in [
-                    "pk",
-                    "k",
-                    1,2,3,4,5,6,7,8,9,10,11,12
-                ],
+                in ["pk", "k", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             )
 
         return G
@@ -765,7 +785,8 @@ if __name__ == "__main__":
     predictionss = []
     agreementss = []
     for i, row in df.iterrows():
-        hh = row["hh"]
+        # hh = row["hh"]
+        hh = Household.from_dict(row["hh"])
         labels = row["labels"]
 
         print(f"Index: {i}")
@@ -775,7 +796,7 @@ if __name__ == "__main__":
             try:
                 program = eval(program_string)
                 label = row["labels"][j]
-                household_schema.validate(hh)
+                hh.validate()
                 G = program.make_graph(hh)
                 prediction, G = program.evaluate_graph(G, hh)
                 predictions.append(prediction)
@@ -785,7 +806,7 @@ if __name__ == "__main__":
             if prediction is not None:
                 # agreement.append(prediction == label)
                 a = prediction == label
-                if a or not program_string == "ComprehensiveAfterSchool":
+                if a or not program_string == "InfantToddlerPrograms":
                     pass
                 else:
                     # print graph
@@ -798,6 +819,7 @@ if __name__ == "__main__":
                     program.evaluate_graph(G, hh)
 
                     program.draw_graph(hh)
+                    desc_df = program.describe_graph(G)
                     print
                     print("=================")
                 agreements.append(a)
@@ -818,7 +840,7 @@ if __name__ == "__main__":
     #         program = eval(program_string)
     #         hh = example["hh"]
     #         label = example["labels"][i]
-    #         household_schema.validate(hh)
+    # hh.validate()
     #         assert program.__call__(hh) == label
 
     # print("All tests passed")

@@ -10,7 +10,8 @@ from users import (
     default_child,
     default_employed,
     nl_household_profile,
-    household_schema,
+    Household,
+    Person,
 )
 import pandas as pd
 
@@ -126,7 +127,7 @@ def random_members():
 def show_abnormal(member, default_member):
     excluded_keys = ["relation", "age", "name"]
     result = []
-    for key in member:
+    for key in member.features.keys():
         if key in excluded_keys:
             continue
         if member[key] != default_member[key]:
@@ -154,8 +155,9 @@ if __name__ == "__main__":
     unique_hh_strs = set()
     unique_hhs = []
     while len(unique_hh_strs) < 100:
-        hh = {"members": random_members()}
-        household_schema.validate(hh)
+        # hh = {"members": random_members()}
+        hh = Household(members=random_members())
+        # household_schema.validate(hh)
         hh_str = str(hh)
         if hh_str in unique_hh_strs:
             print(f"Duplicate {duplicates}")
