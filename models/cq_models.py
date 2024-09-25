@@ -1,18 +1,11 @@
 from utils import *
-import pandas as pd
 from json import loads
 from tqdm import tqdm
 from typing import List
 from tqdm import tqdm
-from transformers import AutoTokenizer
-import transformers
 import os
 from huggingface_hub import login
-import torch
-import re
-from sentence_transformers import SentenceTransformer
 import numpy as np
-from lmwrapper.huggingface_wrapper import get_huggingface_lm
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 from typing import List, Callable
@@ -115,16 +108,24 @@ class BaseClarifyingQuestionModel:
         return output
 
 
+
 if __name__ == "__main__":
     ### testing
 
     chat_history = [
         {
             "role": "system",
-            "content": "Introduce yourself",
+            "content": "respond to the user's next question",
         },
+        {
+            "role": "user",
+            "content": "what is your name?"
+        }
     ]
-    gpt_wrapper = load_lm("")
+    gpt_wrapper = load_lm("gpt-3-5-turbo-0125")
+    model = BaseClarifyingQuestionModel(gpt_wrapper)
+    output = model.forward(chat_history)
+    print(output)
 
     llama3_wrapper = load_lm("meta-llama/Meta-Llama-3-8B-Instruct")
     model = BaseClarifyingQuestionModel(llama3_wrapper)
