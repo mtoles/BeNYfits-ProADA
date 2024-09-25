@@ -7,15 +7,8 @@ from lmwrapper.structs import LmPrompt
 # https://github.com/DaiseyCode/lmwrapper
 
 
-class ModelFamily(Enum):
-    LLAMA = "llama"
-    GPT = "gpt"
-    GEMMA = "gemma"
-    MISTRAL = "mistral"
-
-
 class LanguageModelWrapper:
-    def __init__(self, display_name: str, family: ModelFamily, hf_name: str):
+    def __init__(self, display_name: str, family: str, hf_name: str):
         self.display_name = display_name
         self.family = family
         self.hf_name = hf_name
@@ -24,7 +17,7 @@ class LanguageModelWrapper:
     @property
     def language_model(self):
         if self._language_model is None:
-            if self.family in [ModelFamily.LLAMA, ModelFamily.GEMMA]:
+            if self.family in ["llama", "gemma"]:
                 self._language_model = get_huggingface_lm(self.hf_name)
                 self._language_model._tokenizer.pad_token_id = (
                     self._language_model._tokenizer.eos_token_id
@@ -43,28 +36,28 @@ class LanguageModelWrapper:
 
 MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "meta-llama/Meta-Llama-3-8B-Instruct": LanguageModelWrapper(
-        "Llama 8B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-8B-Instruct"
+        "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct"
     ),
     "meta-llama/Meta-Llama-3-70B-Instruct": LanguageModelWrapper(
-        "Llama 70B Instruct", ModelFamily.LLAMA, "meta-llama/Meta-Llama-3-70B-Instruct"
+        "Llama 70B Instruct", "llama", "meta-llama/Meta-Llama-3-70B-Instruct"
     ),
-    "gpt2": LanguageModelWrapper("GPT-2", ModelFamily.GPT, "gpt2"),
+    "gpt2": LanguageModelWrapper("GPT-2", "llama", "gpt2"),
     "gpt-3-5-turbo-instruct": LanguageModelWrapper(
         "GPT-3.5-Turbo-Instruct",
-        ModelFamily.GPT,
+        "gpt",
         OpenAiModelNames.gpt_3_5_turbo_instruct,
     ),
     "gpt-3-5-turbo-0125": LanguageModelWrapper(
-        "GPT-3.5-Turbo", ModelFamily.GPT, OpenAiModelNames.gpt_3_5_turbo_0125
+        "GPT-3.5-Turbo", "gpt", OpenAiModelNames.gpt_3_5_turbo_0125
     ),
     "gpt-4o-2024-05-13": LanguageModelWrapper(
-        "gpt-4o-2024-05-13", ModelFamily.GPT, OpenAiModelNames.gpt_4o_2024_05_13
+        "gpt-4o-2024-05-13", "gpt", OpenAiModelNames.gpt_4o_2024_05_13
     ),
     "google/gemma-2b-it": LanguageModelWrapper(
-        "Gemma 2B Instruction Tuned", ModelFamily.GEMMA, "google/gemma-2b-it"
+        "Gemma 2B Instruction Tuned", "gemma", "google/gemma-2b-it"
     ),
     "google/gemma-7b-it": LanguageModelWrapper(
-        "Gemma 7B Instruction Tuned", ModelFamily.GEMMA, "google/gemma-7b-it"
+        "Gemma 7B Instruction Tuned", "gemma", "google/gemma-7b-it"
     ),
     # Add more models here as needed
 }

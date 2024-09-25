@@ -5,7 +5,6 @@ import os
 from huggingface_hub import login
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
-from models.utils import ModelFamily
 
 
 class BaseOracleModel:
@@ -55,10 +54,10 @@ class BaseOracleModel:
 
     def forward_batch(self, documents: List[str], questions: List[str]) -> List[str]:
         format_func = {
-            ModelFamily.LLAMA: self._format_llama_prompt,
-            ModelFamily.GPT: self._format_gpt_prompt,
-            ModelFamily.GEMMA: self._format_gemma_prompt,
-            ModelFamily.MISTRAL: self._format_mistral_prompt,
+            "llama": self._format_llama_prompt,
+            "gpt": self._format_gpt_prompt,
+            "gemma": self._format_gemma_prompt,
+            "mistral": self._format_mistral_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_prompts = [

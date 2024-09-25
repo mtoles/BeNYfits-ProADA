@@ -6,7 +6,6 @@ from models.utils import load_lm, LanguageModelWrapper
 from models.cq_models import BaseClarifyingQuestionModel
 from models.oracle_models import BaseOracleModel
 from typing import List
-from models.utils import ModelFamily
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 from datamodels.userprofile import UserProfile

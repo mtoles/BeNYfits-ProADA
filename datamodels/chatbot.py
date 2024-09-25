@@ -1,7 +1,6 @@
 from models.utils import load_lm, LanguageModelWrapper
 from models.cq_models import BaseClarifyingQuestionModel
 from typing import List, Optional
-from models.utils import ModelFamily
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 import re
@@ -58,10 +57,10 @@ class ChatBot:
         """
         benefits_ready_question = "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False."
         format_func = {
-            ModelFamily.LLAMA: self._format_llama_prompt,
-            ModelFamily.GPT: self._format_gpt_prompt,
-            ModelFamily.GEMMA: self._format_default_prompt,
-            ModelFamily.MISTRAL: self._format_default_prompt,
+            "llama": self._format_llama_prompt,
+            "gpt": self._format_gpt_prompt,
+            "gemma": self._format_default_prompt,
+            "mistral": self._format_default_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_prompt = format_func(benefits_ready_question)
@@ -97,8 +96,8 @@ class ChatBot:
 
         benefits_ready_question = f"Return only a boolean array of length {self.no_of_programs}, e.g. {example_array(self.no_of_programs)} determining if the user or any member in its houehold is eligible for the benefits. Only return the array. Do not return anything else in the response."
         format_func = {
-            ModelFamily.LLAMA: self._format_llama_prompt,
-            ModelFamily.GPT: self._format_gpt_prompt,
+            "llama": self._format_llama_prompt,
+            "gpt": self._format_gpt_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_prompt = format_func(benefits_ready_question)

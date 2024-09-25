@@ -11,7 +11,6 @@ from typing import List
 from lmwrapper.huggingface_wrapper import get_huggingface_lm
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
-from models.utils import ModelFamily
 
 
 load_dotenv()
@@ -113,6 +112,7 @@ class GPTPrimaryModel(PrimaryModel):
         pm_output = instructions.progress_apply(lambda x: self.forward(x))
         return pm_output
 
+
 # Base class for primary model
 class BasePrimaryModel:
     def __init__(self, lm_wrapper):
@@ -149,7 +149,12 @@ class BasePrimaryModel:
         ]
         # sequences = self.pipeline(
         sequences = self.pipeline.predict_many(
-            ([LmPrompt(p, cache=False, max_tokens=512) for p in llama_formatted_prompts]),
+            (
+                [
+                    LmPrompt(p, cache=False, max_tokens=512)
+                    for p in llama_formatted_prompts
+                ]
+            ),
             completion_window=CompletionWindow.ASAP,
         )
 
@@ -165,10 +170,10 @@ class BasePrimaryModel:
 
     def forward(self, instruction: str) -> str:
         format_func = {
-            ModelFamily.LLAMA: self._format_llama_prompt,
-            ModelFamily.GPT: self._format_gpt_prompt,
-            ModelFamily.GEMMA: self._format_gemma_prompt,
-            ModelFamily.MISTRAL: self._format_mistral_prompt,
+            "llama": self._format_llama_prompt,
+            "gpt": self._format_gpt_prompt,
+            "gemma": self._format_gemma_prompt,
+            "mistral": self._format_mistral_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_instruction = format_func(instruction)
@@ -185,10 +190,10 @@ class BasePrimaryModel:
 
     def forward_list(self, instructions: pd.Series) -> pd.Series:
         format_func = {
-            ModelFamily.LLAMA: self._format_llama_prompt,
-            ModelFamily.GPT: self._format_gpt_prompt,
-            ModelFamily.GEMMA: self._format_gemma_prompt,
-            ModelFamily.MISTRAL: self._format_mistral_prompt,
+            "llama": self._format_llama_prompt,
+            "gpt": self._format_gpt_prompt,
+            "gemma": self._format_gemma_prompt,
+            "mistral": self._format_mistral_prompt,
         }.get(self.lm_wrapper.family, self._format_default_prompt)
 
         formatted_prompts = [format_func(instruction) for instruction in instructions]
