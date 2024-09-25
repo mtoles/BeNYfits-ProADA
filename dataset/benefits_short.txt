@@ -1,4 +1,4 @@
-# v0.2.3
+# v0.2.4
 Below is the list of programs alon gwith their eligibility criterias:
 
 1. Child and Dependent Care Tax Credit
@@ -73,7 +73,7 @@ To claim the EITC credit on your 2023 tax return, these must apply to you:
 2. Your income, marital, and parental status in 2023 were one of these: Married with qualifying children and earning up to $63,398, Married with no qualifying children and earning up to $24,210, Single with qualifying children and earning up to $56,838, Single with no qualifying children and earning up to $17,640.  
 3. Qualifying children include biological children, stepchildren, foster children, and grandchildren.  
 4. If you have no children, the EITC is only available to filers between ages 25 and 64.  
-5. Married Filing Separate: A spouse who is not filing a joint return may claim the EITC if you had a qualifying child who lived with you for more than half of the year and you were legally separated according to state law at the end of 2023, or you lived apart from your spouse for the last 6 months of 2023.  
+5. Married Filing Separate: A spouse who is not filing a joint return may claim the EITC if you had a qualifying child who lived with you for more than half of the year.  
 6. You had investment income of less than $11,000 in 2023.  
 
 7. Head Start

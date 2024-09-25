@@ -120,7 +120,8 @@ class Person:
         for field, value in person_dict.items():
             person.features[field] = value
         return person
-
+    def total_income(self):
+        return self["work_income"] + self["investment_income"]
 class Household:
     """
     A data class to represent a household
@@ -155,8 +156,8 @@ class Household:
     ### CONVENIENCE METHODS FOR GRAPH LOGIC ###
     def user(self):
         return self.members[0]
-    def children(self):
-        return [member for member in self.members if member["relation"] == "child"]
+    # def children(self):
+    #     return [member for member in self.members if member["relation"] in ["child", "stepchild", "foster_child", "adopted_child"]]
     def spouse(self):
         spouses = [member for member in self.members if member["relation"] == "spouse"]
         if len(spouses) == 0:
@@ -172,11 +173,21 @@ class Household:
     def marriage_work_income(self):
         user_income = self.members[0]["work_income"]
         spouse = self.spouse()
-        if spouse:
+        if spouse and self.user()["filing_jointly"]:
             spouse_income = spouse["work_income"]
         else:
             spouse_income = 0
         return user_income + spouse_income
+    def marriage_investment_income(self):
+        user_income = self.members[0]["investment_income"]
+        spouse = self.spouse()
+        if spouse and self.user()["filing_jointly"]:
+            spouse_income = spouse["investment_income"]
+        else:
+            spouse_income = 0
+        return user_income + spouse_income
+    def marriage_total_income(self):
+        return self.marriage_work_income() + self.marriage_investment_income()
     def hh_work_income(self):
         return sum([member["work_income"] for member in self.members])
     def hh_investment_income(self):
@@ -207,6 +218,7 @@ person_features = [
     ("has_atin", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} has an adoption taxpayer ID number (ATIN)." if x else f"{n} does not have adoption taxpayer ID number (ATIN)."), 
     ("has_itin", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} has an individual taxpayer ID number (ITIN)." if x else f"{n} does not have an individual taxpayer ID number (ITIN)."), 
     ("can_care_for_self", And(bool,), lambda: bool(np.random.choice([True, False])), True, lambda n, x: f"{n} can care for themselves." if x else f"{n} cannot care for themselves."),
+    ("place_of_residence", And(str, len), lambda: np.random.choice(["NYC", "Jersey"]), "NYC", lambda n, x: f"{n} lives in {x}."),
 
     # Training Info
     ("enrolled_in_educational_training", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} is enrolled in educational training." if x else f"{n} is not enrolled in educational training."),
@@ -219,6 +231,10 @@ person_features = [
     ("receives_hra", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} receives Health Reimbursement Arrangement (HRA)." if x else f"{n} does not receive Health Reimbursement Arrangement (HRA)."),
     ("receives_ssi", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} receives Supplemental Security Income (SSI)." if x else f"{n} does not receive Supplemental Security Income (SSI)."),
     ("receives_snap", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} receives Supplemental Nutrition Assistance Program (SNAP)." if x else f"{n} does not receive Supplemental Nutrition Assistance Program (SNAP)."),
+    ("receives_ssdi", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} receives Social Security Disability Insurance (SSDI)." if x else f"{n} does not receive Social Security Disability Insurance (SSDI)."),
+    ("receives_va_disability", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} receives Veterans Affairs (VA) disability pension or compensation." if x else f"{n} does not receive Veterans Affairs (VA) disability pension or compensation."),
+    ("has_received_ssi_or_ssdi", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} has received Supplemental Security Income (SSI) or Social Security Disability Insurance (SSDI) in the past." if x else f"{n} has not received Supplemental Security Income (SSI) or Social Security Disability Insurance (SSDI) in the past."),
+    ("receives_disability_medicaid", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} receives Medicaid due to disability." if x else f"{n} does not receive Medicaid due to disability."),
     
     # School Info
     ("student", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} is a student." if x else f"{n} is not a student."),
@@ -256,7 +272,7 @@ person_features = [
     
     # Relation Info
     ("relation", 
-        And(lambda x: x in ("self", "spouse", "child", "stepchild", "grandchild", "foster_child", "adopted_child", "sibling_niece_nephew", "other_family", "other_non_family"),), 
+        And(lambda x: x in ("self", "spouse", "child", "stepchild", "grandchild", "foster_child", "adopted_child", "sibling","niece_nephew", "other_family", "other_non_family"),), 
         lambda: np.random.choice(["spouse", "child", "stepchild", "grandchild", "foster_child", "adopted_child", "sibling_niece_nephew", "other_family", "other_non_family"]), "self",
         lambda n, x: f"You are {n}" if x == "self" else f"{n} is your {x}"
     ),

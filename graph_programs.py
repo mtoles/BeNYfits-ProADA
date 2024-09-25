@@ -417,7 +417,7 @@ class EarlyHeadStartPrograms(EligibilityGraph):
         # G.add_node("m_income")
 
         G.add_edge(
-            "source", "m1", con=lambda hh: any([c["age"] <= 3 for c in hh.children()])
+            "source", "m1", con=lambda hh: any([c["age"] <= 3 for c in hh.members])
         )
 
         G.add_edge(
@@ -466,7 +466,7 @@ class EarlyHeadStartPrograms(EligibilityGraph):
         G.add_edge(
             "m1",
             "sink",
-            con=lambda hh: any([c for c in hh.children() if c["in_foster_care"]]),
+            con=lambda hh: any([c for c in hh.members if c["in_foster_care"]]),
         )
 
         def check_income(hh):
@@ -528,7 +528,7 @@ class InfantToddlerPrograms(EligibilityGraph):
         G.add_node("m1")
         G.add_node("spouse")
         G.add_edge(
-            "source", "m1", con=lambda hh: any([c["age"] <= 5 for c in hh.children()])
+            "source", "m1", con=lambda hh: any([c["age"] <= 5 for c in hh.members])
         )
 
         G.add_edge(
