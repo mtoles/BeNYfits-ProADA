@@ -8,7 +8,9 @@ from users import (
     default_child,
     default_employed,
     nl_household_profile,
-    household_schema,
+    # household_schema,
+    Person,
+    Household
 )
 from dataset import top_8_programs
 import argparse
@@ -50,10 +52,19 @@ for i, row in df.iterrows():
             member = default_child(random_name=False)
         else:
             raise ValueError(f"Unknown relation: {relation}")
-        member.update(non_default_features)
+        for k, v in non_default_features.items():
+            member[k] = v
+        # member.update(non_default_features)
+
+        # implied features
+        if member["work_income"] > 0:
+            member["work_hours_per_week"] = 40
+            member["works_outside_home"] = True
         members.append(member)
-    hh = {"members": members}
-    household_schema.validate(hh)
+    # hh = {"members": members}
+    hh = Household(members=members)
+    # household_schema.validate(hh)
+    hh.validate()
     ev = ["pass" if int(x) else "fail" for x in list(row[1:9])]  # eligibility vector
     evs.append(ev)
     hhs.append(hh)

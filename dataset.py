@@ -6,7 +6,7 @@ from users import (
     default_child,
     default_employed,
     nl_household_profile,
-    household_schema,
+    # household_schema,
 )
 import pandas as pd
 
@@ -91,7 +91,8 @@ if __name__ == "__main__":
     dataset = [ex0, ex1, ex2]
     # validate all the households
     for i, ex in enumerate(dataset):
-        household_schema.validate(ex["hh"])
+        # household_schema.validate(ex["hh"])
+        ex["hh"].validate()
     df = pd.DataFrame(dataset)
     df["hh_nl_desc"] = df.apply(nl_household_profile, axis=1)
     df.to_json("dataset_v0.1.0.jsonl", lines=True, orient="records")

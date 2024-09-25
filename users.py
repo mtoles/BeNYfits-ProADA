@@ -2,6 +2,7 @@ from schema import Schema, And, Or, Use, Optional, SchemaError
 from names import get_full_name
 import numpy as np
 import pandas as pd
+from typing import List
 
 ### FUNCTIONS ###
 
@@ -11,7 +12,7 @@ def _one_self(hh):
     if hh["members"][0]["relation"] != "self":
         raise SchemaError("Household must have exactly one `self`")
     for member in hh["members"][1:]:
-        if "relation" in member.keys():
+        if "relation" in member.features.keys():
             if member["relation"] == "self":
                 raise SchemaError("Household cannot have more than one `self`")
     return True
@@ -65,7 +66,7 @@ def nl_person_profile(person: dict) -> str:
     name = person["name"]
     sentences = []
     for field, schema, random, default, fn in person_features:
-        if field in person.keys():
+        if field in person.features.keys():
             sentences.append(fn(name, person[field]))
     return "\n".join(sentences).strip()
 
@@ -124,12 +125,19 @@ class Household:
     """
     A data class to represent a household
     """
-    def __init__(self, members=[]):
+    def __init__(self, members: list[Person]=[]):
+        # create household from list of Persons
+        for member in members:
+            assert isinstance(member, Person)
+        # self.members = members
+        
         self.members = members
         self.features = {"members": self.members} # TODO: remove after integrating Nikhil's programs
+        self.validate()
     @classmethod
-    def from_dict(cls, hh_dict):
-        members = [Person.from_dict(member) for member in hh_dict["members"]]
+    def from_dict(cls, hh_dict: dict):
+        # create household from dictionary
+        members = [Person.from_dict(member["features"]) for member in hh_dict["members"]]
         hh = cls(members)
         hh.validate()
         return hh
@@ -142,12 +150,33 @@ class Household:
     def validate(self):
         for member in self.members:
             member.validate()
+        assert _one_self(self)
 
     ### CONVENIENCE METHODS FOR GRAPH LOGIC ###
+    def user(self):
+        return self.members[0]
     def children(self):
         return [member for member in self.members if member["relation"] == "child"]
     def spouse(self):
-        return [member for member in self.members if member["relation"] == "spouse"][0]
+        spouses = [member for member in self.members if member["relation"] == "spouse"]
+        if len(spouses) == 0:
+            return None
+        return spouses[0]
+    def parents(self):
+        user = self.members[0]
+        spouse = self.spouse()
+        parents = [user]
+        if spouse:
+            parents.append(spouse)
+        return parents
+    def marriage_income(self):
+        user_income = self.members[0]["work_income"]
+        spouse = self.spouse()
+        if spouse:
+            spouse_income = spouse["work_income"]
+        else:
+            spouse_income = 0
+        return user_income + spouse_income
     
 ### CONSTANTS ###
 
@@ -261,7 +290,6 @@ person_schema_df = pd.DataFrame(
 #         ),
 #     )
 # )
-
 
 
 # household_schema = Schema(

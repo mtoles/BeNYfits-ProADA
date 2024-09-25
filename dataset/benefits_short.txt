@@ -1,9 +1,9 @@
-# v0.2.2
-Below is the list of programs along with their eligibility criterias:
+# v0.2.3
+Below is the list of programs alon gwith their eligibility criterias:
 
 1. Child and Dependent Care Tax Credit
 To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to the following questions:
-1. Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or adult dependent who cannot physically or mentally care for themselves.
+1. Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or dependent (of any age) who cannot physically or mentally care for themselves.
 2. Did the dependent live with you for more than half of 2023?
 3. Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
 4. If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
