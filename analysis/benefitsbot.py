@@ -2,7 +2,7 @@ import os
 import json
 import argparse
 import pandas as pd
-from models.utils import load_lm, LanguageModelWrapper
+from models.model_utils import load_lm, LanguageModelWrapper
 from models.cq_models import BaseClarifyingQuestionModel
 from models.oracle_models import BaseOracleModel
 from typing import List
@@ -11,7 +11,7 @@ from lmwrapper.batch_config import CompletionWindow
 from datamodels.userprofile import UserProfile
 from datamodels.chatbot import ChatBot
 from datamodels.syntheticuser import SyntheticUser
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 from datetime import datetime
 from tqdm import tqdm
 
@@ -39,7 +39,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--dataset_path",
-    default="./dataset/dataset_v0.1.0.jsonl",
+    default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
@@ -104,6 +104,7 @@ for index, row in tqdm(df.iterrows()):
     max_dialog_turns = args.max_dialog_turns
 
     transcript = [chatbot.history]
+    chatbot.history += "\n\nYou also know this additional information about the user:"
     while cur_iter_count < max_dialog_turns and chatbot.benefits_ready() != True:
         cur_iter_count += 1
         print(f"Iteration Count: {cur_iter_count}")
@@ -112,7 +113,7 @@ for index, row in tqdm(df.iterrows()):
         cq_answer = synthetic_user.answer_cq(cq)
         print(f"Answer: {cq_answer}")
         print("==" * 20)
-        chatbot.append_chat_history_with_cq_answer(cq_answer)
+        chatbot.append_chat_question_and_answer(cq, cq_answer)
         transcript.append(f"BOT: {cq}")
         transcript.append(f"USER: {cq_answer}")
 
@@ -131,26 +132,54 @@ df["predictions"] = predictions
 df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
 df["f1"] = None
 non_null_predictions = ~df["predictions"].isnull()
-if non_null_predictions.sum() > 0:  # pandas gets confused if there are no actual indices to set
-    df["f1"][non_null_predictions] = df[non_null_predictions].apply(
+if (
+    non_null_predictions.sum() > 0
+):  # pandas gets confused if there are no actual indices to set
+    df.loc[non_null_predictions, "f1"] = df[non_null_predictions].apply(
         lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
     )
-df["f1"][df["predictions"].isnull()] = 0  # Set F1 score to 0 if no prediction was made
+df.loc[df["predictions"].isnull(), "f1"] = (
+    0  # Set F1 score to 0 if no prediction was made
+)
 print(f"Total F1 Score: {df['f1'].mean()}")
+
+df_labels = pd.DataFrame(
+    columns=df.programs[0], index=df.index, data=df.labels.tolist()
+)
+df_preds = pd.DataFrame(
+    columns=df.programs[0], index=df.index, data=df.predictions.tolist()
+)
+df_acc = df_labels == df_preds
 
 ### Save results file and chat history ###
 output_dir = f"./results/{now}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-with open(f"{output_dir}/results.md", "w") as f:
+with open(f"{output_dir}/results_summary.md", "w") as f:
+    f.write("### Args ###\n")
     for key, value in args.__dict__.items():
-        f.write("### Args ###\n")
         f.write(f"{key}: {value}\n")
     f.write("### Results ###\n")
     f.write(f"Total F1 Score: {df['f1'].mean()}\n")
+    for program in df.programs[0]:
+        f.write(f"{program}\n")
+        f.write(
+            f"F1: {f1_score(df_labels[program], df_preds[program], average='weighted')}\n"
+        )
+        f.write(f"Accuracy: {df_acc[program].mean()}\n")
+        f.write(
+            f"Precision: {precision_score(df_labels[program], df_preds[program], average='weighted')}\n"
+        )
+        f.write(
+            f"Recall: {recall_score(df_labels[program], df_preds[program], average='weighted')}\n"
+        )
+
 with open(f"{output_dir}/transcript.md", "w") as f:
     for i, transcript in enumerate(transcripts):
         f.write(f"Transcript {i}\n")
         f.write(f"{transcript}\n")
         f.write("\n\n==========\n\n")
 df.to_json(f"{output_dir}/results.jsonl", lines=True, orient="records")
+df_preds.to_json(f"{output_dir}/predictions.jsonl", lines=True, orient="records")
+df_acc.to_json(f"{output_dir}/accuracy.jsonl", lines=True, orient="records")
+pass

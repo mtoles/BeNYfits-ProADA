@@ -1,4 +1,4 @@
-from models.utils import load_lm, LanguageModelWrapper
+from models.model_utils import load_lm, LanguageModelWrapper
 from models.cq_models import BaseClarifyingQuestionModel
 from typing import List, Optional
 from lmwrapper.structs import LmPrompt
@@ -40,14 +40,14 @@ class ChatBot:
     def _format_gpt_prompt(self, question: str) -> str:
         json_instruction = (
             # "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
-            "" # Not using JSON here, match with Llama
+            ""  # Not using JSON here, match with Llama
         )
         return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def _format_default_prompt(self, question: str) -> str:
         json_instruction = (
             # "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
-            "" # Not using JSON here, match with Llama
+            ""  # Not using JSON here, match with Llama
         )
         return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
@@ -122,14 +122,14 @@ class ChatBot:
         """
         Function to generate clarifying question.
         """
-        task = "You are a language model trying to help user to determine eligbility of user for benefits."
+        task = "You are a language model trying to help user to determine eligbility of user for benefits. Ask a clarifying question that will help you determine the eligibility of user for benefits as quickly as possible."
         cq = self.cq_model.forward_batch_generate_single_question(
             [self.history], [task]
         )[0]
         return cq
 
-    def append_chat_history_with_cq_answer(self, cq_answer: str):
-        self.history = self.history + cq_answer
+    def append_chat_question_and_answer(self, clarifying_question: str, clarifying_answer: str):
+        self.history = f"{self.history}\n\n{clarifying_question}: {clarifying_answer}"
 
     def print_chat_history(self):
         print("==" * 30)

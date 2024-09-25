@@ -1,4 +1,4 @@
-from models.utils import LanguageModelWrapper
+from models.model_utils import LanguageModelWrapper
 from models.oracle_models import BaseOracleModel
 from datamodels.userprofile import UserProfile
 

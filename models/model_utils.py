@@ -26,12 +26,12 @@ class LanguageModelWrapper:
             else:
                 self._language_model = get_open_ai_lm(self.hf_name)
             print(
-                f"Model Pipeline Instantiated: {self.display_name} {self.family.value}"
+                f"Model Pipeline Instantiated: {self.display_name} {self.family}"
             )
         return self._language_model
 
     def __str__(self):
-        return f"{self.display_name} ({self.family.value})"
+        return f"{self.display_name} ({self.family})"
 
 
 MODEL_MAP: Dict[str, LanguageModelWrapper] = {
