@@ -39,7 +39,7 @@ def ChildAndDependentCareTaxCredit(hh: Household) -> bool:
             return bool(self_works and qualifying_family_lived_with_hh)
 
     def _r3(hh: Household) -> bool:
-        return bool(hh.marriage_income() > 0)
+        return bool(hh.marriage_work_income() > 0)
 
     def _r4(hh: Household) -> bool:
         user_not_at_home = (
@@ -71,6 +71,52 @@ def ComprehensiveAfterSchool(hh: Household) -> bool:
     return False
 
 
+def EarlyHeadStartPrograms(hh: Household) -> bool:
+    """
+    The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
+    1. You live in temporary housing.
+    2. You receive HRA Cash Assistance.
+    3. You receive SSI (Supplemental Security Insurance).
+    4. You are enrolling a child who is in foster care.
+    5. If your household income is at or below these amounts:
+    Family size and yearly income:
+    1 - $14,580
+    2 - $19,720
+    3 - $24,860
+    4 - $30,000
+    5 - $35,140
+    6 - $40,280
+    7 - $45,420
+    8 - $50,560
+    For each additional person, add $5,140.
+    """
+
+    def _has_toddler(hh: Household) -> bool:
+        children = hh.children()
+        for child in children:
+            if child["age"] <= 3:
+                return True
+        return False
+
+    temp_housing = hh.user()["lives_in_temp_housing"]
+    hra = hh.user()["receives_hra"]
+    ssi = hh.user()["receives_ssi"]
+    foster_care = bool([m for m in hh.members if m["in_foster_care"]])
+    hh_income = hh.hh_total_income()
+    hh_size = hh.num_members()
+
+    def _income_eligible(hh_income: float, hh_size: int) -> bool:
+        return hh_income <= 9440 + 5140 * hh_size
+
+    return _has_toddler(hh) and (
+        temp_housing
+        or hra
+        or ssi
+        or foster_care
+        or _income_eligible(hh_income, hh_size)
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test the eligibility programs")
     parser.add_argument(
@@ -99,8 +145,9 @@ if __name__ == "__main__":
     df_agreement = pd.DataFrame(columns=top_8_programs)
 
     for program in [
-        ChildAndDependentCareTaxCredit,
-        ComprehensiveAfterSchool,
+        # ChildAndDependentCareTaxCredit,
+        # ComprehensiveAfterSchool,
+        EarlyHeadStartPrograms,
     ]:
         ### TEST ELIGIBILITY ###
         for i, row in df.iterrows():

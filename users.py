@@ -169,7 +169,7 @@ class Household:
         if spouse:
             parents.append(spouse)
         return parents
-    def marriage_income(self):
+    def marriage_work_income(self):
         user_income = self.members[0]["work_income"]
         spouse = self.spouse()
         if spouse:
@@ -177,6 +177,14 @@ class Household:
         else:
             spouse_income = 0
         return user_income + spouse_income
+    def hh_work_income(self):
+        return sum([member["work_income"] for member in self.members])
+    def hh_investment_income(self):
+        return sum([member["investment_income"] for member in self.members])
+    def hh_total_income(self):  
+        return self.hh_work_income() + self.hh_investment_income()
+    def num_members(self):
+        return len(self.members)
     
 ### CONSTANTS ###
 
