@@ -2,7 +2,7 @@ from schema import Schema, And, Or, Use, Optional, SchemaError
 from names import get_full_name
 import numpy as np
 import pandas as pd
-from typing import List
+from typing import List, Dict, Union
 
 ### FUNCTIONS ###
 
@@ -80,6 +80,8 @@ def nl_household_profile(hh_df: pd.DataFrame) -> str:
     user_profile = nl_person_profile(user) + "\n=============="
     member_profiles = [nl_person_profile(member) for member in members[1:]]
     member_profiles = [x + "\n==============" for x in member_profiles]
+    num_members = len(members)
+    num_children = len([member for member in members if member["age"] < 18])
     return "\n".join(
         sentences
         + [user_profile]
@@ -87,6 +89,9 @@ def nl_household_profile(hh_df: pd.DataFrame) -> str:
             f"Your household consists of the following {len(member_profiles)} additional members:"
         ]
         + member_profiles
+        + [
+            f"There are {num_members} members in your household, of which {num_children} are children."
+        ]
     ).strip()
 
 

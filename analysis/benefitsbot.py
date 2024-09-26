@@ -108,13 +108,14 @@ for index, row in tqdm(df.iterrows()):
         and chatbot.predict_benefits_ready(history) != True
     ):
         cur_iter_count += 1
-        print(f"Iteration Count: {cur_iter_count}")
         cq = chatbot.predict_cq(history)
         history.append({"role": "assistant", "content": cq})
-        print(f"Clarifying Question: {cq}")
         cq_answer = synthetic_user.answer_cq(cq)
         history.append({"role": "user", "content": cq_answer})
-        print(f"Answer: {cq_answer}")
+
+        print(f"Turn Number:         {cur_iter_count}")
+        print(f"Clarifying Question: {cq}")
+        print(f"Answer:              {cq_answer}")
         print("==" * 20)
         # chatbot.append_chat_question_and_answer(cq, cq_answer)
 
@@ -125,9 +126,6 @@ for index, row in tqdm(df.iterrows()):
     predictions.append(benefits_prediction)
     print(f"Benefits Prediction: {benefits_prediction}")
     print("==" * 30)
-    # transcript.append(benefits_prediction_str)
-    # transcript.append(f"Predicted Benefits: {benefits_prediction}")
-    # transcripts.append("\n\n".join(transcript))
     history.append({"role": "assistant", "content": benefits_prediction_str})
     histories.append(history)
 
