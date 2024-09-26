@@ -1,5 +1,5 @@
 from models.model_utils import LanguageModelWrapper
-from models.cq_models import BaseClarifyingQuestionModel
+from models.lm_backbone import LmBackboneModel
 from typing import List, Optional
 import re
 import ast
@@ -28,45 +28,15 @@ class ChatBot:
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
-        # self.history = history
         self.lm_wrapper = lm_wrapper
-        self.cq_model = BaseClarifyingQuestionModel(self.lm_wrapper)
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper)
         self.num_programs = no_of_programs
-
-    # def _format_llama_prompt(self, question: str) -> str:
-    #     formatted_user_messages = [
-    #         {
-    #             "role": "system",
-    #             "content": f"{self.history}",
-    #         },
-    #         {
-    #             "role": "user",
-    #             "content": f"{question}",
-    #         },
-    #     ]
-    #     return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
-    #         formatted_user_messages, tokenize=False, add_generation_prompt=True
-    #     )
-
-    # def _format_gpt_prompt(self, question: str) -> str:
-    #     json_instruction = (
-    #         # "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
-    #         ""  # Not using JSON here, match with Llama
-    #     )
-    #     return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
-
-    # def _format_default_prompt(self, question: str) -> str:
-    #     json_instruction = (
-    #         # "Return the answer in JSON form, i.e. {{'answer': 'the answer here'}}."
-    #         ""  # Not using JSON here, match with Llama
-    #     )
-    #     return f"Context: {self.history}\n\n{json_instruction}\n\nQuestion: {question}\n\nAnswer:"
 
     def predict_benefits_ready(self, history) -> bool:
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
-        lm_output = self.cq_model.forward(history + [benefits_ready_prompt])[0]
+        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])[0]
         return lm_output
 
     def predict_benefits_eligibility(self, history) -> List[bool]:
@@ -81,8 +51,7 @@ class ChatBot:
                 example_array=example_array(self.num_programs),
             ),
         }
-        # sequences = list(self.cq_model.forward(history + [prompt]))
-        lm_output = self.cq_model.forward(history + [prompt])[0]
+        lm_output = self.lm_backbone.forward(history + [prompt])[0]
         # TODO - Ensure output is a list of boolean
         return lm_output
 
@@ -90,16 +59,12 @@ class ChatBot:
         """
         Function to generate clarifying question.
         """
-        # cq = self.cq_model.forward_batch_generate_single_question(
-        # [self.history], [task]
-        # )[0]
+
         prompt = {
             "role": "system",
             "content": predict_cq_prompt,
         }
-        cq = self.cq_model.forward(history + [prompt])[0]
-        # cq = list(sequences)[0].completion_text
-
+        cq = self.lm_backbone.forward(history + [prompt])[0]
         return cq
 
     def extract_prediction(

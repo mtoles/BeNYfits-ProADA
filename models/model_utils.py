@@ -6,7 +6,6 @@ from lmwrapper.structs import LmPrompt
 
 # https://github.com/DaiseyCode/lmwrapper
 
-
 class LanguageModelWrapper:
     def __init__(self, display_name: str, family: str, hf_name: str):
         self.display_name = display_name

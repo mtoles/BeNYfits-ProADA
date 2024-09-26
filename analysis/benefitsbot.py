@@ -2,12 +2,6 @@ import os
 import argparse
 import pandas as pd
 from models.model_utils import load_lm
-
-# from models.cq_models import BaseClarifyingQuestionModel
-# from models.oracle_models import BaseOracleModel
-# from typing import List
-# from lmwrapper.structs import LmPrompt
-# from lmwrapper.batch_config import CompletionWindow
 from datamodels.userprofile import UserProfile
 from datamodels.chatbot import ChatBot
 from datamodels.syntheticuser import SyntheticUser

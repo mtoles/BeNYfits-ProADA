@@ -1,6 +1,6 @@
 from models.model_utils import LanguageModelWrapper
-from models.oracle_models import BaseOracleModel
 from datamodels.userprofile import UserProfile
+from models.lm_backbone import LmBackboneModel
 
 class SyntheticUser:
     def __init__(self, user: UserProfile, hh_nl_desc: str, lm_wrapper: LanguageModelWrapper):
@@ -11,19 +11,27 @@ class SyntheticUser:
         self.lm_wrapper = lm_wrapper
         self.nl_profile = hh_nl_desc
         # Model to answer clarifying question
-        self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
+        # self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper)
 
-    # def get_nl_profile(self, user: UserProfile):
-    #     """
-    #     Function to return the description of the user profile in natural language
-    #     """
-    #     # TODO - Convert user to NL user
-    #     return "You are user who works outside home, income is 10000 and filing jointly. Your spouse is a student and works outside home. Your child is 12 years old, has paid caregiver and has lived with me for more than half of previous year."
-    
     def answer_cq(self, cq: str):
         """
         Function to answer the question asked from the user using the user profile in natural language
         """
-        cq_answer = self.oracle_model.forward_batch([self.nl_profile], [cq])[0]
-        return cq_answer
+        prompt = [
+            {
+                "role": "system",
+                "content": self.nl_profile,
+            },
+            {
+                "role": "user",
+                "content": cq,
+            },
+            {
+                "role": "system",
+                "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. Do not add any additional information beyond what is in the context. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.' Answer concisely. Answer only 'yes' or 'no' to yes/no questions.",
+            }
+        ]
+        lm_output = self.lm_backbone.forward(prompt)[0]
+        return lm_output
 
