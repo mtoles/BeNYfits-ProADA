@@ -17,8 +17,8 @@ def example_array(n):
     return str([bool(x % 2) for x in range(n)])
 
 
-benefits_prediction_prompt = "Return only a boolean array of length {num_programs}, e.g. {example_array} determining if the user or any member in its houehold is eligible for the benefits. Only return the array. Do not return anything else in the response."
-predict_cq_prompt = "You are a language model trying to help user to determine eligbility of user for benefits. Ask a clarifying question that will help you determine the eligibility of user for benefits as quickly as possible."
+benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
+predict_cq_prompt = "You are a language model trying to help user to determine eligbility of user for benefits. Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
 
 
 class ChatBot:
