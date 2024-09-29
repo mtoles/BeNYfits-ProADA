@@ -1,5 +1,6 @@
 import os
 import argparse
+
 import pandas as pd
 from models.model_utils import load_lm
 from datamodels.userprofile import UserProfile
@@ -30,12 +31,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--eligibility_requirements",
-    default="./dataset/benefits_short.txt",
+    default="./dataset/benefits_short.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
     "--dataset_path",
-    default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
+    default="dataset/procedural_hh_dataset_1.0.0_annotated_50.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
@@ -50,32 +51,56 @@ parser.add_argument(
     type=bool,
     help="Predict eligibility after every dialog turn",
 )
+parser.add_argument(
+    "--programs",
+    default=None,
+    # type=str,
+    help="Number of programs in the dataset",
+    nargs="+",
+)
+parser.add_argument(
+    "--num_programs",
+    default=None,
+    type=int,
+    help="Downsample to the first n programs",
+)
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
 
 # Read the chat history from the file
-def read_eligibility_requirements(file_path):
-    try:
-        with open(file_path, "r") as file:
-            file_content = file.read()
-            # strip lines at the top starting with #
-            file_content = "\n".join(
-                [line for line in file_content.split("\n") if not line.startswith("#")]
-            )
-            assert len(file_content) > 0, "File is empty"
-            return file_content
-    except FileNotFoundError:
-        print(f"Error: The file '{file_path}' does not exist.")
-        return None
-    except IOError as e:
-        print(f"Error reading file '{file_path}': {e}")
-        return None
+def read_eligibility_requirements(file_path, num_programs):
+    with open(file_path, "r") as file:
+        file_content = file.read()
+        # strip lines at the top starting with #
+        file_content = "\n".join(
+            [line for line in file_content.split("\n") if not line.startswith("#")]
+        )
+        assert len(file_content) > 0, "File is empty"
+        eligibility_df = pd.read_json(file_content, lines=True)
+        if num_programs is not None:
+            eligibility_df = eligibility_df.iloc[:num_programs]
+        return eligibility_df
+
+
+def eligibility_to_string(eligibility_df):
+    eligibility_def = ""
+    for index, row in eligibility_df.iterrows():
+        eligibility_def += f"**{index}. {row['program']}**\n"
+        eligibility_def += f"{row['description']}\n\n"
+    return eligibility_def
 
 
 # Description about all the benefits eligbility in natural language
-eligibility_requirements = read_eligibility_requirements(args.eligibility_requirements)
+eligibility_df = read_eligibility_requirements(
+    args.eligibility_requirements, args.num_programs
+)
+if args.programs is not None:
+    eligibility_df = eligibility_df[
+        eligibility_df["program"].apply(lambda x: x in args.programs)
+    ].reset_index(drop=True)
+eligibility_requirements = eligibility_to_string(eligibility_df)
 
 
 # Load the dataset
@@ -83,10 +108,30 @@ df = pd.read_json(args.dataset_path, lines=True)
 if args.downsample_size:
     df = df[: args.downsample_size]
 
+# if args.num_programs is not None:
+# df["programs"] = df["programs"].apply(lambda x: x[: args.num_programs])
+# df["labels"] = df["labels"].apply(lambda x: x[: args.num_programs])
+
 predictions = []
 histories = []
 per_turn_all_predictions = []
+last_turn_iteration = []
+
+user = UserProfile()
+num_benefits = len(args.programs)
+# print(f"Total number of programs: {no_of_benefits}")
+# print(f"Household Description: {hh_nl_desc}")
+
+# Load language models and pipeline setup
+chatbot_model_wrapper = load_lm(args.chatbot_model_name)
+chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+
+synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
+
 for index, row in tqdm(df.iterrows()):
+    labels = row[args.programs]
+    hh_nl_desc = row["hh_nl_desc"]
+    synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
     history = [
         {
             "role": "system",
@@ -94,62 +139,64 @@ for index, row in tqdm(df.iterrows()):
         }
     ]
     print(f"Index: {index}")
-    programs = row["programs"]
-    labels = row["labels"]
-    hh_nl_desc = row["hh_nl_desc"]
-
-    user = UserProfile()
-    num_benefits = len(programs)
-    # print(f"Total number of programs: {no_of_benefits}")
-    # print(f"Household Description: {hh_nl_desc}")
-
-    # Load language models and pipeline setup
-    chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-    chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
-
-    synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
-    synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
 
     cur_iter_count = 0
-
     per_turn_predictions = []
-
-    while (
-        cur_iter_count < args.max_dialog_turns
-        and chatbot.predict_benefits_ready(history) != True
-    ):
+    decision = None
+    while True:
         if args.predict_every_turn:
             per_turn_predictions.append(
-                chatbot.extract_prediction(
-                    chatbot.predict_benefits_eligibility(history), num_benefits
-                )
+                chatbot.predict_benefits_eligibility(history, args.programs)
             )
-        cq = chatbot.predict_cq(history)
-        history.append({"role": "assistant", "content": cq})
-        cq_answer = synthetic_user.answer_cq(cq)
-        history.append({"role": "user", "content": cq_answer})
+        else:
+            per_turn_predictions.append(None)
+        if cur_iter_count >= args.max_dialog_turns:
+            print(f"Max dialog turns ({args.max_dialog_turns}) reached")
+            print("==" * 20)
+            last_turn_iteration.append(cur_iter_count)
+            break
+        elif chatbot.predict_benefits_ready(history) == "True":
+            print(
+                f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
+            )
+            decision = per_turn_predictions[-1]
+            print(f"Decision: {decision}")
+            print(f"label: {labels}")
+            print("==" * 20)
+            # fill the remaining turns with None
+            per_turn_predictions.extend(
+                [decision] * (args.max_dialog_turns - cur_iter_count)
+            )
+            last_turn_iteration.append(cur_iter_count)
+            break
 
-        print(f"Turn Number:         {cur_iter_count}")
-        print(f"Clarifying Question: {cq}")
-        print(f"Answer:              {cq_answer}")
-        print("==" * 20)
-        cur_iter_count += 1
-        # chatbot.append_chat_question_and_answer(cq, cq_answer)
+        else:
+            cq = chatbot.predict_cq(history)
+            history.append({"role": "assistant", "content": cq})
+            cq_answer = synthetic_user.answer_cq(cq)
+            history.append({"role": "user", "content": cq_answer})
+
+            print(f"Turn Number:         {cur_iter_count}")
+            print(f"Clarifying Question: {cq}")
+            print(f"Answer:              {cq_answer}")
+            print("==" * 20)
+            cur_iter_count += 1
+            # chatbot.append_chat_question_and_answer(cq, cq_answer)
     per_turn_all_predictions.append(per_turn_predictions)
-    benefits_prediction_str = chatbot.predict_benefits_eligibility(history)
-    benefits_prediction = chatbot.extract_prediction(
-        benefits_prediction_str, num_benefits
-    )
-    predictions.append(benefits_prediction)
-    per_turn_all_predictions[index].append(benefits_prediction) 
-    print(f"Benefits Prediction: {benefits_prediction}")
-    print("==" * 30)
-    history.append({"role": "assistant", "content": benefits_prediction_str})
+    # benefits_prediction = chatbot.predict_benefits_eligibility(history)
+
+    # predictions.append(benefits_prediction)
+    # per_turn_all_predictions[index].append(benefits_prediction)
+    # print(f"Benefits Prediction: {benefits_prediction}")
+    # print("==" * 20)
+    history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
     histories.append(history)
 
 if args.predict_every_turn:
     # call one final time
-    plot_metrics_per_turn(per_turn_all_predictions, labels, programs)
+    plot_metrics_per_turn(
+        per_turn_all_predictions, df[args.programs], last_turn_iteration
+    )
 
 df["predictions"] = predictions
 df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)

@@ -39,7 +39,7 @@ class ChatBot:
         lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])[0]
         return lm_output
 
-    def predict_benefits_eligibility(self, history) -> List[bool]:
+    def predict_benefits_eligibility(self, history, programs) -> List[bool]:
         """
         Predict what all benefits user or its household is eligible for.
         Return a boolean array of length equal to number of benefits.
@@ -53,6 +53,7 @@ class ChatBot:
         }
         lm_output = self.lm_backbone.forward(history + [prompt])[0]
         # TODO - Ensure output is a list of boolean
+        lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
 
     def predict_cq(self, history) -> str:
@@ -68,8 +69,8 @@ class ChatBot:
         return cq
 
     def extract_prediction(
-        self, prediction: str, num_programs: int
-    ) -> List[Optional[str]]:
+        self, prediction: str, programs: list[str]
+    ) -> List[Optional[int]]:
         """
         Extract the prediction from the model output
         """
@@ -84,11 +85,21 @@ class ChatBot:
             try:
                 bool_output = ast.literal_eval(extracted_list_str)
                 assert isinstance(bool_output, list)
-                assert len(bool_output) == num_programs
+                assert len(bool_output) == len(programs)
             except (SyntaxError, NameError, ValueError, AssertionError):
                 # If the string can't be evaluated as a list, return None
-                return None
+                output = None
             str_output = ["pass" if x else "fail" for x in bool_output]
-            return str_output
+            output = str_output
         else:
-            return None
+            output = None
+        if output is None:
+            # default to all fails
+            print(
+                "*** WARNING: Could not extract prediction from model output. Defaulting to all fails. ***"
+            )
+            output = ["fail"] * len(programs)
+        output = [1 if x == "pass" else 0 for x in output]
+        # convert to dict
+        output = {programs[i]: output[i] for i in range(len(programs))}
+        return output

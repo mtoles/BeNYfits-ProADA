@@ -1,8 +1,5 @@
-from enum import Enum
-from typing import Dict, Optional
-from lmwrapper.huggingface_wrapper import get_huggingface_lm
+from typing import Dict
 from lmwrapper.openai_wrapper import get_open_ai_lm, OpenAiModelNames
-from lmwrapper.structs import LmPrompt
 
 # https://github.com/DaiseyCode/lmwrapper
 
@@ -17,6 +14,8 @@ class LanguageModelWrapper:
     def language_model(self):
         if self._language_model is None:
             if self.family in ["llama", "gemma"]:
+                # only import if necessary since these are heavy dependencies
+                from lmwrapper.huggingface_wrapper import get_huggingface_lm
                 self._language_model = get_huggingface_lm(self.hf_name)
                 self._language_model._tokenizer.pad_token_id = (
                     self._language_model._tokenizer.eos_token_id

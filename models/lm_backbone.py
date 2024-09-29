@@ -24,8 +24,9 @@ class LmBackboneModel:
         self.lm_wrapper = lm_wrapper
         self.mode = mode
         # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-        self.hf_api_key = os.getenv("HF_TOKEN")
-        login(token=self.hf_api_key)
+        if lm_wrapper.family in ["llama"]:
+            self.hf_api_key = os.getenv("HF_TOKEN")
+            login(token=self.hf_api_key)
 
     def _get_format_func(self) -> Callable:
         format_funcs = {

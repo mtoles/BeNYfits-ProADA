@@ -8,9 +8,8 @@ from users import (
     default_child,
     default_employed,
     nl_household_profile,
-    # household_schema,
     Person,
-    Household
+    Household,
 )
 from dataset import top_8_programs
 import argparse
@@ -65,16 +64,24 @@ for i, row in df.iterrows():
     hh = Household(members=members)
     # household_schema.validate(hh)
     hh.validate()
-    ev = ["pass" if int(x) else "fail" for x in list(row[1:9])]  # eligibility vector
-    evs.append(ev)
+    # ev = ["pass" if int(x) else "fail" for x in list(row[1:9])]  # eligibility vector
+    # evs.append(ev)
     hhs.append(hh)
 df["hh"] = hhs
-df["labels"] = evs
-df["programs"] = [top_8_programs] * len(df)
+# df["labels"] = evs
+# df["programs"] = [top_8_programs] * len(df)
+# for ev in enumerate(evs):
+#     for i, x in enumerate(ev):
+#         df.loc[ev[0], top_8_programs[i]] = x
 df["note"] = [""] * len(df)
 df["hh_nl_desc"] = df.apply(nl_household_profile, axis=1)
+df = df.drop(columns=["0"])
+# cast program values to int
+for program in top_8_programs:
+    df[program] = df[program].astype(int)
 output_path = ".".join(ds_path.split(".")[:-1]) + "_50.jsonl"
-df[["programs", "labels", "hh", "note", "hh_nl_desc"]].to_json(
+# df[["programs", "labels", "hh", "note", "hh_nl_desc"]].to_json(
+df.to_json(
     # "dataset/procedural_hh_dataset_0.1.5_annotated_50.jsonl",
     output_path,
     orient="records",
