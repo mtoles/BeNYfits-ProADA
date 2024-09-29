@@ -33,7 +33,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--dataset_path",
-    default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
+    # default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
+    default="dataset/benefits_dataset_v0.1.0.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
@@ -69,13 +70,6 @@ def read_eligibility_requirements(file_path):
 # Description about all the benefits eligbility in natural language
 eligibility_requirements = read_eligibility_requirements(args.eligibility_requirements)
 
-history = [
-    {
-        "role": "system",
-        "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Ask clarifying questions that will help you determine the eligibility of user for benefits as quickly as possible. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
-    }
-]
-
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
 if args.downsample_size:
@@ -96,25 +90,35 @@ for index, row in tqdm(df.iterrows()):
 
     # Load language models and pipeline setup
     chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-    chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+    chatbot = ChatBot(chatbot_model_wrapper, num_benefits)
 
     synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
     synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
 
     cur_iter_count = 0
-
+    history = [
+        {
+            "role": "system",
+            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Ask clarifying questions that will help you determine the eligibility of user for benefits as quickly as possible. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+        }
+    ]
+    
     while (
         cur_iter_count < args.max_dialog_turns
         and chatbot.predict_benefits_ready(history) != True
     ):
         cur_iter_count += 1
         print(f"Iteration Count: {cur_iter_count}")
+        print(f"History: {history}")
+
         cq = chatbot.predict_cq(history)
-        history.append({"role": "assistant", "content": cq})
         print(f"Clarifying Question: {cq}")
+        history.append({"role": "assistant", "content": cq})
+
         cq_answer = synthetic_user.answer_cq(cq)
-        history.append({"role": "user", "content": cq_answer})
         print(f"Answer: {cq_answer}")
+        history.append({"role": "user", "content": cq_answer})
+        
         print("==" * 20)
         # chatbot.append_chat_question_and_answer(cq, cq_answer)
 
@@ -129,6 +133,7 @@ for index, row in tqdm(df.iterrows()):
     # transcript.append(f"Predicted Benefits: {benefits_prediction}")
     # transcripts.append("\n\n".join(transcript))
     history.append({"role": "assistant", "content": benefits_prediction_str})
+    
     histories.append(history)
 
 df["predictions"] = predictions

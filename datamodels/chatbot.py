@@ -23,7 +23,7 @@ predict_cq_prompt = "You are a language model trying to help user to determine e
 
 class ChatBot:
     def __init__(
-        self, lm_wrapper: LanguageModelWrapper, no_of_programs: str, history: str
+        self, lm_wrapper: LanguageModelWrapper, no_of_programs: str
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
@@ -64,7 +64,10 @@ class ChatBot:
             "role": "system",
             "content": predict_cq_prompt,
         }
-        cq = self.lm_backbone.forward(history + [prompt])[0]
+
+        complete_prompt = history + [prompt]
+        print(f"CHATBOT - PROMPT TO GENERATE CQ: {complete_prompt}")
+        cq = self.lm_backbone.forward(complete_prompt)[0]
         return cq
 
     def extract_prediction(
