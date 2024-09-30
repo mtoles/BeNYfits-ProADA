@@ -66,7 +66,7 @@ class LmBackboneModel:
         formatted_prompt = format_func(history)
 
         sequences = self.lm_wrapper.language_model.predict_many(
-            [LmPrompt(formatted_prompt, cache=True, max_tokens=512)],
+            [LmPrompt(formatted_prompt, cache=True, max_tokens=512, logprobs=0)],
             completion_window=CompletionWindow.ASAP,
         )
         output = [x.completion_text for x in sequences]

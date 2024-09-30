@@ -64,6 +64,12 @@ parser.add_argument(
     type=int,
     help="Downsample to the first n programs",
 )
+parser.add_argument(
+    "--estring",
+    default="tmp",
+    type=str,
+    help="Experiment tracking string",
+)
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -135,7 +141,7 @@ for index, row in tqdm(df.iterrows()):
     history = [
         {
             "role": "system",
-            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Ask clarifying questions that will help you determine the eligibility of user for benefits as quickly as possible. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
         }
     ]
     print(f"Index: {index}")
@@ -192,57 +198,64 @@ for index, row in tqdm(df.iterrows()):
     history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
     histories.append(history)
 
+# df["predictions"] = predictions
+# df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
+# df["f1"] = None
+# non_null_predictions = ~df["predictions"].isnull()
+# if (
+#     non_null_predictions.sum() > 0
+# ):  # pandas gets confused if there are no actual indices to set
+#     df.loc[non_null_predictions, "f1"] = df[non_null_predictions].apply(
+#         lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
+#     )
+# df.loc[df["predictions"].isnull(), "f1"] = (
+#     0  # Set F1 score to 0 if no prediction was made
+# )
+# print(f"Total F1 Score: {df['f1'].mean()}")
+
+# df_labels = pd.DataFrame(
+#     columns=df.programs[0], index=df.index, data=df.labels.tolist()
+# )
+# df_preds = pd.DataFrame(
+#     columns=df.programs[0], index=df.index, data=df.predictions.tolist()
+# )
+# df_acc = df_labels == df_preds
+
+### Save results file and chat history ###
+output_dir = f"./results/{args.estring}/{now}"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
 if args.predict_every_turn:
     # call one final time
     plot_metrics_per_turn(
-        per_turn_all_predictions, df[args.programs], last_turn_iteration
+        per_turn_all_predictions,
+        df[args.programs],
+        last_turn_iteration,
+        output_dir=output_dir,
+        experiment_params={
+            "Backbone Model": args.chatbot_model_name,
+            "Programs": ", ".join(args.programs),
+        },
     )
-
-df["predictions"] = predictions
-df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
-df["f1"] = None
-non_null_predictions = ~df["predictions"].isnull()
-if (
-    non_null_predictions.sum() > 0
-):  # pandas gets confused if there are no actual indices to set
-    df.loc[non_null_predictions, "f1"] = df[non_null_predictions].apply(
-        lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
-    )
-df.loc[df["predictions"].isnull(), "f1"] = (
-    0  # Set F1 score to 0 if no prediction was made
-)
-print(f"Total F1 Score: {df['f1'].mean()}")
-
-df_labels = pd.DataFrame(
-    columns=df.programs[0], index=df.index, data=df.labels.tolist()
-)
-df_preds = pd.DataFrame(
-    columns=df.programs[0], index=df.index, data=df.predictions.tolist()
-)
-df_acc = df_labels == df_preds
-
-### Save results file and chat history ###
-output_dir = f"./results/{now}"
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-with open(f"{output_dir}/results_summary.md", "w") as f:
-    f.write("### Args ###\n")
-    for key, value in args.__dict__.items():
-        f.write(f"{key}: {value}\n")
-    f.write("### Results ###\n")
-    f.write(f"Total F1 Score: {df['f1'].mean()}\n")
-    for program in df.programs[0]:
-        f.write(f"{program}\n")
-        f.write(
-            f"F1: {f1_score(df_labels[program], df_preds[program], average='weighted')}\n"
-        )
-        f.write(f"Accuracy: {df_acc[program].mean()}\n")
-        f.write(
-            f"Precision: {precision_score(df_labels[program], df_preds[program], average='weighted')}\n"
-        )
-        f.write(
-            f"Recall: {recall_score(df_labels[program], df_preds[program], average='weighted')}\n"
-        )
+# with open(f"{output_dir}/results_summary.md", "w") as f:
+#     f.write("### Args ###\n")
+#     for key, value in args.__dict__.items():
+#         f.write(f"{key}: {value}\n")
+#     f.write("### Results ###\n")
+#     f.write(f"Total F1 Score: {df['f1'].mean()}\n")
+#     for program in df.programs[0]:
+#         f.write(f"{program}\n")
+#         f.write(
+#             f"F1: {f1_score(df_labels[program], df_preds[program], average='weighted')}\n"
+#         )
+#         f.write(f"Accuracy: {df_acc[program].mean()}\n")
+#         f.write(
+#             f"Precision: {precision_score(df_labels[program], df_preds[program], average='weighted')}\n"
+#         )
+#         f.write(
+#             f"Recall: {recall_score(df_labels[program], df_preds[program], average='weighted')}\n"
+#         )
 
 with open(f"{output_dir}/transcript.md", "w") as f:
     for i, transcript in enumerate(histories):
@@ -250,6 +263,6 @@ with open(f"{output_dir}/transcript.md", "w") as f:
         f.write(f"{transcript}\n")
         f.write("\n\n==========\n\n")
 df.to_json(f"{output_dir}/results.jsonl", lines=True, orient="records")
-df_preds.to_json(f"{output_dir}/predictions.jsonl", lines=True, orient="records")
-df_acc.to_json(f"{output_dir}/accuracy.jsonl", lines=True, orient="records")
+# df_preds.to_json(f"{output_dir}/predictions.jsonl", lines=True, orient="records")
+# df_acc.to_json(f"{output_dir}/accuracy.jsonl", lines=True, orient="records")
 pass
