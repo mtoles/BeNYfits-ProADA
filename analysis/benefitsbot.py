@@ -52,6 +52,12 @@ parser.add_argument(
     help="Predict eligibility after every dialog turn",
 )
 parser.add_argument(
+    "--ask_cq_mode",
+    default=0,
+    type=int,
+    help="Different modes to ask clarifying question",
+)
+parser.add_argument(
     "--programs",
     default=None,
     # type=str,
@@ -141,7 +147,7 @@ for index, row in tqdm(df.iterrows()):
     history = [
         {
             "role": "system",
-            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. The eligibility requirements for all the programs are as follows:\n\n{eligibility_requirements}",
         }
     ]
     print(f"Index: {index}")
@@ -177,7 +183,7 @@ for index, row in tqdm(df.iterrows()):
             break
 
         else:
-            cq = chatbot.predict_cq(history)
+            cq = chatbot.predict_cq(history, args.ask_cq_mode)
             history.append({"role": "assistant", "content": cq})
             cq_answer = synthetic_user.answer_cq(cq)
             history.append({"role": "user", "content": cq_answer})
