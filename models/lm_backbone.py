@@ -32,6 +32,7 @@ class LmBackboneModel:
         format_funcs = {
             ("llama", PromptMode.DEFAULT): self._format_llama_prompt_default,
             ("gpt", PromptMode.DEFAULT): self._format_gpt_prompt_default,
+            ("o1", PromptMode.DEFAULT): self._format_o1_prompt_default,
             ("gemma", PromptMode.DEFAULT): self._format_gemma_prompt_default,
             (
                 "mistral",
@@ -51,6 +52,12 @@ class LmBackboneModel:
         # bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
         # return benchmark_template.format(document=document, task=task, n_clarifying_questions=1, plural="", json="")
         return history
+    def _format_o1_prompt_default(self, history: list[dict]) -> str:
+        # replace 'system' calls with 'user' calls
+        for turn in history:
+            if turn["role"] == "system":
+                turn["role"] = "user"
+        return history
 
     def _format_gemma_prompt_default(self, history: list[dict]) -> str:
         raise NotImplementedError
@@ -66,7 +73,7 @@ class LmBackboneModel:
         formatted_prompt = format_func(history)
 
         sequences = self.lm_wrapper.language_model.predict_many(
-            [LmPrompt(formatted_prompt, cache=True, max_tokens=512, logprobs=0)],
+            [LmPrompt(formatted_prompt, cache=True, logprobs=0)],
             completion_window=CompletionWindow.ASAP,
         )
         output = [x.completion_text for x in sequences]

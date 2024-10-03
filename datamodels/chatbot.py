@@ -17,13 +17,19 @@ def example_array(n):
     return str([bool(x % 2) for x in range(n)])
 
 
+### Backbone Prompts ###
 benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
-predict_cq_prompt = "You are a language model trying to help user to determine eligbility of user for benefits. Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
+predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
 
 
 class ChatBot:
+    """ "Base class for chatbots. Serves as the simple backbone model."""
+
     def __init__(
-        self, lm_wrapper: LanguageModelWrapper, no_of_programs: str, history: str
+        self,
+        lm_wrapper: LanguageModelWrapper,
+        no_of_programs: str,
+        eligibility_requirements: str,
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
@@ -68,9 +74,13 @@ class ChatBot:
         cq = self.lm_backbone.forward(history + [prompt])[0]
         return cq
 
-    def extract_prediction(
-        self, prediction: str, programs: list[str]
-    ) -> List[Optional[int]]:
+    def post_answer(self, history, answer):
+        """
+        Function called after an answer is provided to the chatbot.
+        """
+        pass
+
+    def extract_prediction(self, prediction: str, programs: list[str]) -> dict:
         """
         Extract the prediction from the model output
         """
@@ -86,11 +96,11 @@ class ChatBot:
                 bool_output = ast.literal_eval(extracted_list_str)
                 assert isinstance(bool_output, list)
                 assert len(bool_output) == len(programs)
+                str_output = ["pass" if x else "fail" for x in bool_output]
+                output = str_output
             except (SyntaxError, NameError, ValueError, AssertionError):
                 # If the string can't be evaluated as a list, return None
                 output = None
-            str_output = ["pass" if x else "fail" for x in bool_output]
-            output = str_output
         else:
             output = None
         if output is None:
@@ -103,3 +113,153 @@ class ChatBot:
         # convert to dict
         output = {programs[i]: output[i] for i in range(len(programs))}
         return output
+
+
+### Notebook Prompts ###
+initialize_notebook_prompt = (
+    "Below is a set of requirements for a user's eligibility. Currently you know nothing about the user. Annotate each unknown fact in the eligibility document with <UNK>. For example:\n\n"
+    "Original Document:\n"
+    "For you to be eligible for the working plumber tax credit, both you and your spouse must be a plumber and have a combined income of less than $100,000.\n\n"
+    "Annotated Document:\n"
+    "For you to be eligible for the working plumber tax credit, both you <UNK> and your spouse <UNK> must be a plumber and have a combined income of less than $100,000 <UNK>.\n"
+    "Return ONLY the annotated document. Do not return anything else in the response. Only change the <UNK> tags to the correct values. Do not remove or add new tags. Make sure there is at least one <UNK> per requirement.\n\n"
+    "Here is your document:\n"
+    "{eligibility_requirements}"
+    "Your annotation:"
+)
+update_notebook_prompt = (
+    "Below is an annotated notebook. You have just received new information about the user. Update the notebook with the new information by replacing <UNK> with values learned from the dialog turn. For example:\n\n"
+    #
+    "Dialog turn:\n"
+    "Chatbot: Are you a plumber?\n"
+    "User: Yes, I am a plumber.\n\n"
+    #
+    "Original Notebook:\n"
+    "For you to be eligible for the working plumber tax credit, both you <UNK> and your spouse <UNK> must be a plumber and have a combined income of less than $100,000 <UNK>.\n\n"
+    #
+    "Updated Notebook:\n"
+    "For you to be eligible for the working plumber tax credit, both you <True> and your spouse <UNK> must be a plumber and have a combined income of less than $100,000 <UNK>.\n\n"
+    #
+    "Valid values are: <True>, <False>, numbers, and <N/A> for requirements that are not applicable. For example, if the user does not have a spouse, you would replace <UNK> with <N/A>.\n"
+    "Return ONLY the updated notebook. Do not return anything else in the response.\n\n"
+    #
+    "Here is your dialog turn:\n"
+    "Chatbot: {cq}\n"
+    "User: {answer}\n\n"
+    "Here is your notebook:\n"
+    "{notebook_page}\n\n"
+    "Your updated notebook:\n"
+)
+notebook_guidance_prompt = (
+    "Notebooks are annotated with notes in <angle brackets>. The annotations indicate:\n"
+    "<UNK> - The requirement is currently unknown\n"
+    "<True> - The user meets the requirement\n"
+    "<False> - The user does not meet the requirement\n"
+    "<a number or string> - The user's value for the requirement\n"
+    "<N/A> - The requirement is not applicable\n"
+)
+notebook_guidance_turn = {
+    "role": "system",
+    "content": notebook_guidance_prompt,
+}
+
+
+class NotetakerChatBot(ChatBot):
+    """ "Class for chatbots that can take notes."""
+
+    def __init__(
+        self,
+        lm_wrapper: LanguageModelWrapper,
+        no_of_programs: str,
+        eligibility_requirements: str,
+    ):
+        """
+        ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
+        """
+        self.lm_wrapper = lm_wrapper
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper)
+        self.num_programs = no_of_programs
+        self.notebook = [self.initialize_notebook(eligibility_requirements)]
+
+    def initialize_notebook(self, eligibility_requirements: str):
+        """
+        add a 'page' of notes to the 'notebook' based on the most recent dialog turn
+        """
+        prompt = {
+            "role": "system",
+            "content": initialize_notebook_prompt.format(
+                eligibility_requirements=eligibility_requirements
+            ),
+        }
+        lm_output = self.lm_backbone.forward([prompt])[0]
+        return lm_output
+
+    def post_answer(self, history: List[dict]) -> None:
+        """
+        Update the notebook based on the most recent dialog turn
+        """
+        history = history.copy()
+        prompts = [
+            {
+                "role": "system",
+                "content": update_notebook_prompt.format(
+                    notebook_page=self.notebook[-1],
+                    cq=history[-2]["content"],
+                    answer=history[-1]["content"],
+                ),
+            },
+            notebook_guidance_turn,
+        ]
+        lm_output = self.lm_backbone.forward(prompts)[0]
+        print(lm_output)
+        self.notebook.append(lm_output)
+
+    def predict_cq(self, history) -> str:
+        """
+        Function to generate clarifying question.
+        """
+        history = history.copy()
+        prompts = [
+            {
+                "role": "system",
+                "content": predict_cq_prompt,
+            }
+        ]
+
+        # replace the eligibility requirements with the most recent notebook page
+        history[0]["content"] = self.notebook[-1]
+        history.insert(0, notebook_guidance_turn)
+        cq = self.lm_backbone.forward(history + prompts)[0]
+        return cq
+
+    def predict_benefits_ready(self, history) -> bool:
+        """
+        Check whether chatbot history has sufficient information to determine eligbility of all benenfits
+        """
+        history = history.copy()
+        history[0]["content"] = self.notebook[-1]
+        history.insert(0, notebook_guidance_turn)
+        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])[0]
+        return lm_output
+
+    def predict_benefits_eligibility(self, history, programs) -> List[bool]:
+        """
+        Predict what all benefits user or its household is eligible for.
+        Return a boolean array of length equal to number of benefits.
+        """
+        history = history.copy()
+        prompts = [
+            {
+                "role": "system",
+                "content": benefits_prediction_prompt.format(
+                    num_programs=self.num_programs,
+                    example_array=example_array(self.num_programs),
+                ),
+            }
+        ]
+        history[0]["content"] = self.notebook[-1]
+        history.insert(0, notebook_guidance_turn)
+        lm_output = self.lm_backbone.forward(history + prompts)[0]
+        # TODO - Ensure output is a list of boolean
+        lm_output = self.extract_prediction(lm_output, programs)
+        return lm_output

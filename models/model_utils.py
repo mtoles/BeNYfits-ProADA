@@ -52,7 +52,7 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
         "gpt-4o-2024-05-13", "gpt", OpenAiModelNames.gpt_4o_2024_05_13
     ),
     "o1-preview-2024-09-12": LanguageModelWrapper(
-        "o1-preview-2024-09-12", "gpt", OpenAiModelNames.o1_preview_2024_09_12
+        "o1-preview-2024-09-12", "o1", OpenAiModelNames.o1_preview_2024_09_12
     ),
     "google/gemma-2b-it": LanguageModelWrapper(
         "Gemma 2B Instruction Tuned", "gemma", "google/gemma-2b-it"

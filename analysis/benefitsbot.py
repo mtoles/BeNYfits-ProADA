@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 from models.model_utils import load_lm
 from datamodels.userprofile import UserProfile
-from datamodels.chatbot import ChatBot
+from datamodels.chatbot import *
 from datamodels.syntheticuser import SyntheticUser
 from sklearn.metrics import f1_score, precision_score, recall_score
 from datetime import datetime
@@ -17,6 +17,11 @@ parser.add_argument(
     "--chatbot_model_name",
     default="meta-llama/Meta-Llama-3-8B-Instruct",
     help="Name of the benefits bot model to use.",
+)
+parser.add_argument(
+    "--chatbot_strategy",
+    default="backbone",
+    help="Strategy to use for the benefits bot.",
 )
 parser.add_argument(
     "--synthetic_user_model_name",
@@ -130,19 +135,30 @@ num_benefits = len(args.programs)
 
 # Load language models and pipeline setup
 chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+if args.chatbot_strategy == "backbone":
+    chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+elif args.chatbot_strategy == "notetaker":
+    chatbot = NotetakerChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+else:
+    raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
 
 synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 for index, row in tqdm(df.iterrows()):
+    # reinstantiate the model every time
+    chatbot = chatbot.__class__(chatbot_model_wrapper, num_benefits, eligibility_requirements)
     labels = row[args.programs]
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
     history = [
         {
             "role": "system",
-            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
-        }
+            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+        },
+        {
+            "role": "assistant",
+            "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
+        },
     ]
     print(f"Index: {index}")
 
@@ -151,23 +167,34 @@ for index, row in tqdm(df.iterrows()):
     decision = None
     while True:
         if args.predict_every_turn:
-            per_turn_predictions.append(
-                chatbot.predict_benefits_eligibility(history, args.programs)
-            )
+            if cur_iter_count != 0:
+                per_turn_predictions.append(
+                    chatbot.predict_benefits_eligibility(history, args.programs)
+                )
+            else:
+                # default to all zero prediction on 0th round
+                default_predictions = dict([(x, 0) for x in args.programs])
+                per_turn_predictions.append(default_predictions)
         else:
             per_turn_predictions.append(None)
+        ### break if out of dialog turns ###
         if cur_iter_count >= args.max_dialog_turns:
             print(f"Max dialog turns ({args.max_dialog_turns}) reached")
             print("==" * 20)
             last_turn_iteration.append(cur_iter_count)
+            decision = per_turn_predictions[-1]
+            print(f"Decision:  {decision}")
+            print(f"label:     {labels.to_dict()}")
+            print("==" * 20)
             break
-        elif chatbot.predict_benefits_ready(history) == "True":
+        ### break if benefits eligibility is ready ###
+        if chatbot.predict_benefits_ready(history) == "True":
             print(
                 f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
             )
             decision = per_turn_predictions[-1]
-            print(f"Decision: {decision}")
-            print(f"label: {labels}")
+            print(f"Decision:  {decision}")
+            print(f"label:     {labels.to_dict()}")
             print("==" * 20)
             # fill the remaining turns with None
             per_turn_predictions.extend(
@@ -175,19 +202,19 @@ for index, row in tqdm(df.iterrows()):
             )
             last_turn_iteration.append(cur_iter_count)
             break
+        ### otherwise, ask a question ###
+        cq = chatbot.predict_cq(history)
+        history.append({"role": "assistant", "content": cq})
+        cq_answer = synthetic_user.answer_cq(cq)
+        history.append({"role": "user", "content": cq_answer})
 
-        else:
-            cq = chatbot.predict_cq(history)
-            history.append({"role": "assistant", "content": cq})
-            cq_answer = synthetic_user.answer_cq(cq)
-            history.append({"role": "user", "content": cq_answer})
-
-            print(f"Turn Number:         {cur_iter_count}")
-            print(f"Clarifying Question: {cq}")
-            print(f"Answer:              {cq_answer}")
-            print("==" * 20)
-            cur_iter_count += 1
-            # chatbot.append_chat_question_and_answer(cq, cq_answer)
+        print(f"Turn Number:         {cur_iter_count}")
+        print(f"Clarifying Question: {cq}")
+        print(f"Answer:              {cq_answer}")
+        chatbot.post_answer(history) # optional
+        print("==" * 20)
+        cur_iter_count += 1
+        # chatbot.append_chat_question_and_answer(cq, cq_answer)
     per_turn_all_predictions.append(per_turn_predictions)
     # benefits_prediction = chatbot.predict_benefits_eligibility(history)
 
@@ -236,6 +263,8 @@ if args.predict_every_turn:
         experiment_params={
             "Backbone Model": args.chatbot_model_name,
             "Programs": ", ".join(args.programs),
+            "Max Dialog Turns": args.max_dialog_turns,
+            "Downsample Size": args.downsample_size,
         },
     )
 # with open(f"{output_dir}/results_summary.md", "w") as f:

@@ -65,6 +65,7 @@ def plot_metrics_per_turn(
     sns.barplot(data=num_remaining, color="green", alpha=0.3)
     plt.xlabel("Turn")
     plt.ylabel("Accuracy")
+    plt.xticks(range(0, len(predictions[0]), 5))
     # add additional space for the caption
     plt.subplots_adjust(bottom=0.2)
     if experiment_params:
@@ -83,5 +84,7 @@ def plot_metrics_per_turn(
     # save the plot
     model = experiment_params["Backbone Model"]
     programs = "_".join(experiment_params["Programs"].split(", "))
-    plt.savefig(output_dir / f"mpt_{model}_{programs}.png", dpi=300)
+    # drop all lowercase letters in programs
+    programs = "".join([i for i in programs if not i.islower()])
+    plt.savefig(output_dir / f"mpt_{model}_{programs}_n={experiment_params['Downsample Size']}.png", dpi=300)
     pass
