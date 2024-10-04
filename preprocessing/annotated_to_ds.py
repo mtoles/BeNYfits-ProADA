@@ -44,11 +44,11 @@ for i, row in df.iterrows():
         non_default_features = dict(feature_kvs)
         relation = non_default_features["relation"]
         if relation == "self":
-            member = default_unemployed(random_name=False)
+            member = default_unemployed(random_name=True)
         elif relation == "spouse":
-            member = default_unemployed(random_name=False)
+            member = default_unemployed(random_name=True)
         elif relation == "child":
-            member = default_child(random_name=False)
+            member = default_child(random_name=True)
         else:
             raise ValueError(f"Unknown relation: {relation}")
         for k, v in non_default_features.items():

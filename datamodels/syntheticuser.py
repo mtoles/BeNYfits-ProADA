@@ -35,5 +35,5 @@ class SyntheticUser:
                 "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.' Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.",
             },
         ]
-        lm_output = self.lm_backbone.forward(prompt)[0]
+        lm_output = self.lm_backbone.forward(prompt)
         return lm_output

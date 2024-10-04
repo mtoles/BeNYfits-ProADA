@@ -4,6 +4,7 @@ from typing import List, Optional
 import re
 import ast
 import numpy as np
+import re
 
 np.random.seed(42)
 
@@ -42,7 +43,7 @@ class ChatBot:
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
-        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])[0]
+        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])
         return lm_output
 
     def predict_benefits_eligibility(self, history, programs) -> List[bool]:
@@ -57,7 +58,7 @@ class ChatBot:
                 example_array=example_array(self.num_programs),
             ),
         }
-        lm_output = self.lm_backbone.forward(history + [prompt])[0]
+        lm_output = self.lm_backbone.forward(history + [prompt])
         # TODO - Ensure output is a list of boolean
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
@@ -71,10 +72,10 @@ class ChatBot:
             "role": "system",
             "content": predict_cq_prompt,
         }
-        cq = self.lm_backbone.forward(history + [prompt])[0]
+        cq = self.lm_backbone.forward(history + [prompt])
         return cq
 
-    def post_answer(self, history, answer):
+    def post_answer(self, history):
         """
         Function called after an answer is provided to the chatbot.
         """
@@ -140,8 +141,8 @@ update_notebook_prompt = (
     "Updated Notebook:\n"
     "For you to be eligible for the working plumber tax credit, both you <True> and your spouse <UNK> must be a plumber and have a combined income of less than $100,000 <UNK>.\n\n"
     #
-    "Valid values are: <True>, <False>, numbers, and <N/A> for requirements that are not applicable. For example, if the user does not have a spouse, you would replace <UNK> with <N/A>.\n"
-    "Return ONLY the updated notebook. Do not return anything else in the response.\n\n"
+    "Valid values are: <True>, <False>, numbers, and <N/A - Reason> for requirements that are not applicable. For example, if the user does not have a spouse, you would replace <UNK> with <N/A - User has no spouse>.\n"
+    "Do not update any <UNK> tags unless you know FOR SURE the correct value. It is OK to return a notebook with no changes. Return ONLY the notebook. Do not return anything else in the response.\n\n"
     #
     "Here is your dialog turn:\n"
     "Chatbot: {cq}\n"
@@ -156,7 +157,7 @@ notebook_guidance_prompt = (
     "<True> - The user meets the requirement\n"
     "<False> - The user does not meet the requirement\n"
     "<a number or string> - The user's value for the requirement\n"
-    "<N/A> - The requirement is not applicable\n"
+    "<N/A - Reason> - The requirement is not applicable and the reason why\n"
 )
 notebook_guidance_turn = {
     "role": "system",
@@ -191,28 +192,51 @@ class NotetakerChatBot(ChatBot):
                 eligibility_requirements=eligibility_requirements
             ),
         }
-        lm_output = self.lm_backbone.forward([prompt])[0]
+        lm_output = self.lm_backbone.forward([prompt])
         return lm_output
 
     def post_answer(self, history: List[dict]) -> None:
         """
         Update the notebook based on the most recent dialog turn
         """
-        history = history.copy()
-        prompts = [
-            {
-                "role": "system",
-                "content": update_notebook_prompt.format(
-                    notebook_page=self.notebook[-1],
-                    cq=history[-2]["content"],
-                    answer=history[-1]["content"],
-                ),
-            },
-            notebook_guidance_turn,
-        ]
-        lm_output = self.lm_backbone.forward(prompts)[0]
+        # prompt the lm to update the notebook until it returns a valid update
+        for i in range(10):
+            history = history.copy()
+            prompts = [
+                {
+                    "role": "system",
+                    "content": update_notebook_prompt.format(
+                        notebook_page=self.notebook[-1],
+                        cq=history[-2]["content"],
+                        answer=history[-1]["content"],
+                    ),
+                },
+                notebook_guidance_turn,
+            ]
+            lm_output = self.lm_backbone.forward(prompts, num_completions=i + 1)[-1]
+            if self.validate_notebook_update(self.notebook[-1], lm_output):
+                break
+            else:
+                print(
+                    f"*** WARNING: Invalid notebook update. Attempting to update again. ***"
+                )
         print(lm_output)
         self.notebook.append(lm_output)
+
+    def validate_notebook_update(self, old_notebook: str, new_notebook: str) -> bool:
+        """Validate the update to the notebook"""
+        old_notebook, new_notebook = old_notebook.strip(), new_notebook.strip()
+        # check the notebooks contain the same number of <...> tags
+        old_notebook_tags = re.findall(r"<.*?>", old_notebook)
+        new_notebook_tags = re.findall(r"<.*?>", new_notebook)
+        if len(old_notebook_tags) != len(new_notebook_tags):
+            return False
+        # remove anything inside <...> tags
+        old_notebook_ = re.sub(r"<.*?>", "", old_notebook)
+        new_notebook_ = re.sub(r"<.*?>", "", new_notebook)
+        # check the notebooks are different
+        notebooks_are_same = old_notebook_ == new_notebook_
+        return notebooks_are_same
 
     def predict_cq(self, history) -> str:
         """
@@ -229,7 +253,7 @@ class NotetakerChatBot(ChatBot):
         # replace the eligibility requirements with the most recent notebook page
         history[0]["content"] = self.notebook[-1]
         history.insert(0, notebook_guidance_turn)
-        cq = self.lm_backbone.forward(history + prompts)[0]
+        cq = self.lm_backbone.forward(history + prompts)
         return cq
 
     def predict_benefits_ready(self, history) -> bool:
@@ -238,9 +262,12 @@ class NotetakerChatBot(ChatBot):
         """
         history = history.copy()
         history[0]["content"] = self.notebook[-1]
+        # if the notebook contains no <UNK> tags, short circuit and return True
+        if "<UNK>" not in self.notebook[-1]:
+            return True
         history.insert(0, notebook_guidance_turn)
-        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])[0]
-        return lm_output
+        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])
+        return str(lm_output)
 
     def predict_benefits_eligibility(self, history, programs) -> List[bool]:
         """
@@ -259,7 +286,7 @@ class NotetakerChatBot(ChatBot):
         ]
         history[0]["content"] = self.notebook[-1]
         history.insert(0, notebook_guidance_turn)
-        lm_output = self.lm_backbone.forward(history + prompts)[0]
+        lm_output = self.lm_backbone.forward(history + prompts)
         # TODO - Ensure output is a list of boolean
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output

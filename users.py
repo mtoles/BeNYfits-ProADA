@@ -76,7 +76,10 @@ def nl_household_profile(hh_df: pd.DataFrame) -> str:
     members = hh_df["hh"]["members"]
     user = members[0]
     user_name = user["name"]
-    sentences = [f"You are {user_name}.", "You are the head of your household."]
+    sentences = [
+        f"You are {user_name}.",
+        "You are seeking benefits on behalf of your household.",
+    ]
     user_profile = nl_person_profile(user) + "\n=============="
     member_profiles = [nl_person_profile(member) for member in members[1:]]
     member_profiles = [x + "\n==============" for x in member_profiles]
@@ -283,7 +286,7 @@ person_features = [
     ),
     ("duration_more_than_half_prev_year", And(bool,), lambda: bool(np.random.choice([True, False])), True, lambda n, x: f"{n} lived with you more than half of the previous year." if x else f"{n} did not live with you more than half of the previous year."),
     ("lived_together_last_6_months", And(bool,), lambda: bool(np.random.choice([True, False])), True, lambda n, x: f"{n} lived with you for the last 6 months." if x else f"{n} did not live with you for the last 6 months."),
-    ("filing_jointly", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} is filing taxes jointly with you." if x else f"{n} is not filing taxes jointly with you."),
+    ("filing_jointly", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n}'s tax filing status is married, filing jointly." if x else f"{n}'s tax filing status is single"),
     ("dependent", And(bool,), lambda: bool(np.random.choice([True, False])), False, lambda n, x: f"{n} is your dependent." if x else f"{n} is not your dependent."),
 
     # Miscellaneous

@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from typing import List
+from typing import List, Optional
 from tqdm import tqdm
 import os
 from huggingface_hub import login
@@ -52,6 +52,7 @@ class LmBackboneModel:
         # bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
         # return benchmark_template.format(document=document, task=task, n_clarifying_questions=1, plural="", json="")
         return history
+
     def _format_o1_prompt_default(self, history: list[dict]) -> str:
         # replace 'system' calls with 'user' calls
         for turn in history:
@@ -68,15 +69,31 @@ class LmBackboneModel:
     def _format_default_prompt(self, history: list[dict]) -> str:
         raise NotImplementedError
 
-    def forward(self, history: List[dict]) -> str:
+    def forward(
+        self, history: List[dict], num_completions: Optional[int] = None
+    ) -> str | List[str]:
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
 
-        sequences = self.lm_wrapper.language_model.predict_many(
-            [LmPrompt(formatted_prompt, cache=True, logprobs=0)],
-            completion_window=CompletionWindow.ASAP,
+        sequences = list(
+            self.lm_wrapper.language_model.predict_many(
+                [
+                    LmPrompt(
+                        formatted_prompt,
+                        cache=True,
+                        logprobs=0,
+                        num_completions=num_completions,
+                    )
+                ],
+                completion_window=CompletionWindow.ASAP,
+            )
         )
-        output = [x.completion_text for x in sequences]
+        sequence = sequences[0]
+        # Sequence is a OpenAiLmPrediction object
+        if num_completions is None:
+            return sequence.completion_text
+        # Sequence is a list of OpenAiLmPrediction objects
+        output = [x.completion_text for x in sequence]
         return output
 
 

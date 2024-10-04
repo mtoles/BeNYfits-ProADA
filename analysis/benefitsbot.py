@@ -41,7 +41,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--dataset_path",
-    default="dataset/procedural_hh_dataset_1.0.0_annotated_50.jsonl",
+    default="dataset/procedural_hh_dataset_1.0.1_annotated_50.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
@@ -188,7 +188,7 @@ for index, row in tqdm(df.iterrows()):
             print("==" * 20)
             break
         ### break if benefits eligibility is ready ###
-        if chatbot.predict_benefits_ready(history) == "True":
+        if str(chatbot.predict_benefits_ready(history)) == "True":
             print(
                 f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
             )
@@ -262,6 +262,7 @@ if args.predict_every_turn:
         output_dir=output_dir,
         experiment_params={
             "Backbone Model": args.chatbot_model_name,
+            "Strategy": f"{args.estring} {args.chatbot_strategy}",
             "Programs": ", ".join(args.programs),
             "Max Dialog Turns": args.max_dialog_turns,
             "Downsample Size": args.downsample_size,
