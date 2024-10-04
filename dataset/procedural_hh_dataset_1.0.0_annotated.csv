@@ -1,0 +1,1402 @@
+0,"ChildAndDependentCareTaxCredit","EarlyHeadStartPrograms","InfantToddlerPrograms","ChildTaxCredit","DisabilityRentIncreaseExemption","EarnedIncomeTaxCredit","HeadStart","ComprehensiveAfterSchool"
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20",0,0,0,0,0,0,0,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+receives_hra: True
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",0,1,1,1,0,1,1,0
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+disabled: True
+can_care_for_self: False
+has_paid_caregiver: True
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",1,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+has_ssn: False
+work_income: 500000
+investment_income: 500000
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",1,0,1,0,0,0,0,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+student: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",1,1,1,0,0,0,1,0
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,1,1,0,1,0,1
+"Relation: self
+Age: 20
+receives_ssi: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000",0,0,0,0,0,0,0,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_hra: True
+
+Relation: child
+Age: 17
+current_school_level: 12",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3",0,1,1,1,0,1,1,0
+"Relation: self
+Age: 20
+has_ssn: False
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",0,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+lives_in_rent_stabilized_apartment: True",0,0,0,0,0,0,0,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,1,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,1,0,0,0,0,1
+"Relation: self
+Age: 20
+receives_ssi: True
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+receives_hra: True
+filing_jointly: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,1,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 40000
+receives_hra: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12",1,1,1,1,0,1,1,1
+"Relation: self
+Age: 20
+work_income: 40000
+receives_snap: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,1,1,0,1,1,1
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12",0,1,1,1,0,1,1,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+lives_in_rent_stabilized_apartment: True
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: spouse
+Age: 20
+receives_snap: True
+student: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",1,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_hra: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",1,1,1,0,0,0,1,0
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 17
+current_school_level: 12",0,0,0,0,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12",1,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12",0,1,1,1,0,1,1,1
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+
+Relation: spouse
+Age: 20
+disabled: True
+can_care_for_self: False
+has_paid_caregiver: True
+lives_in_temp_housing: True",0,0,0,0,0,0,0,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_hra: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3",0,1,1,0,0,0,1,0
+"Relation: self
+Age: 20
+receives_hra: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+student: True
+lives_in_temp_housing: True
+
+Relation: child
+Age: 17
+current_school_level: 12",0,0,0,0,0,1,0,1
+"Relation: self
+Age: 20
+
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",0,1,1,1,0,1,1,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,1,0,0,0,0,1,1
+"Relation: self
+Age: 20
+
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+lives_in_rent_stabilized_apartment: True
+filing_jointly: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 40000
+receives_hra: True
+
+Relation: child
+Age: 3",0,1,1,1,0,1,1,0
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",0,1,1,1,0,1,1,0
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+receives_ssi: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12",0,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",0,1,1,1,0,1,1,1
+"Relation: self
+Age: 20
+lives_in_rent_stabilized_apartment: True
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+lives_in_rent_stabilized_apartment: True
+filing_jointly: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 40000
+receives_snap: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",1,0,0,1,0,1,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12",0,0,0,0,0,0,0,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 3",0,0,0,0,0,0,0,0
+"Relation: self
+Age: 20
+has_ssn: False
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12",0,0,1,1,0,1,0,1
+"Relation: self
+Age: 20
+
+
+Relation: spouse
+Age: 20
+lives_in_temp_housing: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,1,1,1,0,1,1,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,1,1,1,0,1,1,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_ssi: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+receives_ssi: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_hra: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_ssi: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+receives_hra: True
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_temp_housing: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: spouse
+Age: 20
+receives_ssi: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_snap: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,0
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_snap: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+receives_snap: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+receives_snap: True
+
+Relation: child
+Age: 3",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+receives_ssi: True
+filing_jointly: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+lives_in_rent_stabilized_apartment: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+lives_in_temp_housing: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+lives_in_temp_housing: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+lives_in_temp_housing: True
+
+Relation: child
+Age: 3",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_ssi: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_snap: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_ssi: True
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+lives_in_temp_housing: True
+
+Relation: child
+Age: 3",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: spouse
+Age: 20
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_snap: True
+
+Relation: spouse
+Age: 20
+receives_snap: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+lives_in_rent_stabilized_apartment: True
+
+Relation: spouse
+Age: 20
+receives_ssi: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+receives_hra: True
+
+Relation: spouse
+Age: 20
+receives_hra: True
+student: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_temp_housing: True
+
+Relation: spouse
+Age: 20
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+receives_snap: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+has_paid_caregiver: True
+
+Relation: child
+Age: 11
+current_school_level: 5",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+has_ssn: False
+work_income: 500000
+investment_income: 500000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5",,,,,,,,1
+"Relation: self
+Age: 20
+has_ssn: False
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 40000
+lives_in_rent_stabilized_apartment: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+lives_in_rent_stabilized_apartment: True",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+lives_in_rent_stabilized_apartment: True
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5",0,0,0,0,,,0,0
+"Relation: self
+Age: 20
+work_income: 40000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: child
+Age: 11
+current_school_level: 5
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+receives_hra: True
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+filing_jointly: True
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12
+has_paid_caregiver: True",,,,,,,,1
+"Relation: self
+Age: 20
+has_ssn: False
+work_income: 500000
+investment_income: 500000
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+disabled: True
+has_ssn: False
+can_care_for_self: False
+has_paid_caregiver: True
+
+Relation: child
+Age: 3
+
+
+Relation: child
+Age: 11
+current_school_level: 5
+has_paid_caregiver: True
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+name_is_on_lease: True
+monthly_rent_spending: 1000
+
+Relation: spouse
+Age: 20
+looking_for_work: True
+
+Relation: child
+Age: 17
+current_school_level: 12",,,,,,,,1
+"Relation: self
+Age: 20
+work_income: 500000
+investment_income: 500000
+filing_jointly: True
+
+Relation: spouse
+Age: 20
+receives_hra: True
+filing_jointly: True
+
+Relation: child
+Age: 3
+has_paid_caregiver: True",0,0,0,0,,,0,0

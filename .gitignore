@@ -11,6 +11,6 @@ results
 data/
 mini_data/
 alpaca_eval/
-dataset/*.jsonl
+# dataset/*.jsonl
 .lmwrapper_cache/
 tmp.md
