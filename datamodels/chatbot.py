@@ -173,6 +173,7 @@ class NotetakerChatBot(ChatBot):
         lm_wrapper: LanguageModelWrapper,
         no_of_programs: str,
         eligibility_requirements: str,
+        notebook_only: bool,
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
@@ -181,6 +182,7 @@ class NotetakerChatBot(ChatBot):
         self.lm_backbone = LmBackboneModel(self.lm_wrapper)
         self.num_programs = no_of_programs
         self.notebook = [self.initialize_notebook(eligibility_requirements)]
+        self.notebook_only = notebook_only
 
     def initialize_notebook(self, eligibility_requirements: str):
         """
@@ -269,24 +271,43 @@ class NotetakerChatBot(ChatBot):
         lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])
         return str(lm_output)
 
-    def predict_benefits_eligibility(self, history, programs) -> List[bool]:
+    def predict_benefits_eligibility(
+        self, history, programs
+    ) -> List[bool]:
         """
         Predict what all benefits user or its household is eligible for.
         Return a boolean array of length equal to number of benefits.
         """
         history = history.copy()
-        prompts = [
-            {
-                "role": "system",
-                "content": benefits_prediction_prompt.format(
-                    num_programs=self.num_programs,
-                    example_array=example_array(self.num_programs),
-                ),
-            }
-        ]
-        history[0]["content"] = self.notebook[-1]
-        history.insert(0, notebook_guidance_turn)
-        lm_output = self.lm_backbone.forward(history + prompts)
-        # TODO - Ensure output is a list of boolean
+        if self.notebook_only:
+            prompts = [
+                {"role": "system", "content": self.notebook[-1]},
+                notebook_guidance_turn,
+                {
+                    "role": "system",
+                    "content": benefits_prediction_prompt.format(
+                        num_programs=self.num_programs,
+                        example_array=example_array(self.num_programs),
+                    ),
+                },
+                {
+                    "role": "system",
+                    "content": "Base your prediction on the <annotations> in the notebook.",
+                },
+            ]
+            lm_output = self.lm_backbone.forward(prompts)
+        else:
+            prompts = [
+                {
+                    "role": "system",
+                    "content": benefits_prediction_prompt.format(
+                        num_programs=self.num_programs,
+                        example_array=example_array(self.num_programs),
+                    ),
+                }
+            ]
+            history[0]["content"] = self.notebook[-1]
+            history.insert(0, notebook_guidance_turn)
+            lm_output = self.lm_backbone.forward(history + prompts)
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output

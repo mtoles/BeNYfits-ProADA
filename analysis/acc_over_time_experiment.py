@@ -86,5 +86,15 @@ def plot_metrics_per_turn(
     programs = "_".join(experiment_params["Programs"].split(", "))
     # drop all lowercase letters in programs
     programs = "".join([i for i in programs if not i.islower()])
-    plt.savefig(output_dir / f"mpt_{model}_{programs}_n={experiment_params['Downsample Size']}.png", dpi=300)
+    plt.savefig(
+        output_dir
+        / f"mpt_{model}_n={experiment_params['Downsample Size']}.png",
+        dpi=300,
+    )
+    pd.DataFrame(metrics).to_json(
+        output_dir
+        / f"mpt_{model}_n={experiment_params['Downsample Size']}.jsonl",
+        lines=True,
+        orient="records",
+    )
     pass

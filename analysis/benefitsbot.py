@@ -135,18 +135,35 @@ num_benefits = len(args.programs)
 
 # Load language models and pipeline setup
 chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-if args.chatbot_strategy == "backbone":
-    chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
-elif args.chatbot_strategy == "notetaker":
-    chatbot = NotetakerChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
-else:
-    raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
+
+
+def get_model(model_name: str) -> ChatBot:
+    if model_name == "backbone":
+        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+    elif model_name == "notetaker":
+        chatbot = NotetakerChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            notebook_only=False,
+        )
+    elif model_name == "notetaker-2":
+        chatbot = NotetakerChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            notebook_only=True,
+        )
+    else:
+        raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
+    return chatbot
+
 
 synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 for index, row in tqdm(df.iterrows()):
-    # reinstantiate the model every time
-    chatbot = chatbot.__class__(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+    # reinstantiate the model every time to dump the chat history
+    chatbot = get_model(args.chatbot_strategy)
     labels = row[args.programs]
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
@@ -211,45 +228,20 @@ for index, row in tqdm(df.iterrows()):
         print(f"Turn Number:         {cur_iter_count}")
         print(f"Clarifying Question: {cq}")
         print(f"Answer:              {cq_answer}")
-        chatbot.post_answer(history) # optional
+        chatbot.post_answer(history)  # optional
         print("==" * 20)
         cur_iter_count += 1
         # chatbot.append_chat_question_and_answer(cq, cq_answer)
     per_turn_all_predictions.append(per_turn_predictions)
-    # benefits_prediction = chatbot.predict_benefits_eligibility(history)
-
-    # predictions.append(benefits_prediction)
-    # per_turn_all_predictions[index].append(benefits_prediction)
-    # print(f"Benefits Prediction: {benefits_prediction}")
-    # print("==" * 20)
     history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
     histories.append(history)
 
-# df["predictions"] = predictions
-# df["correct"] = df.apply(lambda x: x["labels"] == x["predictions"], axis=1)
-# df["f1"] = None
-# non_null_predictions = ~df["predictions"].isnull()
-# if (
-#     non_null_predictions.sum() > 0
-# ):  # pandas gets confused if there are no actual indices to set
-#     df.loc[non_null_predictions, "f1"] = df[non_null_predictions].apply(
-#         lambda x: f1_score(x["labels"], x["predictions"], average="weighted"), axis=1
-#     )
-# df.loc[df["predictions"].isnull(), "f1"] = (
-#     0  # Set F1 score to 0 if no prediction was made
-# )
-# print(f"Total F1 Score: {df['f1'].mean()}")
 
-# df_labels = pd.DataFrame(
-#     columns=df.programs[0], index=df.index, data=df.labels.tolist()
-# )
-# df_preds = pd.DataFrame(
-#     columns=df.programs[0], index=df.index, data=df.predictions.tolist()
-# )
-# df_acc = df_labels == df_preds
+programs_abbreviation = "_".join(
+    ["".join([char for char in program if char.isupper()]) for program in args.programs]
+)
 
-### Save results file and chat history ###
-output_dir = f"./results/{args.estring}/{now}"
+output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
@@ -268,31 +260,11 @@ if args.predict_every_turn:
             "Downsample Size": args.downsample_size,
         },
     )
-# with open(f"{output_dir}/results_summary.md", "w") as f:
-#     f.write("### Args ###\n")
-#     for key, value in args.__dict__.items():
-#         f.write(f"{key}: {value}\n")
-#     f.write("### Results ###\n")
-#     f.write(f"Total F1 Score: {df['f1'].mean()}\n")
-#     for program in df.programs[0]:
-#         f.write(f"{program}\n")
-#         f.write(
-#             f"F1: {f1_score(df_labels[program], df_preds[program], average='weighted')}\n"
-#         )
-#         f.write(f"Accuracy: {df_acc[program].mean()}\n")
-#         f.write(
-#             f"Precision: {precision_score(df_labels[program], df_preds[program], average='weighted')}\n"
-#         )
-#         f.write(
-#             f"Recall: {recall_score(df_labels[program], df_preds[program], average='weighted')}\n"
-#         )
 
 with open(f"{output_dir}/transcript.md", "w") as f:
     for i, transcript in enumerate(histories):
         f.write(f"Transcript {i}\n")
         f.write(f"{transcript}\n")
         f.write("\n\n==========\n\n")
-df.to_json(f"{output_dir}/results.jsonl", lines=True, orient="records")
-# df_preds.to_json(f"{output_dir}/predictions.jsonl", lines=True, orient="records")
-# df_acc.to_json(f"{output_dir}/accuracy.jsonl", lines=True, orient="records")
+
 pass

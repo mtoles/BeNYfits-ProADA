@@ -14,3 +14,5 @@ alpaca_eval/
 # dataset/*.jsonl
 .lmwrapper_cache/
 tmp.md
+analysis/acc_over_time.sh
+analysis/notetaker.sh
