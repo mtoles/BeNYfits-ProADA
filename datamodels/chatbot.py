@@ -21,7 +21,7 @@ def example_array(n):
 ### Backbone Prompts ###
 benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
 predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
-
+predict_cq_prompt_loose = "Ask a clarifying question to determine the user's eligibility for benefits for each program one requirement at a time. Begin with the first program and ask about one specific requirement before moving to the next. Ensure that you ask questions in a clear, concise, and logical sequence, focusing on gathering the necessary information efficiently. Only ask about one fact at a time."
 
 class ChatBot:
     """ "Base class for chatbots. Serves as the simple backbone model."""
@@ -31,6 +31,7 @@ class ChatBot:
         lm_wrapper: LanguageModelWrapper,
         no_of_programs: str,
         eligibility_requirements: str,
+        model_name: str
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
@@ -38,7 +39,23 @@ class ChatBot:
         self.lm_wrapper = lm_wrapper
         self.lm_backbone = LmBackboneModel(self.lm_wrapper)
         self.num_programs = no_of_programs
+        self.model_name = model_name
 
+    def get_next_question(self, cur_iter_count: int) -> str:
+        counter_question_map = {
+            0: "Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or adult dependent who cannot physically or mentally care for themselves?",
+            1: "Did the dependent live with you for more than half of 2023?",
+            2: "Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment?",
+            3: "If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?",
+            4: "Do you live in temporary housing?",
+            5: "Do you receive HRA Cash Assistance?",
+            6: "Do you receive SSI (Supplemental Security Insurance)?",
+            7: "Are you enrolling a child who is in foster care?",
+            8: "If your household income is at or below these amounts: Family size and yearly income: 1 - $14,580, 2 - $19,720, 3 - $24,860, 4 - $30,000, 5 - $35,140, 6 - $40,280, 7 - $45,420, 8 - $50,560. For each additional person, add $5,140.",
+        }
+
+        return counter_question_map[cur_iter_count]
+    
     def predict_benefits_ready(self, history) -> bool:
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
@@ -63,17 +80,30 @@ class ChatBot:
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
 
-    def predict_cq(self, history) -> str:
+    def predict_cq(self, history, cur_iter_count: int) -> str:
         """
         Function to generate clarifying question.
         """
 
-        prompt = {
-            "role": "system",
-            "content": predict_cq_prompt,
-        }
-        cq = self.lm_backbone.forward(history + [prompt])
-        return cq
+        if self.model_name == "backbone":
+            prompt = {
+                "role": "system",
+                "content": predict_cq_prompt,
+            }
+            cq = self.lm_backbone.forward(history + [prompt])
+            return cq
+        elif self.model_name == "prompt_engineering_loose":
+            prompt = {
+                "role": "system",
+                "content": predict_cq_prompt_loose,
+            }
+            cq = self.lm_backbone.forward(history + [prompt])
+            return cq
+        elif self.model_name == "backbone_fixed":
+            cq = self.get_next_question(cur_iter_count)
+            return cq
+        else:
+            raise ValueError(f"Invalid chatbot strategy: {self.model_name}")
 
     def post_answer(self, history):
         """

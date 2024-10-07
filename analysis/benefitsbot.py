@@ -138,8 +138,8 @@ chatbot_model_wrapper = load_lm(args.chatbot_model_name)
 
 
 def get_model(model_name: str) -> ChatBot:
-    if model_name == "backbone":
-        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+    if model_name == "backbone" or model_name == "prompt_engineering_loose" or model_name == "backbone_fixed":
+        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements, model_name)
     elif model_name == "notetaker":
         chatbot = NotetakerChatBot(
             chatbot_model_wrapper,
@@ -220,7 +220,7 @@ for index, row in tqdm(df.iterrows()):
             last_turn_iteration.append(cur_iter_count)
             break
         ### otherwise, ask a question ###
-        cq = chatbot.predict_cq(history)
+        cq = chatbot.predict_cq(history, cur_iter_count)
         history.append({"role": "assistant", "content": cq})
         cq_answer = synthetic_user.answer_cq(cq)
         history.append({"role": "user", "content": cq_answer})
