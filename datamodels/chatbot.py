@@ -1,11 +1,13 @@
 from models.model_utils import LanguageModelWrapper
 from models.lm_backbone import LmBackboneModel
 from typing import List, Optional
+from copy import deepcopy
 import re
 import ast
 import numpy as np
 import re
-
+from models.lm_logging import LmLogger
+from inspect import currentframe
 np.random.seed(42)
 
 benefits_ready_prompt = {
@@ -31,19 +33,20 @@ class ChatBot:
         lm_wrapper: LanguageModelWrapper,
         no_of_programs: str,
         eligibility_requirements: str,
+        lm_logger: Optional[LmLogger] = None,
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
         self.lm_wrapper = lm_wrapper
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper)
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper, lm_logger=lm_logger)
         self.num_programs = no_of_programs
 
     def predict_benefits_ready(self, history) -> bool:
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
-        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])
+        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt], logging_role="predict_benefits_ready")
         return lm_output
 
     def predict_benefits_eligibility(self, history, programs) -> List[bool]:
@@ -58,7 +61,7 @@ class ChatBot:
                 example_array=example_array(self.num_programs),
             ),
         }
-        lm_output = self.lm_backbone.forward(history + [prompt])
+        lm_output = self.lm_backbone.forward(history + [prompt], logging_role="predict_benefits_eligibility")
         # TODO - Ensure output is a list of boolean
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
@@ -72,7 +75,7 @@ class ChatBot:
             "role": "system",
             "content": predict_cq_prompt,
         }
-        cq = self.lm_backbone.forward(history + [prompt])
+        cq = self.lm_backbone.forward(history + [prompt], logging_role="predict_cq")
         return cq
 
     def post_answer(self, history):
@@ -166,7 +169,7 @@ notebook_guidance_turn = {
 
 
 class NotetakerChatBot(ChatBot):
-    """ "Class for chatbots that can take notes."""
+    """ Class for chatbots that can take notes """
 
     def __init__(
         self,
@@ -174,13 +177,12 @@ class NotetakerChatBot(ChatBot):
         no_of_programs: str,
         eligibility_requirements: str,
         notebook_only: bool,
+        lm_logger: Optional[LmLogger] = None,
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
-        self.lm_wrapper = lm_wrapper
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper)
-        self.num_programs = no_of_programs
+        super().__init__(lm_wrapper, no_of_programs, eligibility_requirements, lm_logger)
         self.notebook = [self.initialize_notebook(eligibility_requirements)]
         self.notebook_only = notebook_only
 
@@ -194,7 +196,7 @@ class NotetakerChatBot(ChatBot):
                 eligibility_requirements=eligibility_requirements
             ),
         }
-        lm_output = self.lm_backbone.forward([prompt])
+        lm_output = self.lm_backbone.forward([prompt], logging_role="initialize_notebook")
         return lm_output
 
     def post_answer(self, history: List[dict]) -> None:
@@ -203,7 +205,7 @@ class NotetakerChatBot(ChatBot):
         """
         # prompt the lm to update the notebook until it returns a valid update
         for i in range(10):
-            history = history.copy()
+            history = deepcopy(history)
             prompts = [
                 {
                     "role": "system",
@@ -215,7 +217,7 @@ class NotetakerChatBot(ChatBot):
                 },
                 notebook_guidance_turn,
             ]
-            lm_output = self.lm_backbone.forward(prompts, num_completions=i + 1)[-1]
+            lm_output = self.lm_backbone.forward(prompts, num_completions=i + 1, logging_role="post_answer")[-1]
             if self.validate_notebook_update(self.notebook[-1], lm_output):
                 break
             else:
@@ -244,7 +246,7 @@ class NotetakerChatBot(ChatBot):
         """
         Function to generate clarifying question.
         """
-        history = history.copy()
+        history = deepcopy(history)
         prompts = [
             {
                 "role": "system",
@@ -255,20 +257,20 @@ class NotetakerChatBot(ChatBot):
         # replace the eligibility requirements with the most recent notebook page
         history[0]["content"] = self.notebook[-1]
         history.insert(0, notebook_guidance_turn)
-        cq = self.lm_backbone.forward(history + prompts)
+        cq = self.lm_backbone.forward(history + prompts, logging_role="predict_cq")
         return cq
 
     def predict_benefits_ready(self, history) -> bool:
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
-        history = history.copy()
+        history = deepcopy(history)
         history[0]["content"] = self.notebook[-1]
         # if the notebook contains no <UNK> tags, short circuit and return True
         if "<UNK>" not in self.notebook[-1]:
             return True
         history.insert(0, notebook_guidance_turn)
-        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt])
+        lm_output = self.lm_backbone.forward(history + [benefits_ready_prompt], logging_role="predict_benefits_ready")
         return str(lm_output)
 
     def predict_benefits_eligibility(
@@ -278,7 +280,7 @@ class NotetakerChatBot(ChatBot):
         Predict what all benefits user or its household is eligible for.
         Return a boolean array of length equal to number of benefits.
         """
-        history = history.copy()
+        history = deepcopy(history)
         if self.notebook_only:
             prompts = [
                 {"role": "system", "content": self.notebook[-1]},
@@ -295,7 +297,7 @@ class NotetakerChatBot(ChatBot):
                     "content": "Base your prediction on the <annotations> in the notebook.",
                 },
             ]
-            lm_output = self.lm_backbone.forward(prompts)
+            lm_output = self.lm_backbone.forward(prompts, logging_role="predict_benefits_eligibility")
         else:
             prompts = [
                 {
@@ -308,6 +310,6 @@ class NotetakerChatBot(ChatBot):
             ]
             history[0]["content"] = self.notebook[-1]
             history.insert(0, notebook_guidance_turn)
-            lm_output = self.lm_backbone.forward(history + prompts)
+            lm_output = self.lm_backbone.forward(history + prompts, logging_role="predict_benefits_eligibility")
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
