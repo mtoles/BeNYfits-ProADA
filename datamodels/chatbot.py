@@ -21,7 +21,7 @@ def example_array(n):
 ### Backbone Prompts ###
 benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
 predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
-predict_cq_prompt_loose = "Ask a clarifying question that will help you determine the eligibility of user for benefits for each program one requirement at a time. Begin with the first program and ask about one specific requirement before moving to the next. Only ask about one fact at a time."
+predict_cq_prompt_loose = "Ask a clarifying question that will help you determine the eligibility of user for benefits for benefits asking about one requirement at a time. Start from first program and move to last program and ask about all requirement of one benefit before moving to the next. Only ask about one fact at a time."
 
 class ChatBot:
     """ "Base class for chatbots. Serves as the simple backbone model."""
