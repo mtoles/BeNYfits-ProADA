@@ -67,7 +67,6 @@ class ChatBot:
         """
         Function to generate clarifying question.
         """
-        print("Predict CQ Base")
         prompt = {
             "role": "system",
             "content": predict_cq_prompt,
@@ -353,8 +352,6 @@ class ChatBotBackboneFixed(ChatBot):
         """
         Function to generate clarifying question.
         """
-        print("Predict CQ Backbone Fixed")
-
         cq = self.get_next_question(cur_iter_count)
         return cq
     
@@ -363,7 +360,6 @@ class ChatBotPredictCQPromptLoose(ChatBot):
         """
         Function to generate clarifying question.
         """
-        print("Predict CQ Prompt Loose")
         prompt = {
             "role": "system",
             "content": predict_cq_prompt_loose,
