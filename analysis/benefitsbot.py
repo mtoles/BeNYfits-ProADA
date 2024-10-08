@@ -138,8 +138,12 @@ chatbot_model_wrapper = load_lm(args.chatbot_model_name)
 
 
 def get_model(model_name: str) -> ChatBot:
-    if model_name == "backbone" or model_name == "prompt_engineering_loose" or model_name == "backbone_fixed":
-        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements, model_name)
+    if model_name == "backbone":
+        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+    elif model_name == "backbone_fixed":
+        chatbot = ChatBotBackboneFixed(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+    elif model_name == "prompt_engineering_loose":
+        chatbot = ChatBotPredictCQPromptLoose(chatbot_model_wrapper, num_benefits, eligibility_requirements)
     elif model_name == "notetaker":
         chatbot = NotetakerChatBot(
             chatbot_model_wrapper,

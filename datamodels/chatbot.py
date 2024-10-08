@@ -31,7 +31,6 @@ class ChatBot:
         lm_wrapper: LanguageModelWrapper,
         no_of_programs: str,
         eligibility_requirements: str,
-        model_name: str
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
@@ -39,42 +38,6 @@ class ChatBot:
         self.lm_wrapper = lm_wrapper
         self.lm_backbone = LmBackboneModel(self.lm_wrapper)
         self.num_programs = no_of_programs
-        self.model_name = model_name
-
-    def get_next_question(self, cur_iter_count: int) -> str:
-        counter_question_map = {
-            0: "Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or adult dependent who cannot physically or mentally care for themselves?",
-            1: "Did the dependent live with you for more than half of last year?",
-            2: "Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment?",
-            3: "If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?",
-            4: "Do you live in temporary housing?",
-            5: "Do you receive HRA Cash Assistance?",
-            6: "Do you receive SSI (Supplemental Security Insurance)?",
-            7: "Are you enrolling a child who is in foster care?",
-            8: "If your household income is at or below these amounts: Family size and yearly income: 1 - $14,580, 2 - $19,720, 3 - $24,860, 4 - $30,000, 5 - $35,140, 6 - $40,280, 7 - $45,420, 8 - $50,560. For each additional person, add $5,140.",
-            9: "Do you have a child age 5 or younger?",
-            10: "Do both parents have an approved reason for care, such as working 10+ hours per week, being in an educational or vocational training program, or looking for work?",
-            11: "Are you receiving treatment for substance abuse or attending services for domestic violence?",
-            12: "Is your household income at or below these amounts? Family size, monthly income, and yearly income: 1 - $4,301 (monthly), $51,610 (yearly), 2 - $5,624 (monthly), $67,490 (yearly), 3 - $6,948 (monthly), $83,370 (yearly), etc.",
-            13: "Did you earn up to $200,000, or up to $400,000 if married filing jointly?",
-            14: "Are you claiming a child who is 16 or younger with a valid SSN, ATIN, or ITIN?",
-            15: "Did your child or dependent live with you for more than half the year in the U.S., and are you claiming them as a dependent on your tax return?",
-            16: "Are you 18 years old or older?",
-            17: "Is your name on the lease?",
-            18: "Is your combined household income $50,000 or less?",
-            19: "Do you spend more than one-third of your monthly income on rent?",
-            20: "Do you live in NYC in one of the eligible housing types (rent stabilized, controlled, Mitchell-Lama, etc.)?",
-            21: "Do you have income from SSI, SSDI, VA disability pension or compensation, or disability-related Medicaid?",
-            22: "Do you have a valid Social Security Number?",
-            23: "Is your income, marital, and parental status one of the eligible cases for EITC (e.g., Married with children and earning up to $63,398)?",
-            24: "If claiming EITC without children, are you between the ages of 25 and 64?",
-            25: "Do you have investment income of less than $11,000?",
-            26: "Do you have a child aged 3-4, and are you eligible based on your income, or are you receiving HRA Cash Assistance, SSI, or SNAP?",
-            27: "Is your family income below the threshold for Head Start? Household size and yearly income: 2 - $20,440, 3 - $25,820, 4 - $31,200, etc.",
-            28: "Are you enrolling a child in a Comprehensive After School System (COMPASS) program, and are they in grades K-12?"
-        }
-
-        return counter_question_map[cur_iter_count]
     
     def predict_benefits_ready(self, history) -> bool:
         """
@@ -104,27 +67,14 @@ class ChatBot:
         """
         Function to generate clarifying question.
         """
-
-        if self.model_name == "backbone":
-            prompt = {
-                "role": "system",
-                "content": predict_cq_prompt,
-            }
-            cq = self.lm_backbone.forward(history + [prompt])
-            return cq
-        elif self.model_name == "prompt_engineering_loose":
-            prompt = {
-                "role": "system",
-                "content": predict_cq_prompt_loose,
-            }
-            cq = self.lm_backbone.forward(history + [prompt])
-            return cq
-        elif self.model_name == "backbone_fixed":
-            cq = self.get_next_question(cur_iter_count)
-            return cq
-        else:
-            raise ValueError(f"Invalid chatbot strategy: {self.model_name}")
-
+        print("Predict CQ Base")
+        prompt = {
+            "role": "system",
+            "content": predict_cq_prompt,
+        }
+        cq = self.lm_backbone.forward(history + [prompt])
+        return cq
+    
     def post_answer(self, history):
         """
         Function called after an answer is provided to the chatbot.
@@ -361,3 +311,62 @@ class NotetakerChatBot(ChatBot):
             lm_output = self.lm_backbone.forward(history + prompts)
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
+
+
+class ChatBotBackboneFixed(ChatBot):
+    def get_next_question(self, cur_iter_count: int) -> str:
+        counter_question_map = {
+            0: "Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or adult dependent who cannot physically or mentally care for themselves?",
+            1: "Did the dependent live with you for more than half of last year?",
+            2: "Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment?",
+            3: "If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?",
+            4: "Do you live in temporary housing?",
+            5: "Do you receive HRA Cash Assistance?",
+            6: "Do you receive SSI (Supplemental Security Insurance)?",
+            7: "Are you enrolling a child who is in foster care?",
+            8: "If your household income is at or below these amounts: Family size and yearly income: 1 - $14,580, 2 - $19,720, 3 - $24,860, 4 - $30,000, 5 - $35,140, 6 - $40,280, 7 - $45,420, 8 - $50,560. For each additional person, add $5,140.",
+            9: "Do you have a child age 5 or younger?",
+            10: "Do both parents have an approved reason for care, such as working 10+ hours per week, being in an educational or vocational training program, or looking for work?",
+            11: "Are you receiving treatment for substance abuse or attending services for domestic violence?",
+            12: "Is your household income at or below these amounts? Family size, monthly income, and yearly income: 1 - $4,301 (monthly), $51,610 (yearly), 2 - $5,624 (monthly), $67,490 (yearly), 3 - $6,948 (monthly), $83,370 (yearly), etc.",
+            13: "Did you earn up to $200,000, or up to $400,000 if married filing jointly?",
+            14: "Are you claiming a child who is 16 or younger with a valid SSN, ATIN, or ITIN?",
+            15: "Did your child or dependent live with you for more than half the year in the U.S., and are you claiming them as a dependent on your tax return?",
+            16: "Are you 18 years old or older?",
+            17: "Is your name on the lease?",
+            18: "Is your combined household income $50,000 or less?",
+            19: "Do you spend more than one-third of your monthly income on rent?",
+            20: "Do you live in NYC in one of the eligible housing types (rent stabilized, controlled, Mitchell-Lama, etc.)?",
+            21: "Do you have income from SSI, SSDI, VA disability pension or compensation, or disability-related Medicaid?",
+            22: "Do you have a valid Social Security Number?",
+            23: "Is your income, marital, and parental status one of the eligible cases for EITC (e.g., Married with children and earning up to $63,398)?",
+            24: "If claiming EITC without children, are you between the ages of 25 and 64?",
+            25: "Do you have investment income of less than $11,000?",
+            26: "Do you have a child aged 3-4, and are you eligible based on your income, or are you receiving HRA Cash Assistance, SSI, or SNAP?",
+            27: "Is your family income below the threshold for Head Start? Household size and yearly income: 2 - $20,440, 3 - $25,820, 4 - $31,200, etc.",
+            28: "Are you enrolling a child in a Comprehensive After School System (COMPASS) program, and are they in grades K-12?"
+        }
+
+        return counter_question_map[cur_iter_count]
+    
+    def predict_cq(self, history, cur_iter_count: int) -> str:
+        """
+        Function to generate clarifying question.
+        """
+        print("Predict CQ Backbone Fixed")
+
+        cq = self.get_next_question(cur_iter_count)
+        return cq
+    
+class ChatBotPredictCQPromptLoose(ChatBot):
+    def predict_cq(self, history, cur_iter_count: int) -> str:
+        """
+        Function to generate clarifying question.
+        """
+        print("Predict CQ Prompt Loose")
+        prompt = {
+            "role": "system",
+            "content": predict_cq_prompt_loose,
+        }
+        cq = self.lm_backbone.forward(history + [prompt])
+        return cq
