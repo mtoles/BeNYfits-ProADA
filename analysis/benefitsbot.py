@@ -2,6 +2,7 @@ import os
 import argparse
 
 import pandas as pd
+from datamodels.schema_chatbot import SchemaFillerChatBot
 from models.model_utils import load_lm
 from datamodels.userprofile import UserProfile
 from datamodels.chatbot import *
@@ -153,6 +154,13 @@ def get_model(model_name: str) -> ChatBot:
             num_benefits,
             eligibility_requirements,
             notebook_only=True,
+        )
+    elif model_name == "schemafiller":
+        chatbot = SchemaFillerChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            data_only=True
         )
     else:
         raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")

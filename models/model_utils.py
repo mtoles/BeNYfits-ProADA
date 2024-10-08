@@ -60,6 +60,9 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "google/gemma-7b-it": LanguageModelWrapper(
         "Gemma 7B Instruction Tuned", "gemma", "google/gemma-7b-it"
     ),
+    "gpt-4o-mini": LanguageModelWrapper(
+        "GPT 4o Mini", "gpt", "gpt-4o-mini"
+    ),
     # Add more models here as needed
 }
 
