@@ -11,7 +11,8 @@ from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
-
+from dataset_procedural import show_household
+from users import Household
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -122,6 +123,7 @@ eligibility_requirements = eligibility_to_string(eligibility_df)
 
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
+df["hh"] = df["hh"].apply(lambda hh: Household.from_dict(hh))
 if args.downsample_size:
     df = df[: args.downsample_size]
 
@@ -176,9 +178,10 @@ synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 for index, row in tqdm(df.iterrows()):
     # reinstantiate the model every time to dump the chat history
-    chatbot = get_model(args.chatbot_strategy)
     labels = row[args.programs]
-    lm_logger.log_manual_info({"log_type": "labels", "content": labels.to_dict()})
+    lm_logger.add_empty_convo(labels.to_dict())
+    chatbot = get_model(args.chatbot_strategy)
+    chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
         user, hh_nl_desc, synthetic_user_model_wrapper, lm_logger=lm_logger
@@ -249,9 +252,13 @@ for index, row in tqdm(df.iterrows()):
         cur_iter_count += 1
         # chatbot.append_chat_question_and_answer(cq, cq_answer)
     per_turn_all_predictions.append(per_turn_predictions)
+    lm_logger.log_predictions(per_turn_predictions)
+    lm_logger.log_hh_diff(row["hh"])
     history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
     histories.append(history)
 
+
+lm_logger.save()
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)

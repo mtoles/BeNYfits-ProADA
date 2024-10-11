@@ -51,6 +51,9 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "gpt-4o-2024-05-13": LanguageModelWrapper(
         "gpt-4o-2024-05-13", "gpt", OpenAiModelNames.gpt_4o_2024_05_13
     ),
+    "gpt-4o-mini-2024-07-18": LanguageModelWrapper(
+        "gpt-4o-mini-2024-07-18", "gpt", OpenAiModelNames.gpt_4o_mini_2024_07_18
+    ),
     "o1-preview-2024-09-12": LanguageModelWrapper(
         "o1-preview-2024-09-12", "o1", OpenAiModelNames.o1_preview_2024_09_12
     ),

@@ -106,7 +106,7 @@ class LmBackboneModel:
         else:
             output = [x.completion_text for x in sequence]
         if self.lm_logger:
-            first_output = output[0] if isinstance(output, list) else output
+            first_output = output[-1] if isinstance(output, list) else output
             self.lm_logger.log_io(
                 lm_input=history, lm_output=first_output, role=logging_role
             )
