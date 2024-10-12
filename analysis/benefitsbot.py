@@ -169,6 +169,13 @@ def get_model(model_name: str) -> ChatBot:
             notebook_only=True,
             lm_logger=lm_logger,
         )
+    elif model_name == "cot":
+        chatbot = CotChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            lm_logger=lm_logger,
+        )
     else:
         raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
     return chatbot
