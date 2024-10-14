@@ -150,9 +150,11 @@ lm_logger = LmLogger(log_dir=output_dir)
 
 def get_model(model_name: str) -> ChatBot:
     if model_name == "backbone":
-        chatbot = ChatBot(
-            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
-        )
+        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
+    elif model_name == "backbone_fixed":
+        chatbot = ChatBotBackboneFixed(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
+    elif model_name == "prompt_engineering_loose":
+        chatbot = ChatBotPredictCQPromptLoose(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
     elif model_name == "notetaker":
         chatbot = NotetakerChatBot(
             chatbot_model_wrapper,
@@ -246,7 +248,7 @@ for index, row in tqdm(df.iterrows()):
             last_turn_iteration.append(cur_iter_count)
             break
         ### otherwise, ask a question ###
-        cq = chatbot.predict_cq(history)
+        cq = chatbot.predict_cq(history, cur_iter_count)
         history.append({"role": "assistant", "content": cq})
         cq_answer = synthetic_user.answer_cq(cq)
         history.append({"role": "user", "content": cq_answer})
