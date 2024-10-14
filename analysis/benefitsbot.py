@@ -10,7 +10,9 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
-
+from models.lm_logging import LmLogger
+from dataset_procedural import show_household
+from users import Household
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -78,6 +80,11 @@ parser.add_argument(
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+programs_abbreviation = "_".join(
+    ["".join([char for char in program if char.isupper()]) for program in args.programs]
+)
+
+output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 
 
 # Read the chat history from the file
@@ -116,6 +123,7 @@ eligibility_requirements = eligibility_to_string(eligibility_df)
 
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
+df["hh"] = df["hh"].apply(lambda hh: Household.from_dict(hh))
 if args.downsample_size:
     df = df[: args.downsample_size]
 
@@ -137,19 +145,23 @@ num_benefits = len(args.programs)
 chatbot_model_wrapper = load_lm(args.chatbot_model_name)
 
 
+lm_logger = LmLogger(log_dir=output_dir)
+
+
 def get_model(model_name: str) -> ChatBot:
     if model_name == "backbone":
-        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
     elif model_name == "backbone_fixed":
-        chatbot = ChatBotBackboneFixed(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+        chatbot = ChatBotBackboneFixed(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
     elif model_name == "prompt_engineering_loose":
-        chatbot = ChatBotPredictCQPromptLoose(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+        chatbot = ChatBotPredictCQPromptLoose(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
     elif model_name == "notetaker":
         chatbot = NotetakerChatBot(
             chatbot_model_wrapper,
             num_benefits,
             eligibility_requirements,
             notebook_only=False,
+            lm_logger=lm_logger,
         )
     elif model_name == "notetaker-2":
         chatbot = NotetakerChatBot(
@@ -157,6 +169,14 @@ def get_model(model_name: str) -> ChatBot:
             num_benefits,
             eligibility_requirements,
             notebook_only=True,
+            lm_logger=lm_logger,
+        )
+    elif model_name == "cot":
+        chatbot = CotChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            lm_logger=lm_logger,
         )
     else:
         raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
@@ -167,10 +187,14 @@ synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 for index, row in tqdm(df.iterrows()):
     # reinstantiate the model every time to dump the chat history
-    chatbot = get_model(args.chatbot_strategy)
     labels = row[args.programs]
+    lm_logger.add_empty_convo(labels.to_dict())
+    chatbot = get_model(args.chatbot_strategy)
+    chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
     hh_nl_desc = row["hh_nl_desc"]
-    synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
+    synthetic_user = SyntheticUser(
+        user, hh_nl_desc, synthetic_user_model_wrapper, lm_logger=lm_logger
+    )
     history = [
         {
             "role": "system",
@@ -237,15 +261,14 @@ for index, row in tqdm(df.iterrows()):
         cur_iter_count += 1
         # chatbot.append_chat_question_and_answer(cq, cq_answer)
     per_turn_all_predictions.append(per_turn_predictions)
+    lm_logger.log_predictions(per_turn_predictions)
+    lm_logger.log_hh_diff(row["hh"])
     history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
     histories.append(history)
 
 
-programs_abbreviation = "_".join(
-    ["".join([char for char in program if char.isupper()]) for program in args.programs]
-)
+lm_logger.save()
 
-output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 

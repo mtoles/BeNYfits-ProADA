@@ -1,11 +1,16 @@
 from models.model_utils import LanguageModelWrapper
 from datamodels.userprofile import UserProfile
 from models.lm_backbone import LmBackboneModel
+from models.lm_logging import LmLogger
 
 
 class SyntheticUser:
     def __init__(
-        self, user: UserProfile, hh_nl_desc: str, lm_wrapper: LanguageModelWrapper
+        self,
+        user: UserProfile,
+        hh_nl_desc: str,
+        lm_wrapper: LanguageModelWrapper,
+        lm_logger: LmLogger,
     ):
         """
         The grund truth information about the user
@@ -15,7 +20,7 @@ class SyntheticUser:
         self.nl_profile = hh_nl_desc
         # Model to answer clarifying question
         # self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper)
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper, lm_logger=lm_logger)
 
     def answer_cq(self, cq: str):
         """
@@ -35,5 +40,5 @@ class SyntheticUser:
                 "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.' Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.",
             },
         ]
-        lm_output = self.lm_backbone.forward(prompt)
+        lm_output = self.lm_backbone.forward(prompt, logging_role="answer_cq")
         return lm_output
