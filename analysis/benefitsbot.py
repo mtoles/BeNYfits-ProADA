@@ -264,6 +264,7 @@ if args.predict_every_turn:
             "Programs": ", ".join(args.programs),
             "Max Dialog Turns": args.max_dialog_turns,
             "Downsample Size": args.downsample_size,
+            "Top K Sentences": args.top_k,
         },
     )
 
