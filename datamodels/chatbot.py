@@ -19,15 +19,18 @@ benefits_ready_prompt = {
 
 def example_array(n):
     return str([bool(x % 2) for x in range(n)])
+
+
 def get_last_bool_in_str(s: str) -> str:
-    """Get the last True or False mentioned in a string"""
-    pattern = r"True|False"
+    """Get the last True or False mentioned in a string. Additionally, return True if yes or Yes are in the input, and false if no or No are in the input"""
+    pattern = r"true|false|yes|no"
     match = re.search(pattern, s.lower())
     if match:
-        # return match.group()
         group = match.group()
-        # capitalize the first letter
-        return group[0].upper() + group[1:]
+        if group in ["yes", "true"]:
+            return "True"
+        elif group in ["no", "false"]:
+            return "False"
     else:
         return "False"
 
@@ -363,3 +366,108 @@ class NotetakerChatBot(ChatBot):
             )
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
+
+
+class CodeRefChatBot(ChatBot):
+    """ "Base class for chatbots. Serves as the simple backbone model."""
+
+    def __init__(
+        self,
+        lm_wrapper: LanguageModelWrapper,
+        no_of_programs: str,
+        eligibility_requirements: str,
+        lm_logger: Optional[LmLogger] = None,
+    ):
+        """
+        ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
+        """
+        super().__init__(
+            lm_wrapper, no_of_programs, eligibility_requirements, lm_logger
+        )
+
+        # same as super class
+        # self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
+        # self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
+        self.benefits_ready_prompt = {
+            "role": "system",
+            "content": "Following the logic of the program, has the program returned a value yet? Think step by step, refering to the code line by line, then answer yes or no.",
+        }
+        self.predict_cq_prompt = "Following the code above, ask the next logical question that will help you determine the eligibility of the user."
+        self.code_gen_prompt = "{eligibility_requirements}. Write a python program that takes a dictionary user containing relevant information and determines user eligibility. Make your code as detailed as possible capturing every edge case. Write a comment explaining what fields you expect in the user dict."
+        self.benefits_prediction_prompt = "Use the code above to predict which programs the user is eligible for. Follow line by line and think out loud, step by ste. Then return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess based on the remaining code."
+        self.predict_cq_prompt = "Use the code above to ask a clarifying question that will help you determine the eligibility of the user. Ask a simple question. Work through each line of code asking for information only if necessary. Only ask for one user property at a time, such as whether the user is married."
+
+        self.lm_wrapper = lm_wrapper
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper, lm_logger=lm_logger)
+        self.num_programs = no_of_programs
+
+    # ### same as super class
+    def predict_benefits_ready(self, history) -> bool:
+        """
+        Check whether chatbot history has sufficient information to determine eligbility of all benenfits
+        """
+        raw_lm_output = self.lm_backbone.forward(
+            [self.code_notebook_turn] + history + [self.benefits_ready_prompt],
+            logging_role="predict_benefits_ready",
+        )
+        lm_output = get_last_bool_in_str(str(raw_lm_output))
+        return lm_output
+
+    def predict_benefits_eligibility(self, history, programs) -> List[bool]:
+        """
+        Predict what all benefits user or its household is eligible for.
+        Return a boolean array of length equal to number of benefits.
+        """
+        prompt = {
+            "role": "system",
+            "content": self.benefits_prediction_prompt.format(
+                num_programs=self.num_programs,
+                example_array=example_array(self.num_programs),
+            ),
+        }
+        lm_output = self.lm_backbone.forward(
+            [self.code_notebook_turn] + history + [prompt],
+            logging_role="predict_benefits_eligibility",
+        )
+        # TODO - Ensure output is a list of boolean
+        extracted_output = self.extract_prediction(lm_output, programs)
+        return extracted_output
+
+    def predict_cq(self, history) -> str:
+        """
+        Function to generate clarifying question.
+        """
+
+        prompt = {
+            "role": "system",
+            "content": self.predict_cq_prompt,
+        }
+        cq = self.lm_backbone.forward(
+            [self.code_notebook_turn] + history + [prompt], logging_role="predict_cq"
+        )
+        return cq
+
+    # ### same as super class
+    # def post_answer(self, history):
+    #     """
+    #     Function called after an answer is provided to the chatbot.
+    #     """
+    #     pass
+
+    def pre_conversation(self, eligibility_requirements: str = None):
+        """
+        Initialize the 'notebook'
+        Add a 'page' of notes to the 'notebook' based on the most recent dialog turn
+        """
+        prompt = {
+            "role": "system",
+            "content": self.code_gen_prompt.format(
+                eligibility_requirements=eligibility_requirements
+            ),
+        }
+        self.code_notebook_turn = {
+            "role": "system",
+            "content": self.lm_backbone.forward(
+                [prompt], logging_role="initialize_notebook"
+            ),
+        }

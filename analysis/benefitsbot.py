@@ -176,6 +176,13 @@ def get_model(model_name: str) -> ChatBot:
             eligibility_requirements,
             lm_logger=lm_logger,
         )
+    elif model_name == "coderef":
+        chatbot = CodeRefChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            lm_logger=lm_logger,
+        )
     else:
         raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
     return chatbot
@@ -231,7 +238,7 @@ for index, row in tqdm(df.iterrows()):
             print("==" * 20)
             break
         ### break if benefits eligibility is ready ###
-        if str(chatbot.predict_benefits_ready(history)) == "True":
+        if cur_iter_count > 0 and str(chatbot.predict_benefits_ready(history)) == "True":
             print(
                 f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
             )
