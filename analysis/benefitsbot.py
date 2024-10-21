@@ -53,6 +53,12 @@ parser.add_argument(
     help="Downsample the dataset to this size",
 )
 parser.add_argument(
+    "--top_k",
+    default=None,
+    type=int,
+    help="Number of similar sentences to pick from natural language profile to match with question in synthetic user",
+)
+parser.add_argument(
     "--predict_every_turn",
     default=False,
     type=bool,
@@ -200,7 +206,7 @@ for index, row in tqdm(df.iterrows()):
     chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
-        user, hh_nl_desc, synthetic_user_model_wrapper, lm_logger=lm_logger
+        user, hh_nl_desc, synthetic_user_model_wrapper, lm_logger=lm_logger, args.top_k
     )
     history = [
         {
@@ -292,6 +298,7 @@ if args.predict_every_turn:
             "Programs": ", ".join(args.programs),
             "Max Dialog Turns": args.max_dialog_turns,
             "Downsample Size": args.downsample_size,
+            "Top K Sentences": args.top_k,
         },
     )
 
