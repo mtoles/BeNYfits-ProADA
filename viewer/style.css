@@ -1,0 +1,72 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+#conversation {
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    /* max-width: 600px; */
+}
+.message {
+    padding: 5px;
+    margin: 4px;
+    white-space: pre-wrap;
+    /* border-bottom: 1px solid #eee; */
+}
+.predict_benefits_ready {
+    background-color: lightgray;
+}
+.predict_cq {
+    background-color: lightblue;
+}
+.answer_cq {
+    background-color: lightpink;
+}
+.predict_benefits_eligibility {
+    background-color: lightblue;
+}
+.label {
+    padding: 5px;
+    margin: 4px;
+    
+}
+.label-container {
+    /* background-color: lightgray; */
+    /* border: 2px solid darkslategray; */
+    padding-bottom: 10px;
+    padding-top: 10px;
+}
+.label-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+.label-table td, th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+.label-table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+.role {
+    font-weight: bold;
+}
+.previous-messages-container .messages-content {
+    display: block;
+}
+.previous-messages-container.collapsed .messages-content {
+    display: none;
+}
+.chevron {
+    display: inline-block;
+    margin-right: 5px;
+}
+.spacing {
+    margin-top: 90px;
+}
+.last-message {
+    white-space: pre-wrap;
+}
+.hh-diff-container {
+    white-space: pre-wrap;
+}
