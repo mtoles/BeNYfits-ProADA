@@ -156,11 +156,17 @@ lm_logger = LmLogger(log_dir=output_dir)
 
 def get_model(model_name: str) -> ChatBot:
     if model_name == "backbone":
-        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
+        chatbot = ChatBot(
+            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+        )
     elif model_name == "backbone_fixed":
-        chatbot = ChatBotBackboneFixed(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
+        chatbot = ChatBotBackboneFixed(
+            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+        )
     elif model_name == "prompt_engineering_loose":
-        chatbot = ChatBotPredictCQPromptLoose(chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger)
+        chatbot = ChatBotPredictCQPromptLoose(
+            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+        )
     elif model_name == "notetaker":
         chatbot = NotetakerChatBot(
             chatbot_model_wrapper,
@@ -206,7 +212,11 @@ for index, row in tqdm(df.iterrows()):
     chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
-        user, hh_nl_desc, synthetic_user_model_wrapper, lm_logger=lm_logger, args.top_k
+        user,
+        hh_nl_desc,
+        synthetic_user_model_wrapper,
+        lm_logger=lm_logger,
+        top_k=args.top_k,
     )
     history = [
         {
@@ -246,7 +256,10 @@ for index, row in tqdm(df.iterrows()):
             print("==" * 20)
             break
         ### break if benefits eligibility is ready ###
-        if cur_iter_count > 0 and str(chatbot.predict_benefits_ready(history)) == "True":
+        if (
+            cur_iter_count > 0
+            and str(chatbot.predict_benefits_ready(history)) == "True"
+        ):
             print(
                 f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
             )

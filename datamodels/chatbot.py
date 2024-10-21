@@ -21,12 +21,9 @@ def example_array(n):
     return str([bool(x % 2) for x in range(n)])
 
 
-<<<<<<< HEAD
-=======
 ### Backbone Prompts ###
 predict_cq_prompt_loose = "Ask a clarifying question that will help you determine the eligibility of user for benefits for benefits asking about one requirement at a time. Start from first program and move to last program and ask about all requirement of one benefit before moving to the next. Only ask about one fact at a time."
 
->>>>>>> a08fff7baa445065b0608f2b79ea4a76777ebff8
 def get_last_bool_in_str(s: str) -> str:
     """Get the last True or False mentioned in a string. Additionally, return True if yes or Yes are in the input, and false if no or No are in the input"""
     pattern = r"true|false|yes|no"
@@ -296,7 +293,7 @@ class NotetakerChatBot(ChatBot):
         notebooks_are_same = old_notebook_ == new_notebook_
         return notebooks_are_same
 
-    def predict_cq(self, history) -> str:
+    def predict_cq(self, history, cur_iter_count: int) -> str:
         """
         Function to generate clarifying question.
         """
@@ -438,7 +435,7 @@ class CodeRefChatBot(ChatBot):
         extracted_output = self.extract_prediction(lm_output, programs)
         return extracted_output
 
-    def predict_cq(self, history) -> str:
+    def predict_cq(self, history, cur_iter_count: int) -> str:
         """
         Function to generate clarifying question.
         """
