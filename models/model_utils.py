@@ -39,7 +39,10 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "meta-llama/Meta-Llama-3-70B-Instruct": LanguageModelWrapper(
         "Llama 70B Instruct", "llama", "meta-llama/Meta-Llama-3-70B-Instruct"
     ),
-    "gpt2": LanguageModelWrapper("GPT-2", "llama", "gpt2"),
+    "meta-llama/CodeLlama-7b-Instruct-hf": LanguageModelWrapper(
+        "Code Llama 7B Instruct", "llama", "meta-llama/CodeLlama-7b-Instruct-hf"
+    ),
+    "gpt2": LanguageModelWrapper("GPT-2", "gpt", "gpt2"),
     "gpt-3-5-turbo-instruct": LanguageModelWrapper(
         "GPT-3.5-Turbo-Instruct",
         "gpt",
@@ -54,9 +57,9 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "gpt-4o-mini-2024-07-18": LanguageModelWrapper(
         "gpt-4o-mini-2024-07-18", "gpt", OpenAiModelNames.gpt_4o_mini_2024_07_18
     ),
-    "o1-preview-2024-09-12": LanguageModelWrapper(
-        "o1-preview-2024-09-12", "o1", OpenAiModelNames.o1_preview_2024_09_12
-    ),
+    # "o1-preview-2024-09-12": LanguageModelWrapper(
+    #     "o1-preview-2024-09-12", "gpt", OpenAiModelNames.o1_preview_2024_09_12
+    # ),
     "google/gemma-2b-it": LanguageModelWrapper(
         "Gemma 2B Instruction Tuned", "gemma", "google/gemma-2b-it"
     ),

@@ -87,6 +87,9 @@ class ChatBot:
         lm_output = self.lm_backbone.forward(
             history + [prompt], logging_role="predict_benefits_eligibility"
         )
+
+        print(f"Language Model Output For Predict Benefits Eligiblity: {lm_output}")
+
         # TODO - Ensure output is a list of boolean
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
@@ -394,7 +397,6 @@ class CodeRefChatBot(ChatBot):
             "role": "system",
             "content": "Following the logic of the program, has the program returned a value yet? Think step by step, refering to the code line by line, then answer yes or no.",
         }
-        self.predict_cq_prompt = "Following the code above, ask the next logical question that will help you determine the eligibility of the user."
         self.code_gen_prompt = "{eligibility_requirements}. Write a python program that takes a dictionary user containing relevant information and determines user eligibility. Make your code as detailed as possible capturing every edge case. Write a comment explaining what fields you expect in the user dict."
         self.benefits_prediction_prompt = "Use the code above to predict which programs the user is eligible for. Follow line by line and think out loud, step by ste. Then return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess based on the remaining code."
         self.predict_cq_prompt = "Use the code above to ask a clarifying question that will help you determine the eligibility of the user. Ask a simple question. Work through each line of code asking for information only if necessary. Only ask for one user property at a time, such as whether the user is married."

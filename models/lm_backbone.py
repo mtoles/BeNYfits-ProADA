@@ -41,10 +41,7 @@ class LmBackboneModel:
             ("gpt", PromptMode.DEFAULT): self._format_gpt_prompt_default,
             ("o1", PromptMode.DEFAULT): self._format_o1_prompt_default,
             ("gemma", PromptMode.DEFAULT): self._format_gemma_prompt_default,
-            (
-                "mistral",
-                PromptMode.DEFAULT,
-            ): self._format_mistral_prompt_default,
+            ("mistral", PromptMode.DEFAULT): self._format_mistral_prompt_default,
         }
         return format_funcs.get(
             (self.lm_wrapper.family, self.mode), self._format_default_prompt
@@ -123,14 +120,14 @@ if __name__ == "__main__":
         },
         {"role": "user", "content": "what is your name?"},
     ]
-    gpt_wrapper = load_lm("gpt-3-5-turbo-0125")
+    gpt_wrapper = load_lm("gpt-3-5-turbo")
     model = LmBackboneModel(gpt_wrapper)
-    output = model.forward(chat_history, currentframe())
+    output = model.forward(chat_history)
     print(output)
 
     llama3_wrapper = load_lm("meta-llama/Meta-Llama-3-8B-Instruct")
     model = LmBackboneModel(llama3_wrapper)
-    output = model.forward(chat_history, currentframe())
+    output = model.forward(chat_history)
     print(output)
 
     # apply model
