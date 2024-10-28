@@ -11,7 +11,9 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
-
+from models.lm_logging import LmLogger
+from dataset_procedural import show_household
+from users import Household
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -52,6 +54,12 @@ parser.add_argument(
     help="Downsample the dataset to this size",
 )
 parser.add_argument(
+    "--top_k",
+    default=None,
+    type=int,
+    help="Number of similar sentences to pick from natural language profile to match with question in synthetic user",
+)
+parser.add_argument(
     "--predict_every_turn",
     default=False,
     type=bool,
@@ -79,6 +87,11 @@ parser.add_argument(
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+programs_abbreviation = "_".join(
+    ["".join([char for char in program if char.isupper()]) for program in args.programs]
+)
+
+output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 
 
 # Read the chat history from the file
@@ -117,6 +130,7 @@ eligibility_requirements = eligibility_to_string(eligibility_df)
 
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
+df["hh"] = df["hh"].apply(lambda hh: Household.from_dict(hh))
 if args.downsample_size:
     df = df[: args.downsample_size]
 
@@ -138,15 +152,29 @@ num_benefits = len(args.programs)
 chatbot_model_wrapper = load_lm(args.chatbot_model_name)
 
 
+lm_logger = LmLogger(log_dir=output_dir)
+
+
 def get_model(model_name: str) -> ChatBot:
     if model_name == "backbone":
-        chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+        chatbot = ChatBot(
+            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+        )
+    elif model_name == "backbone_fixed":
+        chatbot = ChatBotBackboneFixed(
+            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+        )
+    elif model_name == "prompt_engineering_loose":
+        chatbot = ChatBotPredictCQPromptLoose(
+            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+        )
     elif model_name == "notetaker":
         chatbot = NotetakerChatBot(
             chatbot_model_wrapper,
             num_benefits,
             eligibility_requirements,
             notebook_only=False,
+            lm_logger=lm_logger,
         )
     elif model_name == "notetaker-2":
         chatbot = NotetakerChatBot(
@@ -154,6 +182,21 @@ def get_model(model_name: str) -> ChatBot:
             num_benefits,
             eligibility_requirements,
             notebook_only=True,
+            lm_logger=lm_logger,
+        )
+    elif model_name == "cot":
+        chatbot = CotChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            lm_logger=lm_logger,
+        )
+    elif model_name == "coderef":
+        chatbot = CodeRefChatBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            lm_logger=lm_logger,
         )
     elif model_name == "schemafiller":
         chatbot = SchemaFillerChatBot(
@@ -171,10 +214,18 @@ synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 for index, row in tqdm(df.iterrows()):
     # reinstantiate the model every time to dump the chat history
-    chatbot = get_model(args.chatbot_strategy)
     labels = row[args.programs]
+    lm_logger.add_empty_convo(labels.to_dict())
+    chatbot = get_model(args.chatbot_strategy)
+    chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
     hh_nl_desc = row["hh_nl_desc"]
-    synthetic_user = SyntheticUser(user, hh_nl_desc, synthetic_user_model_wrapper)
+    synthetic_user = SyntheticUser(
+        user,
+        hh_nl_desc,
+        synthetic_user_model_wrapper,
+        lm_logger=lm_logger,
+        top_k=args.top_k,
+    )
     history = [
         {
             "role": "system",
@@ -213,7 +264,10 @@ for index, row in tqdm(df.iterrows()):
             print("==" * 20)
             break
         ### break if benefits eligibility is ready ###
-        if str(chatbot.predict_benefits_ready(history)) == "True":
+        if (
+            cur_iter_count > 0
+            and str(chatbot.predict_benefits_ready(history)) == "True"
+        ):
             print(
                 f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
             )
@@ -228,7 +282,7 @@ for index, row in tqdm(df.iterrows()):
             last_turn_iteration.append(cur_iter_count)
             break
         ### otherwise, ask a question ###
-        cq = chatbot.predict_cq(history)
+        cq = chatbot.predict_cq(history, cur_iter_count)
         history.append({"role": "assistant", "content": cq})
         cq_answer = synthetic_user.answer_cq(cq)
         history.append({"role": "user", "content": cq_answer})
@@ -241,15 +295,14 @@ for index, row in tqdm(df.iterrows()):
         cur_iter_count += 1
         # chatbot.append_chat_question_and_answer(cq, cq_answer)
     per_turn_all_predictions.append(per_turn_predictions)
+    lm_logger.log_predictions(per_turn_predictions)
+    lm_logger.log_hh_diff(row["hh"])
     history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
     histories.append(history)
 
 
-programs_abbreviation = "_".join(
-    ["".join([char for char in program if char.isupper()]) for program in args.programs]
-)
+lm_logger.save()
 
-output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
@@ -266,6 +319,7 @@ if args.predict_every_turn:
             "Programs": ", ".join(args.programs),
             "Max Dialog Turns": args.max_dialog_turns,
             "Downsample Size": args.downsample_size,
+            "Top K Sentences": args.top_k,
         },
     )
 

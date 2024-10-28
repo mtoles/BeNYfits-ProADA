@@ -134,7 +134,7 @@ class SchemaFillerChatBot(ChatBot):
 
     
 
-    def predict_cq(self, history) -> str:
+    def predict_cq(self, history, cur_iter_count: int) -> str:
         """
         Function to generate clarifying question.
         """

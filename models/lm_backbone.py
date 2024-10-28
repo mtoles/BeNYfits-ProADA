@@ -7,8 +7,9 @@ from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 from typing import List, Callable
 from enum import Enum
-
+from models.lm_logging import LmLogger
 from models.model_utils import load_lm
+from inspect import currentframe
 
 tqdm.pandas()
 
@@ -20,9 +21,15 @@ class PromptMode(Enum):
 
 
 class LmBackboneModel:
-    def __init__(self, lm_wrapper, mode: PromptMode = PromptMode.DEFAULT):
+    def __init__(
+        self,
+        lm_wrapper,
+        mode: PromptMode = PromptMode.DEFAULT,
+        lm_logger: Optional[LmLogger] = None,
+    ):
         self.lm_wrapper = lm_wrapper
         self.mode = mode
+        self.lm_logger = lm_logger
         # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         if lm_wrapper.family in ["llama"]:
             self.hf_api_key = os.getenv("HF_TOKEN")
@@ -70,7 +77,10 @@ class LmBackboneModel:
         raise NotImplementedError
 
     def forward(
-        self, history: List[dict], num_completions: Optional[int] = None
+        self,
+        history: List[dict],
+        num_completions: Optional[int] = None,
+        logging_role: str = "No_Role",
     ) -> str | List[str]:
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
@@ -91,9 +101,15 @@ class LmBackboneModel:
         sequence = sequences[0]
         # Sequence is a OpenAiLmPrediction object
         if num_completions is None:
-            return sequence.completion_text
+            output = sequence.completion_text
         # Sequence is a list of OpenAiLmPrediction objects
-        output = [x.completion_text for x in sequence]
+        else:
+            output = [x.completion_text for x in sequence]
+        if self.lm_logger:
+            first_output = output[-1] if isinstance(output, list) else output
+            self.lm_logger.log_io(
+                lm_input=history, lm_output=first_output, role=logging_role
+            )
         return output
 
 
@@ -109,12 +125,12 @@ if __name__ == "__main__":
     ]
     gpt_wrapper = load_lm("gpt-3-5-turbo-0125")
     model = LmBackboneModel(gpt_wrapper)
-    output = model.forward(chat_history)
+    output = model.forward(chat_history, currentframe())
     print(output)
 
     llama3_wrapper = load_lm("meta-llama/Meta-Llama-3-8B-Instruct")
     model = LmBackboneModel(llama3_wrapper)
-    output = model.forward(chat_history)
+    output = model.forward(chat_history, currentframe())
     print(output)
 
     # apply model
