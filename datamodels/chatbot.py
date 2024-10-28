@@ -8,6 +8,7 @@ import numpy as np
 import re
 from models.lm_logging import LmLogger
 from inspect import currentframe
+from models.model_utils import load_lm
 
 np.random.seed(42)
 
@@ -78,7 +79,7 @@ class ChatBot:
         Return a boolean array of length equal to number of benefits.
         """
         prompt = {
-            "role": "system",
+            "role": "user",
             "content": self.benefits_prediction_prompt.format(
                 num_programs=self.num_programs,
                 example_array=example_array(self.num_programs),
@@ -99,9 +100,11 @@ class ChatBot:
         Function to generate clarifying question.
         """
         prompt = {
-            "role": "system",
+            "role": "user",
             "content": self.predict_cq_prompt,
         }
+
+        print(f"History and Prompt in Predict Question: {history + [prompt]}")
         cq = self.lm_backbone.forward(history + [prompt], logging_role="predict_cq")
         return cq
     
@@ -529,3 +532,27 @@ class ChatBotPredictCQPromptLoose(ChatBot):
         }
         cq = self.lm_backbone.forward(history + [prompt])
         return cq
+
+if __name__ == "__main__":
+    eligibility_requirements = "Comprehensive After School System of NYC\nAll NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs."
+    history = [
+        {
+            "role": "system",
+            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+        },
+        # {
+        #     "role": "assistant",
+        #     "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
+        # },
+    ]
+
+    chatbot_model_wrapper = load_lm("meta-llama/Meta-Llama-3-8B-Instruct")
+    num_benefits = "7"
+    eligibility_requirements = ""
+    chatbot = ChatBot(chatbot_model_wrapper, num_benefits, eligibility_requirements)
+
+    benefits_ready = chatbot.predict_benefits_ready(history)
+    print(f"Benefits Ready: {benefits_ready}")
+
+    cq = chatbot.predict_cq(history, 0)
+    print(f"Clarifying Question: {cq}")

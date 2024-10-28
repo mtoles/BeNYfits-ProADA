@@ -13,6 +13,9 @@ from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
 from dataset_procedural import show_household
 from users import Household
+from dotenv import load_dotenv
+
+load_dotenv()
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -223,10 +226,10 @@ for index, row in tqdm(df.iterrows()):
             "role": "system",
             "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
         },
-        {
-            "role": "assistant",
-            "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
-        },
+        # {
+        #     "role": "assistant",
+        #     "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
+        # },
     ]
     print(f"Index: {index}")
 
@@ -275,9 +278,9 @@ for index, row in tqdm(df.iterrows()):
             break
         ### otherwise, ask a question ###
         cq = chatbot.predict_cq(history, cur_iter_count)
-        history.append({"role": "assistant", "content": cq})
+        history.append({"role": "system", "content": cq})
         cq_answer = synthetic_user.answer_cq(cq)
-        history.append({"role": "user", "content": cq_answer})
+        history.append({"role": "system", "content": cq_answer})
 
         print(f"Turn Number:         {cur_iter_count}")
         print(f"Clarifying Question: {cq}")

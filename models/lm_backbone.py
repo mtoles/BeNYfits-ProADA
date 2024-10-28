@@ -81,7 +81,6 @@ class LmBackboneModel:
     ) -> str | List[str]:
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
-
         sequences = list(
             self.lm_wrapper.language_model.predict_many(
                 [
@@ -96,6 +95,7 @@ class LmBackboneModel:
             )
         )
         sequence = sequences[0]
+
         # Sequence is a OpenAiLmPrediction object
         if num_completions is None:
             output = sequence.completion_text
