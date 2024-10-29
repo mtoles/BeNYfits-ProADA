@@ -278,9 +278,11 @@ for index, row in tqdm(df.iterrows()):
             break
         ### otherwise, ask a question ###
         cq = chatbot.predict_cq(history, cur_iter_count)
-        history.append({"role": "system", "content": cq})
+        history[0]["content"] += cq + '\n'
+        # history.append({"role": "system", "content": cq})
         cq_answer = synthetic_user.answer_cq(cq)
-        history.append({"role": "system", "content": cq_answer})
+        history[0]["content"] += cq_answer + '\n'
+        # history.append({"role": "user", "content": cq_answer})
 
         print(f"Turn Number:         {cur_iter_count}")
         print(f"Clarifying Question: {cq}")

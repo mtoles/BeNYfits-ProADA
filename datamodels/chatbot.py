@@ -89,7 +89,7 @@ class ChatBot:
             history + [prompt], logging_role="predict_benefits_eligibility"
         )
 
-        print(f"Language Model Output For Predict Benefits Eligiblity: {lm_output}")
+        # print(f"Language Model Output For Predict Benefits Eligiblity: {lm_output}")
 
         # TODO - Ensure output is a list of boolean
         lm_output = self.extract_prediction(lm_output, programs)
@@ -104,7 +104,7 @@ class ChatBot:
             "content": self.predict_cq_prompt,
         }
 
-        print(f"History and Prompt in Predict Question: {history + [prompt]}")
+        # print(f"History and Prompt in Predict Question: {history + [prompt]}")
         cq = self.lm_backbone.forward(history + [prompt], logging_role="predict_cq")
         return cq
     
