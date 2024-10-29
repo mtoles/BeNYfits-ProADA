@@ -223,10 +223,10 @@ for index, row in tqdm(df.iterrows()):
             "role": "system",
             "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
         },
-        {
-            "role": "assistant",
-            "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
-        },
+        # {
+        #     "role": "assistant",
+        #     "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
+        # },
     ]
     print(f"Index: {index}")
 

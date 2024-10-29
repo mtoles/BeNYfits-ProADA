@@ -82,7 +82,7 @@ def plot_metrics_per_turn(
 
     plt.show()
     # save the plot
-    model = experiment_params["Backbone Model"]
+    model = experiment_params["Backbone Model"].replace("/", "_")   
     programs = "_".join(experiment_params["Programs"].split(", "))
     # drop all lowercase letters in programs
     programs = "".join([i for i in programs if not i.islower()])

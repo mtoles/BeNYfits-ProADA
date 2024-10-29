@@ -11,6 +11,7 @@ from models.lm_logging import LmLogger
 from models.model_utils import load_lm
 from inspect import currentframe
 from transformers import GPT2TokenizerFast
+import copy
 
 tqdm.pandas()
 INPUT_TOKEN_LIMIT = 4096
@@ -37,7 +38,9 @@ class LmBackboneModel:
             self.hf_api_key = os.getenv("HF_TOKEN")
             login(token=self.hf_api_key)
         if lm_wrapper.family in ["gpt", "o1"]:
-            self.lm_wrapper.language_model._tokenizer = GPT2TokenizerFast.from_pretrained('Xenova/gpt-3.5-turbo')
+            self.lm_wrapper.language_model._tokenizer = (
+                GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo")
+            )
 
     def _get_format_func(self) -> Callable:
         format_funcs = {
@@ -55,6 +58,19 @@ class LmBackboneModel:
         )
 
     def _format_llama_prompt_default(self, history: list[dict]) -> str:
+        history = copy.deepcopy(history)
+
+        # convert the first n-1 dictionaries in the history to a single string
+        if len(history) > 1:
+            history_str = "\n".join(
+                [f"{turn['role']}:{turn['content']}" for turn in history[:-1]]
+            )
+            history = [
+                {"role": "system", "content": history_str},
+                history[-1],
+            ]
+        history[-1]["role"]="user"
+
         return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
             history, tokenize=False, add_generation_prompt=True
         )
@@ -88,7 +104,10 @@ class LmBackboneModel:
     ) -> str | List[str]:
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
-        assert len(self.lm_wrapper.language_model._tokenizer.encode(str(formatted_prompt))) < INPUT_TOKEN_LIMIT, f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
+        assert (
+            len(self.lm_wrapper.language_model._tokenizer.encode(str(formatted_prompt)))
+            < INPUT_TOKEN_LIMIT
+        ), f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
         sequences = list(
             self.lm_wrapper.language_model.predict_many(
                 [
