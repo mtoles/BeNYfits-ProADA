@@ -10,9 +10,11 @@ from enum import Enum
 from models.lm_logging import LmLogger
 from models.model_utils import load_lm
 from inspect import currentframe
+from transformers import GPT2TokenizerFast
 
 tqdm.pandas()
-
+INPUT_TOKEN_LIMIT = 4096
+OUTPUT_TOKEN_LIMIT = 1024
 ### TEMPLATES ###
 
 
@@ -34,6 +36,8 @@ class LmBackboneModel:
         if lm_wrapper.family in ["llama"]:
             self.hf_api_key = os.getenv("HF_TOKEN")
             login(token=self.hf_api_key)
+        if lm_wrapper.family in ["gpt", "o1"]:
+            self.lm_wrapper.language_model._tokenizer = GPT2TokenizerFast.from_pretrained('Xenova/gpt-3.5-turbo')
 
     def _get_format_func(self) -> Callable:
         format_funcs = {
@@ -84,7 +88,7 @@ class LmBackboneModel:
     ) -> str | List[str]:
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
-
+        assert len(self.lm_wrapper.language_model._tokenizer.encode(str(formatted_prompt))) < INPUT_TOKEN_LIMIT, f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
         sequences = list(
             self.lm_wrapper.language_model.predict_many(
                 [
@@ -93,6 +97,7 @@ class LmBackboneModel:
                         cache=True,
                         logprobs=0,
                         num_completions=num_completions,
+                        max_tokens=OUTPUT_TOKEN_LIMIT,
                     )
                 ],
                 completion_window=CompletionWindow.ASAP,
