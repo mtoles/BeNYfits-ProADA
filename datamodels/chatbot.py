@@ -57,8 +57,8 @@ class ChatBot:
         }
         self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
-        self.lm_wrapper = lm_wrapper
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper, lm_logger=lm_logger)
+        # self.lm_wrapper = lm_wrapper
+        self.lm_backbone = LmBackboneModel(lm_wrapper, lm_logger=lm_logger)
         self.num_programs = no_of_programs
     
     def predict_benefits_ready(self, history) -> bool:
@@ -114,21 +114,29 @@ class ChatBot:
         """
         # Regex to match a list-like structure in the string
         pattern = r"\[.*?\]"
-        # Find the first list-like match in the string
-        match = re.search(pattern, prediction)
+        # Find the last list-like match in the string
+        matches = re.findall(pattern, prediction)
+        match = matches[-1] if matches else None
         if match:
             # Extract the matched portion and safely evaluate it
-            extracted_list_str = match.group(0)
-            # Safely evaluate the string into a Python list
+            extracted_list_str = match
+            # Try getting a "pass"/"fail" list
             try:
+                # Safely evaluate the string into a Python list
                 bool_output = ast.literal_eval(extracted_list_str)
                 assert isinstance(bool_output, list)
                 assert len(bool_output) == len(programs)
                 str_output = ["pass" if x else "fail" for x in bool_output]
                 output = str_output
             except (SyntaxError, NameError, ValueError, AssertionError):
-                # If the string can't be evaluated as a list, return None
-                output = None
+                # If the string can't be evaluated as a list, try parsing it as a list of bools
+                try:
+                    bool_output = [bool(int(x)) for x in extracted_list_str.split(",")]
+                    assert len(bool_output) == len(programs)
+                    str_output = ["pass" if x else "fail" for x in bool_output]
+                    output = str_output
+                except (SyntaxError, NameError, ValueError, AssertionError):
+                    output = None
         else:
             output = None
         if output is None:
@@ -399,8 +407,8 @@ class CodeRefChatBot(ChatBot):
         self.benefits_prediction_prompt = "Use the code above to predict which programs the user is eligible for. Follow line by line and think out loud, step by ste. Then return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess based on the remaining code."
         self.predict_cq_prompt = "Use the code above to ask a clarifying question that will help you determine the eligibility of the user. Ask a simple question. Work through each line of code asking for information only if necessary. Only ask for one user property at a time, such as whether the user is married."
 
-        self.lm_wrapper = lm_wrapper
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper, lm_logger=lm_logger)
+        # self.lm_wrapper = lm_wrapper
+        self.lm_backbone = LmBackboneModel(lm_wrapper, lm_logger=lm_logger)
         self.num_programs = no_of_programs
 
     # ### same as super class
@@ -461,6 +469,7 @@ class CodeRefChatBot(ChatBot):
         Initialize the 'notebook'
         Add a 'page' of notes to the 'notebook' based on the most recent dialog turn
         """
+
         prompt = {
             "role": "system",
             "content": self.code_gen_prompt.format(

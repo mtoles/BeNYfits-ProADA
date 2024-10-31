@@ -154,7 +154,7 @@ chatbot_model_wrapper = load_lm(args.chatbot_model_name)
 lm_logger = LmLogger(log_dir=output_dir)
 
 
-def get_model(model_name: str) -> ChatBot:
+def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> ChatBot:
     if model_name == "backbone":
         chatbot = ChatBot(
             chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
@@ -209,7 +209,18 @@ for index, row in tqdm(df.iterrows()):
     labels = row[args.programs]
     lm_logger.add_empty_convo(labels.to_dict())
     chatbot = get_model(args.chatbot_strategy)
+    # Temporarily load codellama if we are using llama
+    codellama_mode = ("meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name) and "code" in args.chatbot_strategy
+    if codellama_mode:
+        print("temporarily entering codellama mode")
+        chatbot.lm_wrapper = LanguageModelWrapper("Codellama 7B Instruct", "llama", "codellama/CodeLlama-7b-Instruct-hf")
     chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
+    if codellama_mode:
+        # unload codellama
+        print("exiting codellama mode")
+        chatbot.lm_wrapper = LanguageModelWrapper("Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct")
+
+
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
         user,
