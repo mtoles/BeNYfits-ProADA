@@ -102,6 +102,7 @@ class LmBackboneModel:
         num_completions: Optional[int] = None,
         logging_role: str = "No_Role",
     ) -> str | List[str]:
+        self.lm_logger.current_input = history
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
         assert (

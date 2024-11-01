@@ -8,6 +8,7 @@ import pandas as pd
 from users import Household
 from dataset_procedural import show_household
 
+
 class LmLogger:
     """
     self.log is a list of conversations:
@@ -36,6 +37,7 @@ class LmLogger:
         if not os.path.exists(self.history_path):
             with open(self.history_path, "w") as f:
                 f.write("")
+        self.latest_input = None
 
     def add_empty_convo(self, labels):
         self.log.append({"labels": labels, "dialog": [], "predictions": []})
