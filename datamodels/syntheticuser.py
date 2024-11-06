@@ -9,7 +9,6 @@ import torch
 class SyntheticUser:
     def __init__(
         self,
-        user: UserProfile,
         hh_nl_desc: str,
         lm_wrapper: LanguageModelWrapper,
         lm_logger: LmLogger,
@@ -18,7 +17,6 @@ class SyntheticUser:
         """
         The ground truth information about the user
         """
-        self.user = user
         self.lm_wrapper = lm_wrapper
         self.nl_profile = hh_nl_desc
         # Model to answer clarifying question

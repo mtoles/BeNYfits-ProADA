@@ -5,7 +5,7 @@ torchvision
 torchaudio
 transformers
 pandas
-lmwrapper[hf]
+lmwrapper
 openai==1.33.0
 cachetools
 python-dotenv
@@ -15,3 +15,4 @@ seaborn
 matplotlib
 schema
 names
+pandas

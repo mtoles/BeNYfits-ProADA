@@ -13,6 +13,8 @@ from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
 from dataset_procedural import show_household
 from users import Household
+from datamodels.codebot import CodeBot
+from tempfile import NamedTemporaryFile
 
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
@@ -134,14 +136,14 @@ if args.programs is not None:
     eligibility_df = eligibility_df[
         eligibility_df["program"].apply(lambda x: x in args.programs)
     ].reset_index(drop=True)
-eligibility_requirements = eligibility_to_string(eligibility_df)
+eligibility_requirements = eligibility_df.set_index("program")["description"].to_dict()
 
 
 # Load the dataset
 df = pd.read_json(args.dataset_path, lines=True)
 df["hh"] = df["hh"].apply(lambda hh: Household.from_dict(hh))
 if args.ds_shift:
-    df = df.iloc[args.ds_shift:]
+    df = df.iloc[args.ds_shift :]
 if args.downsample_size:
     df = df[: args.downsample_size]
 
@@ -150,7 +152,6 @@ histories = []
 per_turn_all_predictions = []
 last_turn_iteration = []
 
-user = UserProfile()
 num_benefits = len(args.programs)
 # print(f"Total number of programs: {no_of_benefits}")
 # print(f"Household Description: {hh_nl_desc}")
@@ -205,6 +206,13 @@ def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> C
             eligibility_requirements,
             lm_logger=lm_logger,
         )
+    elif model_name == "codebot":
+        chatbot = CodeBot(
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            lm_logger=lm_logger,
+        )
     else:
         raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
     return chatbot
@@ -226,7 +234,6 @@ for index, row in tqdm(df.iterrows()):
         chatbot.lm_wrapper = LanguageModelWrapper(
             "Codellama 7B Instruct", "llama", "codellama/CodeLlama-7b-Instruct-hf"
         )
-    chatbot.pre_conversation(eligibility_requirements=eligibility_requirements)
     if codellama_mode:
         # unload codellama
         print("exiting codellama mode")
@@ -236,7 +243,6 @@ for index, row in tqdm(df.iterrows()):
 
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
-        user,
         hh_nl_desc,
         synthetic_user_model_wrapper,
         lm_logger=lm_logger,
@@ -257,6 +263,14 @@ for index, row in tqdm(df.iterrows()):
     cur_iter_count = 0
     per_turn_predictions = []
     decision = None
+    # create named temp file for codebot code gen
+
+    if os.path.exists("generated_code.py"):
+        os.remove("generated_code.py")
+    tf = open("generated_code.py", "w")
+
+    chatbot.pre_conversation(locals())
+
     try:
         # save the chat history no matter what
         while True:
@@ -327,6 +341,8 @@ for index, row in tqdm(df.iterrows()):
             f.write("\n\n==========\n\n")
         pass
     finally:
+        # delete the tempfile
+        os.remove(tf.name)
         lm_logger.save()
 
 if not os.path.exists(output_dir):

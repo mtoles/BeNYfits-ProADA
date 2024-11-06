@@ -3,7 +3,6 @@ from typing import List
 import json
 import os
 from copy import deepcopy
-import jsonlines
 import pandas as pd
 from users import Household
 from dataset_procedural import show_household
