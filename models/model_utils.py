@@ -3,6 +3,7 @@ from lmwrapper.openai_wrapper import get_open_ai_lm, OpenAiModelNames
 
 # https://github.com/DaiseyCode/lmwrapper
 
+
 class LanguageModelWrapper:
     def __init__(self, display_name: str, family: str, hf_name: str):
         self.display_name = display_name
@@ -16,6 +17,7 @@ class LanguageModelWrapper:
             if self.family in ["llama", "gemma"]:
                 # only import if necessary since these are heavy dependencies
                 from lmwrapper.huggingface_wrapper import get_huggingface_lm
+
                 self._language_model = get_huggingface_lm(self.hf_name)
                 self._language_model._tokenizer.pad_token_id = (
                     self._language_model._tokenizer.eos_token_id
@@ -23,9 +25,7 @@ class LanguageModelWrapper:
                 self._language_model._tokenizer.padding_side = "left"
             else:
                 self._language_model = get_open_ai_lm(self.hf_name)
-            print(
-                f"Model Pipeline Instantiated: {self.display_name} {self.family}"
-            )
+            print(f"Model Pipeline Instantiated: {self.display_name} {self.family}")
         return self._language_model
 
     def __str__(self):
@@ -36,8 +36,21 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "meta-llama/Meta-Llama-3-8B-Instruct": LanguageModelWrapper(
         "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct"
     ),
+    "meta-llama/Meta-Llama-3-13B-Instruct": LanguageModelWrapper(
+        "Llama 13B Instruct", "llama", "meta-llama/Meta-Llama-3-13B-Instruct"
+    ),
     "meta-llama/Meta-Llama-3-70B-Instruct": LanguageModelWrapper(
         "Llama 70B Instruct", "llama", "meta-llama/Meta-Llama-3-70B-Instruct"
+    ),
+    "meta-llama/CodeLlama-7b-Instruct-hf": LanguageModelWrapper(
+        "meta-llama/CodeLlama-7b-Instruct-hf",
+        "llama",
+        "meta-llama/CodeLlama-Instruct-7b-hf",
+    ),
+    "meta-llama/CodeLlama-13b-Instruct-hf": LanguageModelWrapper(
+        "meta-llama/CodeLlama-13b-Instruct-hf",
+        "llama",
+        "meta-llama/CodeLlama-13b-Instruct-hf",
     ),
     "gpt2": LanguageModelWrapper("GPT-2", "llama", "gpt2"),
     "gpt-3-5-turbo-instruct": LanguageModelWrapper(

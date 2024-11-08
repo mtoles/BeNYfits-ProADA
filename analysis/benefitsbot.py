@@ -23,6 +23,12 @@ parser.add_argument(
     help="Name of the benefits bot model to use.",
 )
 parser.add_argument(
+    "--codellama_model_name",
+    default=None,
+    type=str,
+    help="Name of the codellama model to use.",
+)
+parser.add_argument(
     "--chatbot_strategy",
     default="backbone",
     help="Strategy to use for the benefits bot.",
@@ -221,6 +227,13 @@ def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> C
 synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 for index, row in tqdm(df.iterrows()):
+    hh_nl_desc = row["hh_nl_desc"]
+    synthetic_user = SyntheticUser(
+        hh_nl_desc,
+        synthetic_user_model_wrapper,
+        lm_logger=lm_logger,
+        top_k=args.top_k,
+    )
     # reinstantiate the model every time to dump the chat history
     labels = row[args.programs]
     lm_logger.add_empty_convo(labels.to_dict())
@@ -229,11 +242,30 @@ for index, row in tqdm(df.iterrows()):
     codellama_mode = (
         "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
     ) and "code" in args.chatbot_strategy
+
+    ### PRE-CONVERSATION (codellama and code gen) ###
     if codellama_mode:
         print("temporarily entering codellama mode")
-        chatbot.lm_wrapper = LanguageModelWrapper(
-            "Codellama 7B Instruct", "llama", "codellama/CodeLlama-7b-Instruct-hf"
+        codellama_model_size = re.search(r"(\d+b)", args.codellama_model_name).group(1)
+        chatbot.lm_backbone = LmBackboneModel(
+            LanguageModelWrapper(
+                f"Codellama {codellama_model_size} Instruct",
+                "llama",
+                args.codellama_model_name,
+            ),
+            lm_logger=lm_logger,
         )
+        # chatbot.lm_wrapper = LanguageModelWrapper(
+        #     f"Codellama {codellama_model_size} Instruct",
+        #     "llama",
+        #     args.codellama_model_name,
+        # )
+        # create named temp file for codebot code gen
+        if os.path.exists("generated_code.py"):
+            os.remove("generated_code.py")
+        tf = open("generated_code.py", "w")
+        code_mode_predictions = chatbot.pre_conversation(locals())
+        per_turn_all_predictions.append([code_mode_predictions])
     if codellama_mode:
         # unload codellama
         print("exiting codellama mode")
@@ -241,13 +273,9 @@ for index, row in tqdm(df.iterrows()):
             "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct"
         )
 
-    hh_nl_desc = row["hh_nl_desc"]
-    synthetic_user = SyntheticUser(
-        hh_nl_desc,
-        synthetic_user_model_wrapper,
-        lm_logger=lm_logger,
-        top_k=args.top_k,
-    )
+    ### -------- ###
+
+
     history = [
         {
             "role": "system",
@@ -263,13 +291,6 @@ for index, row in tqdm(df.iterrows()):
     cur_iter_count = 0
     per_turn_predictions = []
     decision = None
-    # create named temp file for codebot code gen
-
-    if os.path.exists("generated_code.py"):
-        os.remove("generated_code.py")
-    tf = open("generated_code.py", "w")
-
-    chatbot.pre_conversation(locals())
 
     try:
         # save the chat history no matter what

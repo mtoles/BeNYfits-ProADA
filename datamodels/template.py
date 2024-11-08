@@ -1,6 +1,5 @@
 from users import Household
 import traceback
-
 from copy import deepcopy
 
 
@@ -21,6 +20,9 @@ class ImaginaryData:
             )
             return self.features[key]
 
+    def __setitem__(self, key, value):
+        self.features[key] = value
+
     def __str__(self):
         self.establish_value()
         return self.value
@@ -33,23 +35,38 @@ class ImaginaryData:
 
     def __lt__(self, other):
         self.establish_value()
-        return type(other)(self.value) < other
+        try:
+            return type(other)(self.value) < other
+        except (ValueError, TypeError):
+            return self.chatbot.compare_with_lm(self.value, other, "<")
 
     def __gt__(self, other):
         self.establish_value()
-        return type(other)(self.value) > other
+        try:
+            return type(other)(self.value) > other
+        except (ValueError, TypeError):
+            return self.chatbot.compare_with_lm(self.value, other, ">")
 
     def __eq__(self, other):
         self.establish_value()
-        return type(other)(self.value) == other
+        try:
+            return type(other)(self.value) == other
+        except (ValueError, TypeError):
+            return self.chatbot.compare_with_lm(self.value, other, "==")
 
     def __le__(self, other):
         self.establish_value()
-        return type(other)(self.value) <= other
+        try:
+            return type(other)(self.value) <= other
+        except (ValueError, TypeError):
+            return self.chatbot.compare_with_lm(self.value, other, "<=")
 
     def __ge__(self, other):
         self.establish_value()
-        return type(other)(self.value) >= other
+        try:
+            return type(other)(self.value) >= other
+        except (ValueError, TypeError):
+            return self.chatbot.compare_with_lm(self.value, other, ">=")
 
     def __getattr__(self, name):
         self.establish_value()
@@ -60,13 +77,24 @@ class ImaginaryData:
 
     def __int__(self):
         self.establish_value()
-        return int(self.value)
+        try:
+            return int(self.value)
+        except (ValueError, TypeError):
+            return self.chatbot.cast_with_lm(self.cq, self.answer, "int")
 
     def __float__(self):
         self.establish_value()
-        return float(self.value)
-    def compare_with_lm(self, other, operator):
-        lm_output = ""
+        try:
+            return float(self.value)
+        except (ValueError, TypeError):
+            return self.chatbot.cast_with_lm(self.cq, self.answer, "float")
+
+    def __bool__(self):
+        self.establish_value()
+        try:
+            return bool(self.value)
+        except (ValueError, TypeError):
+            return self.chatbot.cast_with_lm(self.cq, self.answer, "bool")
 
     def establish_value(self):
         if self.value is None:
@@ -74,6 +102,7 @@ class ImaginaryData:
             stack = list(reversed(traceback.extract_stack()))
             # relevant frame should always be frame 2
             self.line = stack[2].line
+            assert "hasattr" not in self.line
             print("line:   ", self.line)
             self.cq = self.chatbot.ask_question_from_code(
                 eligibility_requirements=self.program_desc, key=self.line
@@ -104,7 +133,9 @@ def run(local_scope: dict) -> bool:
     synthetic_user = local_scope["synthetic_user"]
     chatbot = local_scope["chatbot"]
     eligibility_requirements = local_scope["eligibility_requirements"]
-    calls = {"dummy_eligibility_program": dummy_eligibility_program}
+    calls = {
+        # "dummy_eligibility_program": dummy_eligibility_program
+    }
     calls.update(
         {
             # "dummy": dummy_eligibility_program
@@ -119,4 +150,4 @@ def run(local_scope: dict) -> bool:
     # run each program
     for name, desc in eligibility.items():
         outputs[name] = desc(ImaginaryData(chatbot, synthetic_user, desc))
-    return eligibility
+    return outputs

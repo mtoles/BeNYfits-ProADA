@@ -7,8 +7,10 @@ import sys
 
 class CodeBot(ChatBot):
     code_gen_prompt = """{eligibility_requirement}. Write a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information in string form and determines user eligibility. `check_eligibility` returns a bool. Make your code as detailed as possible capturing every edge case. Do not provide anything besides code in your response."""
-    ask_question_from_code_prompt = """We are writing code to check if a user is eligible for the following program:\n\n{program_text}\n\nGiven this line of code:\n\n{key}\n\nwhere `hh` represents data on the user's household. What question should we ask to determine the value to store in `hh`? Give your question last and enclose it in "double quotes"."""
-    extract_value_from_ans_prompt = """Given this line of code:\n\n{key}\n\nwhere `hh` represents data on the user's household and the following dialog:\n\nBot: {cq}\nUser{answer}\n\nWhat value would we expect in the `hh` dictionary? Give your answer last and enclose it in "double quotes"."""
+    ask_question_from_code_prompt = """We are writing code to check if a user is eligible for the following program:\n\n{program_text}\n\nGiven this line of code:\n\n```{key}```\n\nwhere `hh` represents data on the user's household. What question should we ask to the user about their household to determine the value to store in `hh`? Try your best even if you are unsure. Only respond with the question and enclose it in "double quotes"."""
+    extract_value_from_ans_prompt = """Given this line of code:\n\n{key}\n\nwhere `hh` represents data on the user's household and the following dialog:\n\nBot: {cq}\nUser: {answer}\n\nWhat value would we expect in the `hh` dictionary? Give your answer last and enclose it in "double quotes"."""
+    compare_prompt = """Although the types may not match, determine whether the following expression should be True or False:\n\n{a} {expression} {b}\n\nReturn only True or False."""
+    cast_value_prompt = "Question: {cq}\n\nAnswer: {answer}\n\nFollowup Instruction: Convert the answer to a single value of type {target_type}. Give only the value, enclosed in `backticks`."
 
     def pre_conversation(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
@@ -27,11 +29,16 @@ class CodeBot(ChatBot):
             lm_output = self.lm_backbone.forward(
                 prompt,
                 logging_role="code_gen",
-            )
+            ).strip()
             # extract code between ```
-            clean_code_output = re.findall(
+            clean_code_output_matches = re.findall(
                 r"(def check_eligibility.*?)```", str(lm_output), re.DOTALL
-            )[0]
+            )
+            clean_code_output = (
+                clean_code_output_matches[0]
+                if len(clean_code_output_matches) > 0
+                else lm_output
+            )
 
             clean_code_output = clean_code_output.replace(
                 "def check_eligibility(hh):", f"def {name}(hh):"
@@ -67,14 +74,11 @@ class CodeBot(ChatBot):
         sys.path.append(tf.name)
         import generated_code
 
-        hh = {}
         eligibility = generated_code.run(local_scope)
 
-        ### Wrap checker code
+        # super().pre_conversation(eligibility_requirements)
 
-        ### Run unsafely with `exec`
-
-        super().pre_conversation(eligibility_requirements)
+        return eligibility
 
     def ask_question_from_code(self, eligibility_requirements: str, key: str):
         prompt = [
@@ -111,10 +115,63 @@ class CodeBot(ChatBot):
         )
 
         # clean up the lm_output
-        found_values = re.findall(r"\"(.*)\"", lm_output)
+        try:
+            clean_value = re.findall(r"\"(.*)\"", lm_output)[-1]
+        except IndexError:
+            try:
+                clean_value = re.findall(r"\'(.*)\'", lm_output)[-1]
+            except IndexError:
+                try:
+                    clean_value = re.findall(r"\`(.*)\`", lm_output)[-1]
+                except IndexError:
+                    clean_value = lm_output
+
+        return clean_value
+
+    def compare_with_lm(self, a, b, operator):
+        prompt = [
+            {
+                "role": "system",
+                "content": self.compare_prompt.format(a=a, expression=operator, b=b),
+            }
+        ]
+        lm_output = self.lm_backbone.forward(prompt, logging_role="compare_with_lm")
+        # clean up the lm_output
+        found_values = re.findall(r"True|False|true|false", lm_output)
 
         if len(found_values) == 0:
             raise ValueError(
                 f"Could not find value in the following output: {lm_output}"
             )
         return found_values[-1]
+
+    def cast_with_lm(self, cq, answer, target_type):
+        assert target_type in ["int", "float", "bool"]
+        cast = {"int": int, "float": float, "bool": bool}[target_type]
+        prompt = [
+            {
+                "role": "system",
+                "content": self.cast_value_prompt.format(
+                    cq=cq, answer=answer, target_type=target_type
+                ),
+            }
+        ]
+        lm_output = self.lm_backbone.forward(
+            prompt, logging_role="cast_with_lm"
+        ).strip()
+        # Find anything in backticks
+        reduced = re.findall(r"`(.*)`", lm_output)
+
+        # if len(found_values) == 0:
+        #     # find the last number
+        match = re.search(
+            r"(^|\b)\d+(\.\d+)?(\b|$)", reduced[-1] if reduced else lm_output
+        ).group(0)
+        if not match:
+            raise ValueError(
+                f"Could not find value in the following output: {lm_output}"
+            )
+
+        val = cast(match)
+
+        return val
