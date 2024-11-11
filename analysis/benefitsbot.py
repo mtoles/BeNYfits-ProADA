@@ -239,6 +239,7 @@ for index, row in tqdm(df.iterrows()):
     lm_logger.add_empty_convo(labels.to_dict())
     chatbot = get_model(args.chatbot_strategy)
     # Temporarily load codellama if we are using llama
+    code_run_mode = "code" in args.chatbot_strategy
     codellama_mode = (
         "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
     ) and "code" in args.chatbot_strategy

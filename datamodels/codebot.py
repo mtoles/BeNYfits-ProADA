@@ -168,49 +168,40 @@ class CodeBot(ChatBot):
             return False
 
         # handle floats
+        patterns_without = r"|".join(
+            [
+                r"(?<!\S)(\d+)(?!\S)",
+                r"(?<!\S)(.\d+)(?!\S)",
+                r"(?<!\S)(\d+.)(?!\S)",
+                r"(?<!\S)(\d+.\d+)(?!\S)",
+            ]
+        )
         pattern = "|".join(
             [
-                "(?<!\S)\d+(?!\S)",
-                "(?<!\S).\d+(?!\S)",
-                "(?<!\S)\d+.(?!\S)",
-                "(?<!\S)\d+.\d+(?!\S)",
+                r"(?<!\S)[\"'`](\d+)[\"'`](?!\S)",
+                r"(?<!\S)[\"'`](.\d+)[\"'`](?!\S)",
+                r"(?<!\S)[\"'`](\d+.)[\"'`](?!\S)",
+                r"(?<!\S)[\"'`](\d+.\d)+[\"'`](?!\S)",
             ]
         )
         try:
             reduced = re.findall(
-                f"\"{pattern}\"", # double quotes
-                lm_output.replace(",", ""),
+                f'{pattern}',  # double quotes
+                lm_output.replace(",", "").replace("$", ""),
             )[-1]
         except:
             try:
                 reduced = re.findall(
-                    f"\'{pattern}\'", # single quotes
-                    lm_output.replace(",", ""),
+                    f"{patterns_without}",  # anything
+                    lm_output.replace(",", "").replace("$", ""),
                 )[-1]
             except:
-                reduced = re.findall(
-                    f"{pattern}", # anything
-                    lm_output.replace(",", ""),
-                )[-1]
-        # digits_only = "".join([char for char in reduced if char in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]])
-
-        float_output = float(reduced)
+                return 0
+        # get the captured group that isn't empty
+        actual_reduced = [x for x in reduced if x][-1]
+        float_output = float(actual_reduced)
         if target_type == float:
             return float_output
         # handle ints in case integer is represented with a .
         return int(float_output)
 
-        # if len(found_values) == 0:
-        #     # find the last number
-
-        # match = re.search(
-        #     r"(^|\b)\d+(\.\d+)?(\b|$)", reduced[-1] if reduced else lm_output
-        # ).group(0)
-        # if not match:
-        #     raise ValueError(
-        #         f"Could not find value in the following output: {lm_output}"
-        #     )
-
-        val = cast(reduced)
-
-        return val
