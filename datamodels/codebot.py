@@ -166,18 +166,35 @@ class CodeBot(ChatBot):
             return True
         if "false" in lm_output.lower():
             return False
-        
+
         # handle floats
+        pattern = "|".join(
+            [
+                "(?<!\S)\d+(?!\S)",
+                "(?<!\S).\d+(?!\S)",
+                "(?<!\S)\d+.(?!\S)",
+                "(?<!\S)\d+.\d+(?!\S)",
+            ]
+        )
         try:
-            reduced = re.findall(r"\"(.*)\"", lm_output)[-1]
+            reduced = re.findall(
+                f"\"{pattern}\"", # double quotes
+                lm_output.replace(",", ""),
+            )[-1]
         except:
             try:
-                reduced = re.findall(r"'(.*)\'", lm_output)[-1]
+                reduced = re.findall(
+                    f"\'{pattern}\'", # single quotes
+                    lm_output.replace(",", ""),
+                )[-1]
             except:
-                reduced=lm_output
-        digits_only = "".join([char for char in reduced if char in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]])
+                reduced = re.findall(
+                    f"{pattern}", # anything
+                    lm_output.replace(",", ""),
+                )[-1]
+        # digits_only = "".join([char for char in reduced if char in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]])
 
-        float_output = float(digits_only)
+        float_output = float(reduced)
         if target_type == float:
             return float_output
         # handle ints in case integer is represented with a .
