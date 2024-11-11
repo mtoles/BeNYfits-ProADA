@@ -263,108 +263,120 @@ for index, row in tqdm(df.iterrows()):
         # create named temp file for codebot code gen
         if os.path.exists("generated_code.py"):
             os.remove("generated_code.py")
-        tf = open("generated_code.py", "w")
-        code_mode_predictions = chatbot.pre_conversation(locals())
-        per_turn_all_predictions.append([code_mode_predictions])
-    if codellama_mode:
-        # unload codellama
-        print("exiting codellama mode")
-        chatbot.lm_wrapper = LanguageModelWrapper(
-            "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct"
-        )
+        try:
+            tf = open("generated_code.py", "w")
+            code_mode_predictions = chatbot.pre_conversation(locals())
+            # per_turn_all_predictions.append([code_mode_predictions])
+        finally:    
+            tf.close()
+            # os.remove("generated_code.py")
 
-    ### -------- ###
+        # TODO: compute dialog turns correctly
+        per_turn_all_predictions.append([code_mode_predictions]*args.max_dialog_turns)
+
+    # if codellama_mode:
+    #     # unload codellama
+    #     print("exiting codellama mode")
+    #     chatbot.lm_wrapper = LanguageModelWrapper(
+    #         "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct"
+    #     )
+    else:
+
+        per_turn_predictions = []
+        ### -------- ###
 
 
-    history = [
-        {
-            "role": "system",
-            "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
-        },
-        # {
-        #     "role": "assistant",
-        #     "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
-        # },
-    ]
-    print(f"Index: {index}")
+        history = [
+            {
+                "role": "system",
+                "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+            },
+            # {
+            #     "role": "assistant",
+            #     "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
+            # },
+        ]
+        print(f"Index: {index}")
 
-    cur_iter_count = 0
-    per_turn_predictions = []
-    decision = None
+        cur_iter_count = 0
+        decision = None
 
-    try:
-        # save the chat history no matter what
-        while True:
-            if args.predict_every_turn:
-                if cur_iter_count != 0:
-                    per_turn_predictions.append(
-                        chatbot.predict_benefits_eligibility(history, args.programs)
-                    )
+        try:
+            # save the chat history no matter what
+            while True:
+                if args.predict_every_turn:
+                    if cur_iter_count != 0:
+                        per_turn_predictions.append(
+                            chatbot.predict_benefits_eligibility(history, args.programs)
+                        )
+                    else:
+                        # default to all zero prediction on 0th round
+                        default_predictions = dict([(x, 0) for x in args.programs])
+                        per_turn_predictions.append(default_predictions)
                 else:
-                    # default to all zero prediction on 0th round
-                    default_predictions = dict([(x, 0) for x in args.programs])
-                    per_turn_predictions.append(default_predictions)
-            else:
-                per_turn_predictions.append(None)
-            ### break if out of dialog turns ###
-            if cur_iter_count >= args.max_dialog_turns:
-                print(f"Max dialog turns ({args.max_dialog_turns}) reached")
-                print("==" * 20)
-                last_turn_iteration.append(cur_iter_count)
-                decision = per_turn_predictions[-1]
-                print(f"Decision:  {decision}")
-                print(f"label:     {labels.to_dict()}")
-                print("==" * 20)
-                break
-            ### break if benefits eligibility is ready ###
-            if (
-                cur_iter_count > 0
-                and str(chatbot.predict_benefits_ready(history)) == "True"
-            ):
-                print(
-                    f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
-                )
-                decision = per_turn_predictions[-1]
-                print(f"Decision:  {decision}")
-                print(f"label:     {labels.to_dict()}")
-                print("==" * 20)
-                # fill the remaining turns with None
-                per_turn_predictions.extend(
-                    [decision] * (args.max_dialog_turns - cur_iter_count)
-                )
-                last_turn_iteration.append(cur_iter_count)
-                break
-            ### otherwise, ask a question ###
-            cq = chatbot.predict_cq(history, cur_iter_count)
-            history.append({"role": "assistant", "content": cq})
-            cq_answer = synthetic_user.answer_cq(cq)
-            history.append({"role": "user", "content": cq_answer})
+                    per_turn_predictions.append(None)
+                ### break if out of dialog turns ###
+                if cur_iter_count >= args.max_dialog_turns:
+                    print(f"Max dialog turns ({args.max_dialog_turns}) reached")
+                    print("==" * 20)
+                    last_turn_iteration.append(cur_iter_count)
+                    decision = per_turn_predictions[-1]
+                    print(f"Decision:  {decision}")
+                    print(f"label:     {labels.to_dict()}")
+                    print("==" * 20)
+                    break
+                ### break if benefits eligibility is ready ###
+                if (
+                    cur_iter_count > 0
+                    and str(chatbot.predict_benefits_ready(history)) == "True"
+                ):
+                    print(
+                        f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
+                    )
+                    decision = per_turn_predictions[-1]
+                    print(f"Decision:  {decision}")
+                    print(f"label:     {labels.to_dict()}")
+                    print("==" * 20)
+                    # fill the remaining turns with None
+                    per_turn_predictions.extend(
+                        [decision] * (args.max_dialog_turns - cur_iter_count)
+                    )
+                    last_turn_iteration.append(cur_iter_count)
+                    break
+                ### otherwise, ask a question ###
+                cq = chatbot.predict_cq(history, cur_iter_count)
+                history.append({"role": "assistant", "content": cq})
+                cq_answer = synthetic_user.answer_cq(cq)
+                history.append({"role": "user", "content": cq_answer})
 
-            print(f"Turn Number:         {cur_iter_count}")
-            print(f"Clarifying Question: {cq}")
-            print(f"Answer:              {cq_answer}")
-            chatbot.post_answer(history)  # optional
-            print("==" * 20)
-            cur_iter_count += 1
-            # chatbot.append_chat_question_and_answer(cq, cq_answer)
+                print(f"Turn Number:         {cur_iter_count}")
+                print(f"Clarifying Question: {cq}")
+                print(f"Answer:              {cq_answer}")
+                chatbot.post_answer(history)  # optional
+                print("==" * 20)
+                cur_iter_count += 1
+                # chatbot.append_chat_question_and_answer(cq, cq_answer)
+            per_turn_all_predictions.append(per_turn_predictions)
+            lm_logger.log_predictions(per_turn_predictions)
+            lm_logger.log_hh_diff(row["hh"])
+        except Exception as e:
+            # write the exception and the last attempted lm call to a log file
+            with open(f"{output_dir}/exceptions.log", "a") as f:
+                f.write(f"Index: {index}\n")
+                f.write(f"Exception: {e}\n")
+                f.write(f"LM Call: {lm_logger.latest_input}\n")
+                f.write("\n\n==========\n\n")
+            pass
+        finally:
+            # delete the tempfile
+            lm_logger.save()
 
-        per_turn_all_predictions.append(per_turn_predictions)
-        lm_logger.log_predictions(per_turn_predictions)
-        lm_logger.log_hh_diff(row["hh"])
-        history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
-        histories.append(history)
-    except Exception as e:
-        # write the exception and the last attempted lm call to a log file
-        with open(f"{output_dir}/exceptions.log", "a") as f:
-            f.write(f"Index: {index}\n")
-            f.write(f"Exception: {e}\n")
-            f.write(f"LM Call: {lm_logger.latest_input}\n")
-            f.write("\n\n==========\n\n")
-        pass
-    finally:
-        # delete the tempfile
-        os.remove(tf.name)
-        lm_logger.save()
+    # history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
+    # histories.append(history)
+
+
+lm_logger.save()
+
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -386,10 +398,10 @@ if args.predict_every_turn:
         },
     )
 
-with open(f"{output_dir}/transcript.md", "w") as f:
-    for i, transcript in enumerate(histories):
-        f.write(f"Transcript {i}\n")
-        f.write(f"{transcript}\n")
-        f.write("\n\n==========\n\n")
+# with open(f"{output_dir}/transcript.md", "w") as f:
+#     for i, transcript in enumerate(histories):
+#         f.write(f"Transcript {i}\n")
+#         f.write(f"{transcript}\n")
+#         f.write("\n\n==========\n\n")
 
-pass
+# pass

@@ -10,7 +10,7 @@ class CodeBot(ChatBot):
     ask_question_from_code_prompt = """We are writing code to check if a user is eligible for the following program:\n\n{program_text}\n\nGiven this line of code:\n\n```{key}```\n\nwhere `hh` represents data on the user's household. What question should we ask to the user about their household to determine the value to store in `hh`? Try your best even if you are unsure. Only respond with the question and enclose it in "double quotes"."""
     extract_value_from_ans_prompt = """Given this line of code:\n\n{key}\n\nwhere `hh` represents data on the user's household and the following dialog:\n\nBot: {cq}\nUser: {answer}\n\nWhat value would we expect in the `hh` dictionary? Give your answer last and enclose it in "double quotes"."""
     compare_prompt = """Although the types may not match, determine whether the following expression should be True or False:\n\n{a} {expression} {b}\n\nReturn only True or False."""
-    cast_value_prompt = "Question: {cq}\n\nAnswer: {answer}\n\nFollowup Instruction: Convert the answer to a single value of type {target_type}. Give only the value, enclosed in `backticks`."
+    cast_value_prompt = """Question: {cq}\n\nAnswer: {answer}\n\nFollowup Instruction: Convert the answer to a single value of type {target_type}. Give only the value, enclosed in "double quotes"."""
 
     def pre_conversation(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
@@ -147,7 +147,7 @@ class CodeBot(ChatBot):
 
     def cast_with_lm(self, cq, answer, target_type):
         assert target_type in ["int", "float", "bool"]
-        cast = {"int": int, "float": float, "bool": bool}[target_type]
+        # cast = {"int": int, "float": float, "bool": bool}[target_type]
         prompt = [
             {
                 "role": "system",
@@ -160,18 +160,40 @@ class CodeBot(ChatBot):
             prompt, logging_role="cast_with_lm"
         ).strip()
         # Find anything in backticks
-        reduced = re.findall(r"`(.*)`", lm_output)
+
+        # handle bools
+        if "true" in lm_output.lower():
+            return True
+        if "false" in lm_output.lower():
+            return False
+        
+        # handle floats
+        try:
+            reduced = re.findall(r"\"(.*)\"", lm_output)[-1]
+        except:
+            try:
+                reduced = re.findall(r"'(.*)\'", lm_output)[-1]
+            except:
+                reduced=lm_output
+        digits_only = "".join([char for char in reduced if char in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]])
+
+        float_output = float(digits_only)
+        if target_type == float:
+            return float_output
+        # handle ints in case integer is represented with a .
+        return int(float_output)
 
         # if len(found_values) == 0:
         #     # find the last number
-        match = re.search(
-            r"(^|\b)\d+(\.\d+)?(\b|$)", reduced[-1] if reduced else lm_output
-        ).group(0)
-        if not match:
-            raise ValueError(
-                f"Could not find value in the following output: {lm_output}"
-            )
 
-        val = cast(match)
+        # match = re.search(
+        #     r"(^|\b)\d+(\.\d+)?(\b|$)", reduced[-1] if reduced else lm_output
+        # ).group(0)
+        # if not match:
+        #     raise ValueError(
+        #         f"Could not find value in the following output: {lm_output}"
+        #     )
+
+        val = cast(reduced)
 
         return val

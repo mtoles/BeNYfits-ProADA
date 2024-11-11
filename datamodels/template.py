@@ -11,7 +11,12 @@ class ImaginaryData:
         self.synthetic_user = synthetic_user
         self.program_desc = program_desc
 
+    def __iter__(self):
+        return iter(self.features)
+
     def __getitem__(self, key):
+        if type(key) == ImaginaryData:
+            key = key.value
         if key in self.features:
             return self.features[key]
         else:
@@ -21,7 +26,8 @@ class ImaginaryData:
             return self.features[key]
 
     def __setitem__(self, key, value):
-        self.features[key] = value
+        # self.features[key] = value
+        pass
 
     def __str__(self):
         self.establish_value()
@@ -96,6 +102,9 @@ class ImaginaryData:
         except (ValueError, TypeError):
             return self.chatbot.cast_with_lm(self.cq, self.answer, "bool")
 
+    # def __hash__(self):
+    #     if self.value is not None:
+
     def establish_value(self):
         if self.value is None:
             # parse the ast to get the line of code we are at from `generated_code.py`
@@ -143,11 +152,11 @@ def run(local_scope: dict) -> bool:
         }
     )
     eligibility = {}
-    for name, desc in calls.items():
-        eligibility[name] = desc
+    for name, p in calls.items():
+        eligibility[name] = p
 
     outputs = {}
     # run each program
-    for name, desc in eligibility.items():
-        outputs[name] = desc(ImaginaryData(chatbot, synthetic_user, desc))
+    for name, p in eligibility.items():
+        outputs[name] = p(ImaginaryData(chatbot, synthetic_user, p))
     return outputs
