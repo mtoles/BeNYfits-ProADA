@@ -72,20 +72,19 @@ class CodeBot(ChatBot):
         tf.close()
 
         sys.path.append(tf.name)
+
+    def run_generated_code(self, locals):
         import generated_code
 
-        eligibility = generated_code.run(local_scope)
-
-        # super().pre_conversation(eligibility_requirements)
-
+        eligibility = generated_code.run(local_scope=locals)
         return eligibility
 
-    def ask_question_from_code(self, eligibility_requirements: str, key: str):
+    def ask_question_from_code(self, program_text: str, key: str):
         prompt = [
             {
                 "role": "system",
                 "content": self.ask_question_from_code_prompt.format(
-                    program_text=eligibility_requirements, key=key
+                    program_text=program_text, key=key
                 ),
             }
         ]
@@ -137,12 +136,15 @@ class CodeBot(ChatBot):
         ]
         lm_output = self.lm_backbone.forward(prompt, logging_role="compare_with_lm")
         # clean up the lm_output
-        found_values = re.findall(r"True|False|true|false", lm_output)
+        found_values = re.findall(r"True|False|true|false|TRUE|FALSE", lm_output)
 
         if len(found_values) == 0:
-            raise ValueError(
-                f"Could not find value in the following output: {lm_output}"
-            )
+            # raise ValueError(
+            #     f"Could not find value in the following output: {lm_output}"
+            # )
+            # default to False
+            print("Could not find value in the following output: ", lm_output)
+            return False
         return found_values[-1]
 
     def cast_with_lm(self, cq, answer, target_type):
@@ -186,7 +188,7 @@ class CodeBot(ChatBot):
         )
         try:
             reduced = re.findall(
-                f'{pattern}',  # double quotes
+                f"{pattern}",  # double quotes
                 lm_output.replace(",", "").replace("$", ""),
             )[-1]
         except:
@@ -204,4 +206,3 @@ class CodeBot(ChatBot):
             return float_output
         # handle ints in case integer is represented with a .
         return int(float_output)
-
