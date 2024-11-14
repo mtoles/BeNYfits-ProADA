@@ -18,3 +18,4 @@ analysis/acc_over_time.sh
 analysis/notetaker.sh
 */package.json
 */package-lock.json
+generated_code/

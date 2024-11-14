@@ -3,6 +3,7 @@ from tqdm import tqdm
 from tempfile import NamedTemporaryFile
 import re
 import sys
+import importlib.util
 
 
 class CodeBot(ChatBot):
@@ -74,8 +75,11 @@ class CodeBot(ChatBot):
         sys.path.append(tf.name)
 
     def run_generated_code(self, locals):
-        import generated_code
-
+        gen_code_path = locals["tf"].name
+        # import the generated code from the temp file
+        spec = importlib.util.spec_from_file_location("generated_code", gen_code_path)
+        generated_code = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generated_code)
         eligibility = generated_code.run(local_scope=locals)
         return eligibility
 

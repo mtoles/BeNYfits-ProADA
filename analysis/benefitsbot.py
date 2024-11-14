@@ -12,6 +12,7 @@ from models.lm_logging import LmLogger
 from users import Household
 from datamodels.codebot import CodeBot
 from datetime import datetime
+from uuid import uuid4
 
 start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
@@ -219,6 +220,9 @@ def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> C
 
 synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
+generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
+generated_code_path = os.path.join("generated_code", generated_code_filename)
+os.makedirs("generated_code", exist_ok=True)
 
 for index, row in tqdm(df.iterrows()):
     hh_nl_desc = row["hh_nl_desc"]
@@ -255,10 +259,11 @@ for index, row in tqdm(df.iterrows()):
             )
 
         # create named temp file for codebot code gen
-        if os.path.exists("generated_code.py"):
-            os.remove("generated_code.py")
+        if os.path.exists(generated_code_path):
+            os.remove(generated_code_path)
         try:
-            tf = open("generated_code.py", "w")
+
+            tf = open(generated_code_path, "w")
             chatbot.pre_conversation(locals())
         finally:
             tf.close()
