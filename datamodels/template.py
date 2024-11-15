@@ -113,6 +113,7 @@ class ImaginaryData:
             self.line = stack[2].line
             assert "hasattr" not in self.line
             print("line:   ", self.line)
+            ### Pranay's dialog lookup call goes here ###
             self.cq = self.chatbot.ask_question_from_code(
                 program_text=self.program_desc, key=self.line
             )

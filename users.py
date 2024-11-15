@@ -173,6 +173,7 @@ class Household:
             return None
         return spouses[0]
     def parents(self):
+        
         user = self.members[0]
         spouse = self.spouse()
         parents = [user]
