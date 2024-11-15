@@ -7,7 +7,6 @@ from users.user_features import PersonAttributeMeta
 
 np.random.seed(0)
 
-
 ### CLASSES ###
 class Person:
     """
@@ -21,11 +20,6 @@ class Person:
     def __getitem__(self, key):
         return self.features[key]
 
-    # def validate(self):
-    #     for field, schema, random, default, nl_fn in person_features:
-    #         feature_val = self.features[field]
-    #         Schema(schema).validate(feature_val)
-    # support assignment
     def __setitem__(self, key, value):
         self.features[key] = value
 
@@ -144,6 +138,16 @@ class Household:
         self.features[key] = value
 
     def validate(self):
+        def _one_self(hh):
+            # check the household has exactly one self and that it is member 0
+            if hh["members"][0]["relation"] != "self":
+                raise SchemaError("Household must have exactly one `self`")
+            for member in hh["members"][1:]:
+                if "relation" in member.features.keys():
+                    if member["relation"] == "self":
+                        raise SchemaError("Household cannot have more than one `self`")
+            return True
+        
         for member in self.members:
             member.validate()
         assert _one_self(self)
@@ -224,104 +228,10 @@ class Household:
                 f"There are {num_members} members in your household, of which {num_children} are children."
             ]
         ).strip()
-
-
-class BenefitsProgramMeta(type):
-    registry = {}
-
-    def __new__(cls, name, bases, attrs):
-        attrs["name"] = name
-        new_program = super().__new__(cls, name, bases, attrs)
-        if name != "BaseBenefitsProgram":
-            cls.registry[name] = new_program
-        return new_program
-
-    # if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description="Test the eligibility programs")
-    # parser.add_argument(
-    #     "--dataset_path",
-    #     default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
-    #     help="Path to the chat history or benefits description",
-    # )
-    # parser.add_argument(
-    #     "--ds_shift",
-    #     default=0,
-    #     type=int,
-    #     help="Shift the dataset by n rows",
-    # )
-    # args = parser.parse_args()
-
-    # df = pd.read_json(args.dataset_path, lines=True)
-    # # move the first n rows to the end
-    # df = pd.concat([df[args.ds_shift :], df[: args.ds_shift]], ignore_index=True)
-    # # map programs to columns
-    # df_labels = pd.DataFrame(columns=top_8_programs)
-    # for i in range(len(top_8_programs)):
-    #     df_labels[top_8_programs[i]] = df["labels"].apply(lambda x: x[i])
-    # # convert pass/fail to True/False
-    # df_labels = df_labels.applymap(lambda x: x == "pass")
-    # df_preds = pd.DataFrame(columns=top_8_programs)
-    # df_agreement = pd.DataFrame(columns=top_8_programs)
-
-    # for program in [
-    #     ChildAndDependentCareTaxCredit,
-    #     EarlyHeadStartPrograms,
-    #     InfantToddlerPrograms,
-    #     ChildTaxCredit,
-    #     DisabilityRentIncreaseExemption,
-    #     EarnedIncomeTaxCredit,
-    #     HeadStart,
-    #     ComprehensiveAfterSchool,
-    # ]:
-    #     ### TEST ELIGIBILITY ###
-    #     for i, row in df.iterrows():
-    #         print(f"index: {i}")
-    #         hh = Household.from_dict(row["hh"])
-    #         label = df_labels.loc[i, program.__name__]
-    #         pred = program(hh)
-    #         df_preds.loc[i, program.__name__] = pred
-
-    #     df_agreement[program.__name__] = (
-    #         df_preds[program.__name__] == df_labels[program.__name__]
-    #     )
-
-    #     acc = df_agreement[program.__name__].mean()
-    #     print(f"Accuracy for {program.__name__}: {acc:.2f}")
-    #     pass
-
-    pass
-
-
-### FUNCTIONS ###
-
-
-def _one_self(hh):
-    # check the household has exactly one self and that it is member 0
-    if hh["members"][0]["relation"] != "self":
-        raise SchemaError("Household must have exactly one `self`")
-    for member in hh["members"][1:]:
-        if "relation" in member.features.keys():
-            if member["relation"] == "self":
-                raise SchemaError("Household cannot have more than one `self`")
-    return True
-
-
-# fmt: off
-
-### CONSTANTS ###
-
-        
-# Static person features that 
-# DefaultName is a 20 year old NEET who 
-# - qualifies for basically nothing 
-# - has SSN
-# - does not pay rent
-
-
-
-
  
  
+
+
 
 
 if __name__ == "__main__":
@@ -336,30 +246,5 @@ if __name__ == "__main__":
     except AssertionError:
         e = True
     assert e
-
-    # user = default_unemployed()
-    # user.validate()
-    # user = random_person()
-    # user["relation"] = "self"
-    # # user.features["name"] = 1
-    # user.validate()
-    # hh = Household([user])
-    # hh.validate()
-
-    # for i in range(10):
-    #     members = [random_self_person()]
-    #     for n in range(3):  # num family members
-    #         members.append(random_person())
-
-    #     members[0]["relation"] = "self"
-    #     for i in range(1, len(members)):
-    #         members[i]["relation"] = "child"
-    #     hh = Household(members)
-    #     hh.validate()
-
-    # # check default person
-    # default_person = default_unemployed()
-    # household = {"members": [default_person]}
-    # print("Households are valid")
 
 print

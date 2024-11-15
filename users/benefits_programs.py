@@ -1,5 +1,13 @@
-from users.users import Household, Person, BenefitsProgramMeta
+from users.users import Household, Person
+class BenefitsProgramMeta(type):
+    registry = {}
 
+    def __new__(cls, name, bases, attrs):
+        attrs["name"] = name
+        new_program = super().__new__(cls, name, bases, attrs)
+        if name != "BaseBenefitsProgram":
+            cls.registry[name] = new_program
+        return new_program
 
 
 class BaseBenefitsProgram(metaclass=BenefitsProgramMeta):

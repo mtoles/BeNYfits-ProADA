@@ -1,7 +1,8 @@
-from users.users import Household, BenefitsProgramMeta, Person, Household
+from users.users import Household, Person, Household
 from users.benefits_programs import *  # unused but import to register benefits programs in the metaclass
 from users.user_features import *  # unused but import to register user features in the metaclass
 import pandas as pd
+
 
 def unit_test_dataset():
     hh1 = Household([Person.default_unemployed(is_self=True)])
