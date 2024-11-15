@@ -340,6 +340,7 @@ if __name__ == "__main__":
     user = default_unemployed()
     user.validate()
     user = random_person()
+    user["relation"] = "self"
     # user.features["name"] = 1
     user.validate()
     hh = Household([user])
@@ -349,6 +350,10 @@ if __name__ == "__main__":
         members = [random_self_person()]
         for n in range(3):  # num family members
             members.append(random_person())
+
+        members[0]["relation"] = "self"
+        for i in range(1, len(members)):
+            members[i]["relation"] = "child"
         hh = Household(members)
         hh.validate()
 
