@@ -3,6 +3,7 @@ from names import get_full_name
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
+import unittest
 
 
 ### FUNCTIONS ###
@@ -227,6 +228,12 @@ class PersonAttributeMeta(type):
             # add to registry
             cls.registry[name] = new_p_attr
         return new_p_attr
+
+    @classmethod
+    def validate(cls, person: Person):
+        schemas = {attr.name: attr.schema for attr in cls.registry.values()}
+        for attr, value in person.features.items():
+            assert Schema(schemas[attr]).is_valid(value), f"Invalid value `{value}` for attribute `{attr}` under schema `{schemas[attr]}`"
     
     @classmethod
     def default_unemployed(cls, random_name=True):
@@ -616,6 +623,16 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
 if __name__ == "__main__":
     #
     default_user = PersonAttributeMeta.default_unemployed()
+    PersonAttributeMeta.validate(default_user)
+    # should not pass
+    default_user_2 = PersonAttributeMeta.default_unemployed()
+    default_user_2["age"] = "fish"
+    try:
+        PersonAttributeMeta.validate(default_user_2)
+    except AssertionError:
+        e = True
+    assert e
+
     # user = default_unemployed()
     # user.validate()
     # user = random_person()
