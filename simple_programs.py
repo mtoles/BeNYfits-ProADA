@@ -3,8 +3,18 @@ import pandas as pd
 from users import Household, Person
 from dataset import top_8_programs
 
+class BenefitsProgramMeta(type):
+    registry = {}
+    def __new__(cls, name, bases, attrs):
+        attrs["name"] = name
+        new_program = super().__new__(cls, name, bases, attrs)
+        cls.registry[name] = new_program
+        return new_program
 
-def ChildAndDependentCareTaxCredit(hh: Household) -> bool:
+class BaseBenefitsProgram(metaclass=BenefitsProgramMeta):
+    pass
+
+class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
     """ "
     To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to the following questions:
     1. Did you pay someone to care for your dependent so that you and your spouse, if filing a joint return, could work or look for work? Qualifying dependents are a child under age 13 at the time of care or a spouse or dependent (of any age) who cannot physically or mentally care for themselves.
@@ -12,52 +22,53 @@ def ChildAndDependentCareTaxCredit(hh: Household) -> bool:
     3. Did you and your spouse, if filing jointly, earn income? These can be from wages, salaries, tips, other taxable employee money, or earnings from self-employment.
     4. If you are married, do both you and your spouse work outside of the home? Or, does one of you work outside of the home while the other is a full-time student, has a disability, or is looking for work?
     """
+    def __call__(self, hh: Household) -> bool:
 
-    def _r1_and_r2(hh: Household) -> bool:
-        self_works = hh.user()["works_outside_home"] or hh.user()["looking_for_work"]
-        spouse_works = (
-            hh.spouse() is None
-            or hh.spouse()["works_outside_home"]
-            or hh.spouse()["looking_for_work"]
-        )
-        filing_jointly = hh.user()["filing_jointly"]
-        members_with_paid_caregiver = [m for m in hh.members if m["has_paid_caregiver"]]
-        qualifying_children = [m for m in members_with_paid_caregiver if m["age"] < 13]
-        qualify_adults = [
-            m
-            for m in members_with_paid_caregiver
-            if not m["can_care_for_self"] and m["dependent"]
-        ]
-        qualifying_family = qualifying_children + qualify_adults
-        # drop family members who did not live with the household for more than half of the year
-        qualifying_family_lived_with_hh = [
-            m for m in qualifying_family if m["duration_more_than_half_prev_year"]
-        ]
-        if filing_jointly:
-            return self_works and spouse_works and qualifying_family_lived_with_hh
-        else:
-            return bool(self_works and qualifying_family_lived_with_hh)
+        def _r1_and_r2(hh: Household) -> bool:
+            self_works = hh.user()["works_outside_home"] or hh.user()["looking_for_work"]
+            spouse_works = (
+                hh.spouse() is None
+                or hh.spouse()["works_outside_home"]
+                or hh.spouse()["looking_for_work"]
+            )
+            filing_jointly = hh.user()["filing_jointly"]
+            members_with_paid_caregiver = [m for m in hh.members if m["has_paid_caregiver"]]
+            qualifying_children = [m for m in members_with_paid_caregiver if m["age"] < 13]
+            qualify_adults = [
+                m
+                for m in members_with_paid_caregiver
+                if not m["can_care_for_self"] and m["dependent"]
+            ]
+            qualifying_family = qualifying_children + qualify_adults
+            # drop family members who did not live with the household for more than half of the year
+            qualifying_family_lived_with_hh = [
+                m for m in qualifying_family if m["duration_more_than_half_prev_year"]
+            ]
+            if filing_jointly:
+                return self_works and spouse_works and qualifying_family_lived_with_hh
+            else:
+                return bool(self_works and qualifying_family_lived_with_hh)
 
-    def _r3(hh: Household) -> bool:
-        return bool(hh.marriage_work_income() > 0)
+        def _r3(hh: Household) -> bool:
+            return bool(hh.marriage_work_income() > 0)
 
-    def _r4(hh: Household) -> bool:
-        user_not_at_home = (
-            hh.user()["works_outside_home"]
-            or hh.user()["looking_for_work"]
-            or hh.user()["student"]
-            or hh.user()["disabled"]
-        )
-        spouse_not_at_home = (
-            hh.spouse() is None
-            or hh.spouse()["works_outside_home"]
-            or hh.spouse()["looking_for_work"]
-            or hh.spouse()["student"]
-            or hh.spouse()["disabled"]
-        )
-        return bool(user_not_at_home and spouse_not_at_home)
+        def _r4(hh: Household) -> bool:
+            user_not_at_home = (
+                hh.user()["works_outside_home"]
+                or hh.user()["looking_for_work"]
+                or hh.user()["student"]
+                or hh.user()["disabled"]
+            )
+            spouse_not_at_home = (
+                hh.spouse() is None
+                or hh.spouse()["works_outside_home"]
+                or hh.spouse()["looking_for_work"]
+                or hh.spouse()["student"]
+                or hh.spouse()["disabled"]
+            )
+            return bool(user_not_at_home and spouse_not_at_home)
 
-    return _r1_and_r2(hh) and _r3(hh) and _r4(hh)
+        return _r1_and_r2(hh) and _r3(hh) and _r4(hh)
 
 
 def ComprehensiveAfterSchool(hh: Household) -> bool:

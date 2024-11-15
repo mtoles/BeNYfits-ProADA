@@ -6,10 +6,10 @@ Focus on generating households with a diverse set of eligibility
 import numpy as np
 from names import get_full_name
 from users import (
-    default_unemployed,
-    default_child,
-    default_employed,
-    nl_household_profile,
+    # default_unemployed,
+    # default_child,
+    # default_employed,
+    # nl_household_profile,
     Household,
     Person,
 )

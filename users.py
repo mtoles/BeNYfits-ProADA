@@ -3,8 +3,8 @@ from names import get_full_name
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
-import unittest
-
+from simple_programs import BenefitsProgramMeta
+np.random.seed(0)
 
 ### FUNCTIONS ###
 
@@ -20,76 +20,6 @@ def _one_self(hh):
     return True
 
 
-def default_employed(random_name=True):
-    person = default_unemployed(random_name=random_name)
-    person["works_outside_home"] = True
-    person["work_income"] = 50000
-    person["work_hours_per_week"] = 40
-    return person
-
-
-def random_person():
-    person = default_unemployed(random_name=True)
-    for field, schema, random, default, fn in person_features:
-        person.features[field] = random()
-    return person
-
-
-def default_child(random_name=True):
-    child = default_unemployed(random_name=random_name)
-    child["relation"] = "child"
-    child["provides_over_half_of_own_financial_support"] = False
-    child["can_care_for_self"] = False
-    child["age"] = 4
-    child["student"] = True
-    child["current_school_level"] = "pk"
-    child["dependent"] = True
-    return child
-
-
-def random_self_person():
-    self_person = random_person()
-    self_person["relation"] = "self"
-    return self_person
-
-
-# TODO: update w/ person class
-def nl_person_profile(person: dict) -> str:
-    name = person["name"]
-    sentences = []
-    for field, schema, random, default, fn in person_features:
-        if field in person.features.keys():
-            sentences.append(fn(name, person[field]))
-    return "\n".join(sentences).strip()
-
-
-# TODO: update w/ person class
-def nl_household_profile(hh_df: pd.DataFrame) -> str:
-    members = hh_df["hh"]["members"]
-    user = members[0]
-    user_name = user["name"]
-    sentences = [
-        f"You are {user_name}.",
-        "You are seeking benefits on behalf of your household.",
-    ]
-    user_profile = nl_person_profile(user) + "\n=============="
-    member_profiles = [nl_person_profile(member) for member in members[1:]]
-    member_profiles = [x + "\n==============" for x in member_profiles]
-    num_members = len(members)
-    num_children = len([member for member in members if member["age"] < 18])
-    return "\n".join(
-        sentences
-        + [user_profile]
-        + [
-            f"Your household consists of the following {len(member_profiles)} additional members:"
-        ]
-        + member_profiles
-        + [
-            f"There are {num_members} members in your household, of which {num_children} are children."
-        ]
-    ).strip()
-
-
 # fmt: off
 
 ### CLASSES ###
@@ -100,14 +30,14 @@ class Person:
     """
     def __init__(self):
         self.features = {}
-        
+
     def __getitem__(self, key):
         return self.features[key]
     
-    def validate(self):
-        for field, schema, random, default, nl_fn in person_features:
-            feature_val = self.features[field]
-            Schema(schema).validate(feature_val)
+    # def validate(self):
+    #     for field, schema, random, default, nl_fn in person_features:
+    #         feature_val = self.features[field]
+    #         Schema(schema).validate(feature_val)
     # support assignment
     def __setitem__(self, key, value):
         self.features[key] = value
@@ -122,6 +52,8 @@ class Person:
         return person
     def total_income(self):
         return self["work_income"] + self["investment_income"]
+    
+        
     
 class Household:
     """
@@ -151,7 +83,8 @@ class Household:
         self.features[key] = value
     def validate(self):
         for member in self.members:
-            member.validate()
+            # member.validate()
+            PersonAttributeMeta.validate(member)
         assert _one_self(self)
 
     ### CONVENIENCE METHODS FOR GRAPH LOGIC ###
@@ -197,6 +130,30 @@ class Household:
         return self.hh_work_income() + self.hh_investment_income()
     def num_members(self):
         return len(self.members)
+
+    def nl_household_profile(self) -> str:
+        user = self.members[0]
+        user_name = user["name"]
+        sentences = [
+            f"You are {user_name}.",
+            "You are seeking benefits on behalf of your household.",
+        ]
+        user_profile = PersonAttributeMeta.nl_person_profile(user) + "\n=============="
+        member_profiles = [PersonAttributeMeta.nl_person_profile(member) for member in self.members[1:]]
+        member_profiles = [x + "\n==============" for x in member_profiles]
+        num_members = len(self.members)
+        num_children = len([member for member in self.members if member["age"] < 18])
+        return "\n".join(
+            sentences
+            + [user_profile]
+            + [
+                f"Your household consists of the following {len(member_profiles)} additional members:"
+            ]
+            + member_profiles
+            + [
+                f"There are {num_members} members in your household, of which {num_children} are children."
+            ]
+        ).strip()
     
 ### CONSTANTS ###
 
@@ -236,12 +193,58 @@ class PersonAttributeMeta(type):
             assert Schema(schemas[attr]).is_valid(value), f"Invalid value `{value}` for attribute `{attr}` under schema `{schemas[attr]}`"
     
     @classmethod
-    def default_unemployed(cls, random_name=True):
+    def default_unemployed(cls, random_name=True, is_self=False):
         attr_names = cls.registry.keys()
         defaults = [attr.default for attr in cls.registry.values()]
         person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
         person = Person.from_dict(person_dict)
+        if not is_self:
+            person["relation"] = "other_family"
         return person
+
+    @classmethod
+    def default_employed(cls, random_name=True, is_self=False):
+        attr_names = cls.registry.keys()
+        defaults = [attr.default for attr in cls.registry.values()]
+        person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
+        person = Person.from_dict(person_dict)        
+        person["works_outside_home"] = True
+        person["work_income"] = 50000
+        person["work_hours_per_week"] = 40
+        if not is_self:
+            person["relation"] = "other_family"
+        return person
+
+    @classmethod
+    def random_person(cls, is_self=False):
+        attr_names = cls.registry.keys()
+        # person_dict = {attr: attr.random() for attr in attr_names}
+        person_dict = {attr: cls.registry[attr].random() for attr in attr_names}
+        person = Person.from_dict(person_dict)
+        if is_self:
+            person["relation"] = "self"
+        return person
+
+    @classmethod
+    def default_child(cls, random_name=True):
+        child = cls.default_unemployed(random_name=random_name)
+        child["relation"] = "child"
+        child["provides_over_half_of_own_financial_support"] = False
+        child["can_care_for_self"] = False
+        child["age"] = 4
+        child["student"] = True
+        child["current_school_level"] = "pk"
+        child["dependent"] = True
+        return child
+
+    @classmethod
+    def nl_person_profile(cls, person: dict) -> str:
+        name = person["name"]
+        sentences = []
+        for f, v in person.features.items():
+            sentences.append(cls.registry[f].nl_fn(name, v))
+            # sentences.append(fn(name, person[field]))
+        return "\n".join(sentences).strip()
     
 class BasePersonAttr(metaclass=PersonAttributeMeta):
     pass
@@ -619,6 +622,22 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
 #     person_features, columns=["field", "schema", "random", "default", "nl_fn"]
 # ).set_index("field")
 
+def unit_test_dataset():
+    hh1 = Household([PersonAttributeMeta.default_unemployed(is_self=True)])
+    hh2 = Household([PersonAttributeMeta.default_employed(is_self=True), PersonAttributeMeta.default_child()])
+    hh3 = Household([PersonAttributeMeta.random_person(is_self=True), PersonAttributeMeta.random_person(), PersonAttributeMeta.random_person()])
+    hhs = [hh1, hh2, hh3]
+    # nl_descs = []
+    rows = []
+    for hh in hhs:
+        row = {}
+        for name, bp in BenefitsProgramMeta.registry.items():
+            row[name] = bp.is_eligible(hh)
+        row["nl_desc"] = hh.nl_household_profile()
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    return df
 
 if __name__ == "__main__":
     #

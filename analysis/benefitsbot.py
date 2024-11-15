@@ -9,7 +9,7 @@ from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
-from users import Household
+from users import Household, unit_test_dataset
 from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
@@ -140,7 +140,10 @@ eligibility_requirements = eligibility_df.set_index("program")["description"].to
 
 
 # Load the dataset
-df = pd.read_json(args.dataset_path, lines=True)
+if os.path.exists(args.dataset_path):
+    df = pd.read_json(args.dataset_path, lines=True)
+elif args.dataset_path == "unittest":
+    df = unit_test_dataset()
 df["hh"] = df["hh"].apply(lambda hh: Household.from_dict(hh))
 if args.ds_shift:
     df = df.iloc[args.ds_shift :]
