@@ -3,7 +3,7 @@ one-off script to convert annotated data to household json dicts because i faile
 """
 
 import pandas as pd
-from users import (
+from users.users import (
     default_unemployed,
     default_child,
     default_employed,

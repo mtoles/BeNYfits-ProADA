@@ -1,4 +1,4 @@
-from users import Household
+from users.users import Household
 import traceback
 from copy import deepcopy
 

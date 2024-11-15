@@ -1,7 +1,7 @@
 # Temporary small, static dataset for ChatBot testing
 import numpy as np
 from names import get_full_name
-from users import (
+from users.users import (
     default_unemployed,
     default_child,
     default_employed,

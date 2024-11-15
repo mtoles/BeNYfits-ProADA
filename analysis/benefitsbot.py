@@ -9,7 +9,8 @@ from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
-from users import Household, unit_test_dataset
+from users.dataset_generation import unit_test_dataset
+from users.users import Household
 from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
