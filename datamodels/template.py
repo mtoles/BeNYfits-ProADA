@@ -113,8 +113,9 @@ class ImaginaryData:
             self.line = stack[2].line
             assert "hasattr" not in self.line
             print("line:   ", self.line)
+            ### Pranay's dialog lookup call goes here ###
             self.cq = self.chatbot.ask_question_from_code(
-                eligibility_requirements=self.program_desc, key=self.line
+                program_text=self.program_desc, key=self.line
             )
             print("cq:     ", self.cq)
             self.answer = self.synthetic_user.answer_cq(self.cq)
@@ -158,5 +159,5 @@ def run(local_scope: dict) -> bool:
     outputs = {}
     # run each program
     for name, p in eligibility.items():
-        outputs[name] = p(ImaginaryData(chatbot, synthetic_user, p))
+        outputs[name] = p(ImaginaryData(chatbot, synthetic_user, eligibility_requirements[name]))
     return outputs

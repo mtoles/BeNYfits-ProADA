@@ -50,6 +50,9 @@ class LmLogger:
 
     def log_predictions(self, predictions: List[dict]):
         self.log[-1]["predictions"].extend(predictions)
+    
+    def log_anything(self, key, value):
+        self.log[-1][key] = value
 
     def log_hh_diff(self, hh: Household):
         self.log[-1]["hh_diff"] = show_household(hh)

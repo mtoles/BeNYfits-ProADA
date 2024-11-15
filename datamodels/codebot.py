@@ -3,6 +3,7 @@ from tqdm import tqdm
 from tempfile import NamedTemporaryFile
 import re
 import sys
+import importlib.util
 
 
 class CodeBot(ChatBot):
@@ -72,20 +73,22 @@ class CodeBot(ChatBot):
         tf.close()
 
         sys.path.append(tf.name)
-        import generated_code
 
-        eligibility = generated_code.run(local_scope)
-
-        # super().pre_conversation(eligibility_requirements)
-
+    def run_generated_code(self, locals):
+        gen_code_path = locals["tf"].name
+        # import the generated code from the temp file
+        spec = importlib.util.spec_from_file_location("generated_code", gen_code_path)
+        generated_code = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generated_code)
+        eligibility = generated_code.run(local_scope=locals)
         return eligibility
 
-    def ask_question_from_code(self, eligibility_requirements: str, key: str):
+    def ask_question_from_code(self, program_text: str, key: str):
         prompt = [
             {
                 "role": "system",
                 "content": self.ask_question_from_code_prompt.format(
-                    program_text=eligibility_requirements, key=key
+                    program_text=program_text, key=key
                 ),
             }
         ]
@@ -137,12 +140,15 @@ class CodeBot(ChatBot):
         ]
         lm_output = self.lm_backbone.forward(prompt, logging_role="compare_with_lm")
         # clean up the lm_output
-        found_values = re.findall(r"True|False|true|false", lm_output)
+        found_values = re.findall(r"True|False|true|false|TRUE|FALSE", lm_output)
 
         if len(found_values) == 0:
-            raise ValueError(
-                f"Could not find value in the following output: {lm_output}"
-            )
+            # raise ValueError(
+            #     f"Could not find value in the following output: {lm_output}"
+            # )
+            # default to False
+            print("Could not find value in the following output: ", lm_output)
+            return False
         return found_values[-1]
 
     def cast_with_lm(self, cq, answer, target_type):
@@ -168,49 +174,39 @@ class CodeBot(ChatBot):
             return False
 
         # handle floats
+        patterns_without = r"|".join(
+            [
+                r"(?<!\S)(\d+)(?!\S)",
+                r"(?<!\S)(.\d+)(?!\S)",
+                r"(?<!\S)(\d+.)(?!\S)",
+                r"(?<!\S)(\d+.\d+)(?!\S)",
+            ]
+        )
         pattern = "|".join(
             [
-                "(?<!\S)\d+(?!\S)",
-                "(?<!\S).\d+(?!\S)",
-                "(?<!\S)\d+.(?!\S)",
-                "(?<!\S)\d+.\d+(?!\S)",
+                r"(?<!\S)[\"'`](\d+)[\"'`](?!\S)",
+                r"(?<!\S)[\"'`](.\d+)[\"'`](?!\S)",
+                r"(?<!\S)[\"'`](\d+.)[\"'`](?!\S)",
+                r"(?<!\S)[\"'`](\d+.\d)+[\"'`](?!\S)",
             ]
         )
         try:
             reduced = re.findall(
-                f"\"{pattern}\"", # double quotes
-                lm_output.replace(",", ""),
+                f"{pattern}",  # double quotes
+                lm_output.replace(",", "").replace("$", ""),
             )[-1]
         except:
             try:
                 reduced = re.findall(
-                    f"\'{pattern}\'", # single quotes
-                    lm_output.replace(",", ""),
+                    f"{patterns_without}",  # anything
+                    lm_output.replace(",", "").replace("$", ""),
                 )[-1]
             except:
-                reduced = re.findall(
-                    f"{pattern}", # anything
-                    lm_output.replace(",", ""),
-                )[-1]
-        # digits_only = "".join([char for char in reduced if char in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]])
-
-        float_output = float(reduced)
+                return 0
+        # get the captured group that isn't empty
+        actual_reduced = [x for x in reduced if x][-1]
+        float_output = float(actual_reduced)
         if target_type == float:
             return float_output
         # handle ints in case integer is represented with a .
         return int(float_output)
-
-        # if len(found_values) == 0:
-        #     # find the last number
-
-        # match = re.search(
-        #     r"(^|\b)\d+(\.\d+)?(\b|$)", reduced[-1] if reduced else lm_output
-        # ).group(0)
-        # if not match:
-        #     raise ValueError(
-        #         f"Could not find value in the following output: {lm_output}"
-        #     )
-
-        val = cast(reduced)
-
-        return val

@@ -3,19 +3,18 @@ import argparse
 
 import pandas as pd
 from models.model_utils import load_lm
-from datamodels.userprofile import UserProfile
 from datamodels.chatbot import *
 from datamodels.syntheticuser import SyntheticUser
-from sklearn.metrics import f1_score, precision_score, recall_score
 from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
-from dataset_procedural import show_household
 from users import Household
 from datamodels.codebot import CodeBot
-from tempfile import NamedTemporaryFile
+from datetime import datetime
+from uuid import uuid4
 
+start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
     "--chatbot_model_name",
@@ -72,12 +71,7 @@ parser.add_argument(
     type=int,
     help="Number of similar sentences to pick from natural language profile to match with question in synthetic user",
 )
-parser.add_argument(
-    "--predict_every_turn",
-    default=False,
-    type=bool,
-    help="Predict eligibility after every dialog turn",
-)
+
 parser.add_argument(
     "--programs",
     default=None,
@@ -226,6 +220,10 @@ def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> C
 
 synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
+generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
+generated_code_path = os.path.join("generated_code", generated_code_filename)
+os.makedirs("generated_code", exist_ok=True)
+
 for index, row in tqdm(df.iterrows()):
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
@@ -239,62 +237,56 @@ for index, row in tqdm(df.iterrows()):
     lm_logger.add_empty_convo(labels.to_dict())
     chatbot = get_model(args.chatbot_strategy)
     # Temporarily load codellama if we are using llama
+    code_run_mode = "code" in args.chatbot_strategy
     codellama_mode = (
         "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
     ) and "code" in args.chatbot_strategy
 
     ### PRE-CONVERSATION (codellama and code gen) ###
-    if codellama_mode:
-        print("temporarily entering codellama mode")
-        codellama_model_size = re.search(r"(\d+b)", args.codellama_model_name).group(1)
-        chatbot.lm_backbone = LmBackboneModel(
-            LanguageModelWrapper(
-                f"Codellama {codellama_model_size} Instruct",
-                "llama",
-                args.codellama_model_name,
-            ),
-            lm_logger=lm_logger,
-        )
-        # chatbot.lm_wrapper = LanguageModelWrapper(
-        #     f"Codellama {codellama_model_size} Instruct",
-        #     "llama",
-        #     args.codellama_model_name,
-        # )
+    if code_run_mode:
+        if codellama_mode:
+            print("temporarily entering codellama mode")
+            codellama_model_size = re.search(
+                r"(\d+b)", args.codellama_model_name
+            ).group(1)
+            chatbot.lm_backbone = LmBackboneModel(
+                LanguageModelWrapper(
+                    f"Codellama {codellama_model_size} Instruct",
+                    "llama",
+                    args.codellama_model_name,
+                ),
+                lm_logger=lm_logger,
+            )
+
         # create named temp file for codebot code gen
-        if os.path.exists("generated_code.py"):
-            os.remove("generated_code.py")
+        if os.path.exists(generated_code_path):
+            os.remove(generated_code_path)
         try:
-            tf = open("generated_code.py", "w")
-            code_mode_predictions = chatbot.pre_conversation(locals())
-            # per_turn_all_predictions.append([code_mode_predictions])
-        finally:    
+
+            tf = open(generated_code_path, "w")
+            chatbot.pre_conversation(locals())
+        finally:
             tf.close()
             # os.remove("generated_code.py")
 
-        # TODO: compute dialog turns correctly
-        per_turn_all_predictions.append([code_mode_predictions]*args.max_dialog_turns)
+        # run generated code
+        chatbot = get_model(args.chatbot_strategy)
+        code_mode_predictions = chatbot.run_generated_code(locals())
 
-    # if codellama_mode:
-    #     # unload codellama
-    #     print("exiting codellama mode")
-    #     chatbot.lm_wrapper = LanguageModelWrapper(
-    #         "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3-8B-Instruct"
-    #     )
+        # TODO: compute dialog turns correctly
+        per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
+        lm_logger.log_predictions(per_turn_all_predictions)
+
     else:
 
         per_turn_predictions = []
         ### -------- ###
-
 
         history = [
             {
                 "role": "system",
                 "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
             },
-            # {
-            #     "role": "assistant",
-            #     "content": f"Hello, I am BenefitsBot. I will be helping you determine your eligibility for benefits. Please answer the following questions to the best of your knowledge.",
-            # },
         ]
         print(f"Index: {index}")
 
@@ -304,17 +296,14 @@ for index, row in tqdm(df.iterrows()):
         try:
             # save the chat history no matter what
             while True:
-                if args.predict_every_turn:
-                    if cur_iter_count != 0:
-                        per_turn_predictions.append(
-                            chatbot.predict_benefits_eligibility(history, args.programs)
-                        )
-                    else:
-                        # default to all zero prediction on 0th round
-                        default_predictions = dict([(x, 0) for x in args.programs])
-                        per_turn_predictions.append(default_predictions)
+                if cur_iter_count != 0:
+                    per_turn_predictions.append(
+                        chatbot.predict_benefits_eligibility(history, args.programs)
+                    )
                 else:
-                    per_turn_predictions.append(None)
+                    # default to all zero prediction on 0th round
+                    default_predictions = dict([(x, 0) for x in args.programs])
+                    per_turn_predictions.append(default_predictions)
                 ### break if out of dialog turns ###
                 if cur_iter_count >= args.max_dialog_turns:
                     print(f"Max dialog turns ({args.max_dialog_turns}) reached")
@@ -366,13 +355,10 @@ for index, row in tqdm(df.iterrows()):
                 f.write(f"Exception: {e}\n")
                 f.write(f"LM Call: {lm_logger.latest_input}\n")
                 f.write("\n\n==========\n\n")
-            pass
+                print(e)
         finally:
             # delete the tempfile
             lm_logger.save()
-
-    # history.append({"role": "assistant", "content": per_turn_all_predictions[-1]})
-    # histories.append(history)
 
 
 lm_logger.save()
@@ -381,27 +367,20 @@ lm_logger.save()
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-if args.predict_every_turn:
-    # call one final time
-    plot_metrics_per_turn(
-        per_turn_all_predictions,
-        df[args.programs],
-        last_turn_iteration,
-        output_dir=output_dir,
-        experiment_params={
-            "Backbone Model": args.chatbot_model_name,
-            "Strategy": f"{args.estring} {args.chatbot_strategy}",
-            "Programs": ", ".join(args.programs),
-            "Max Dialog Turns": args.max_dialog_turns,
-            "Downsample Size": args.downsample_size,
-            "Top K Sentences": args.top_k,
-        },
-    )
-
-# with open(f"{output_dir}/transcript.md", "w") as f:
-#     for i, transcript in enumerate(histories):
-#         f.write(f"Transcript {i}\n")
-#         f.write(f"{transcript}\n")
-#         f.write("\n\n==========\n\n")
-
-# pass
+# call one final time
+plot_metrics_per_turn(
+    per_turn_all_predictions,
+    df[args.programs],
+    last_turn_iteration,
+    output_dir=output_dir,
+    experiment_params={
+        "Backbone Model": args.chatbot_model_name,
+        "Strategy": f"{args.estring} {args.chatbot_strategy}",
+        "Programs": ", ".join(args.programs),
+        "Max Dialog Turns": args.max_dialog_turns,
+        "Downsample Size": args.downsample_size,
+        "Top K Sentences": args.top_k,
+    },
+)
+runtime = datetime.now() - start
+print(f"Runtime: {runtime}")
