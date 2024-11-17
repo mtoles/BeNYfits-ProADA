@@ -1,35 +1,63 @@
 from typing import Dict
 from lmwrapper.openai_wrapper import get_open_ai_lm, OpenAiModelNames
+from lmwrapper.structs import LmPrompt
+import requests
 
 # https://github.com/DaiseyCode/lmwrapper
-
 
 class LanguageModelWrapper:
     def __init__(self, display_name: str, family: str, hf_name: str):
         self.display_name = display_name
         self.family = family
         self.hf_name = hf_name
-        self._language_model = None
+        self._language_model_name = None
+        self.api_url = "http://localhost:8000"
 
     @property
-    def language_model(self):
-        if self._language_model is None:
-            if self.family in ["llama", "gemma"]:
-                # only import if necessary since these are heavy dependencies
-                from lmwrapper.huggingface_wrapper import get_huggingface_lm
+    def language_model_name(self):
+        if self._language_model_name is None:
+            payload = {"family": self.family, "hf_name": self.hf_name}
+            print(f"Payload to /load_model: {payload}")  # Debugging step
 
-                self._language_model = get_huggingface_lm(self.hf_name)
-                self._language_model._tokenizer.pad_token_id = (
-                    self._language_model._tokenizer.eos_token_id
-                )
-                self._language_model._tokenizer.padding_side = "left"
+            response = requests.post(f"{self.api_url}/load_model", json=payload)
+            if response.status_code == 200:
+                self._language_model_name = response.json()["model"]
             else:
-                self._language_model = get_open_ai_lm(self.hf_name)
-            print(f"Model Pipeline Instantiated: {self.display_name} {self.family}")
-        return self._language_model
+                raise Exception(f"Error loading model: {response.json()['detail']}")
+        
+            print(f"Model Pipeline Instantiated with API: {self.display_name} {self.family} -- {self._language_model_name}")
+        return self._language_model_name
 
     def __str__(self):
         return f"{self.display_name} ({self.family})"
+    
+    def predict_many_outputs(self, prompts: list[LmPrompt]):
+
+        print("In function Predict Many outputs")
+        prompts_data = [
+            {
+                "text": p.text,
+                "cache": p.cache,
+                "logprobs": p.logprobs,
+                "max_tokens": p.max_tokens,
+            }
+            for p in prompts
+        ]
+
+        # print(json.dumps(prompts_data, indent=2))
+
+        response = requests.post(
+            f"{self.api_url}/predict_many",
+            json={
+                "model_id": self.language_model_name,
+                "prompts": prompts_data,
+            },
+        )
+
+        if response.status_code == 200:
+            return response.json()["responses"]
+        else:
+            raise Exception(f"Prediction error: {response.json()['detail']}")
 
 
 MODEL_MAP: Dict[str, LanguageModelWrapper] = {
@@ -67,9 +95,9 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     "gpt-4o-mini-2024-07-18": LanguageModelWrapper(
         "gpt-4o-mini-2024-07-18", "gpt", OpenAiModelNames.gpt_4o_mini_2024_07_18
     ),
-    "o1-preview-2024-09-12": LanguageModelWrapper(
-        "o1-preview-2024-09-12", "o1", OpenAiModelNames.o1_preview_2024_09_12
-    ),
+    # "o1-preview-2024-09-12": LanguageModelWrapper(
+    #     "o1-preview-2024-09-12", "o1", OpenAiModelNames.o1_preview_2024_09_12
+    # ),
     "google/gemma-2b-it": LanguageModelWrapper(
         "Gemma 2B Instruction Tuned", "gemma", "google/gemma-2b-it"
     ),
@@ -109,6 +137,7 @@ def main():
             print(f"Successfully loaded {lm_wrapper}")
             print(f"Hugging Face model name: {lm_wrapper.hf_name}")
             # Access the language model (this will trigger loading if not already loaded)
+            # TODO _ RATTAN _ FIX THIS MAIN FUNCTION
             lm = lm_wrapper.language_model
             print(f"Language model loaded: {lm is not None}")
             # You can add more tests here, e.g., generating text

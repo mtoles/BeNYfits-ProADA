@@ -2,7 +2,7 @@ from tqdm import tqdm
 from typing import List, Optional
 from tqdm import tqdm
 import os
-from huggingface_hub import login
+# from huggingface_hub import login
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 from typing import List, Callable
@@ -33,14 +33,14 @@ class LmBackboneModel:
         self.lm_wrapper = lm_wrapper
         self.mode = mode
         self.lm_logger = lm_logger
-        # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-        if lm_wrapper.family in ["llama"]:
-            self.hf_api_key = os.getenv("HF_TOKEN")
-            login(token=self.hf_api_key)
-        if lm_wrapper.family in ["gpt", "o1"]:
-            self.lm_wrapper.language_model._tokenizer = (
-                GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo")
-            )
+        # # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
+        # if lm_wrapper.family in ["llama"]:
+        #     self.hf_api_key = os.getenv("HF_TOKEN")
+        #     login(token=self.hf_api_key)
+        # if lm_wrapper.family in ["gpt", "o1"]:
+        #     self.lm_wrapper.language_model._tokenizer = (
+        #         GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo")
+        #     )
 
     def _get_format_func(self) -> Callable:
         format_funcs = {
@@ -71,6 +71,9 @@ class LmBackboneModel:
             ]
         history[-1]["role"]="user"
 
+        return ""
+    
+        # TODO - RATTAN - EXPOSE THE APPLY CHAT TEMPLATE FUNCTIONALITY FROM THE API
         return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
             history, tokenize=False, add_generation_prompt=True
         )
@@ -105,31 +108,49 @@ class LmBackboneModel:
         self.lm_logger.current_input = history
         format_func = self._get_format_func()
         formatted_prompt = format_func(history)
-        assert (
-            len(self.lm_wrapper.language_model._tokenizer.encode(str(formatted_prompt)))
-            < INPUT_TOKEN_LIMIT
-        ), f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
-        sequences = list(
-            self.lm_wrapper.language_model.predict_many(
-                [
-                    LmPrompt(
-                        formatted_prompt,
+
+        # TODO - BRING BACK THIS FUNCTIONALITY LATER
+
+        # assert (
+        #     len(self.lm_wrapper.language_model._tokenizer.encode(str(formatted_prompt)))
+        #     < INPUT_TOKEN_LIMIT
+        # ), f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
+
+        
+        # sequences = list(
+        #     self.lm_wrapper.language_model.predict_many(
+        #         [
+        #             LmPrompt(
+        #                 formatted_prompt,
+        #                 cache=True,
+        #                 logprobs=0,
+        #                 num_completions=num_completions,
+        #                 max_tokens=OUTPUT_TOKEN_LIMIT,
+        #             )
+        #         ],
+        #         completion_window=CompletionWindow.ASAP,
+        #     )
+        # )
+        # sequence = sequences[0]
+        # # Sequence is a OpenAiLmPrediction object
+        # if num_completions is None:
+        #     output = sequence.completion_text
+        # # Sequence is a list of OpenAiLmPrediction objects
+        # else:
+        #     output = [x.completion_text for x in sequence]
+
+        print("IN LM MODEL FORWARD")
+
+        prompts = [
+            LmPrompt(formatted_prompt,
                         cache=True,
                         logprobs=0,
-                        num_completions=num_completions,
                         max_tokens=OUTPUT_TOKEN_LIMIT,
                     )
-                ],
-                completion_window=CompletionWindow.ASAP,
-            )
-        )
-        sequence = sequences[0]
-        # Sequence is a OpenAiLmPrediction object
-        if num_completions is None:
-            output = sequence.completion_text
-        # Sequence is a list of OpenAiLmPrediction objects
-        else:
-            output = [x.completion_text for x in sequence]
+            ]
+
+        output = self.lm_wrapper.predict_many_outputs(prompts)
+        
         if self.lm_logger:
             first_output = output[-1] if isinstance(output, list) else output
             self.lm_logger.log_io(
