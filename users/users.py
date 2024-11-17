@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
 from users.user_features import PersonAttributeMeta
-
+from users.benefits_programs import BenefitsProgramMeta
 np.random.seed(0)
 
 ### CLASSES ###
@@ -229,10 +229,6 @@ class Household:
             ]
         ).strip()
  
- 
-
-
-
 
 if __name__ == "__main__":
     #
