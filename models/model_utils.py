@@ -14,11 +14,11 @@ class LanguageModelWrapper:
     @property
     def language_model(self):
         if self._language_model is None:
-            if self.family in ["llama", "gemma"]:
+            if self.family in ["llama", "gemma", "opencoder"]:
                 # only import if necessary since these are heavy dependencies
                 from lmwrapper.huggingface_wrapper import get_huggingface_lm
 
-                self._language_model = get_huggingface_lm(self.hf_name)
+                self._language_model = get_huggingface_lm(self.hf_name, trust_remote_code=True)
                 self._language_model._tokenizer.pad_token_id = (
                     self._language_model._tokenizer.eos_token_id
                 )

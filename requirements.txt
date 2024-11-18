@@ -16,3 +16,4 @@ matplotlib
 schema
 names
 pandas
+sentencepiece
