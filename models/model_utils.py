@@ -16,7 +16,8 @@ class LanguageModelWrapper:
     @property
     def language_model_name(self):
         if self._language_model_name is None:
-            payload = {"family": self.family, "hf_name": self.hf_name}
+            wrapped = self.hf_name not in ["infly/OpenCoder-8B-Instruct"]
+            payload = {"family": self.family, "hf_name": self.hf_name, "wrapped": wrapped}
             print(f"Payload to /load_model: {payload}")  # Debugging step
 
             response = requests.post(f"{self.api_url}/load_model", json=payload)
