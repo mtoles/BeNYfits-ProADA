@@ -46,8 +46,6 @@ class LanguageModelWrapper:
             raise Exception(f"Prediction error: {response.json()['detail']}")
 
     def predict_many_outputs(self, prompts: list[LmPrompt]):
-
-        print("In function Predict Many outputs")
         prompts_data = [
             {
                 "text": p.text,

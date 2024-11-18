@@ -9,7 +9,7 @@ from fastapi.encoders import jsonable_encoder
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import traceback
-
+from transformers import GPT2TokenizerFast
 
 class PromptInput(BaseModel):
     text: str
@@ -72,6 +72,7 @@ class ModelServer:
                     model._tokenizer.padding_side = "left"
                 else:
                     model = get_open_ai_lm(hf_name)
+                    model._tokenizer = (GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo"))
                 self.models[hf_name] = model
                 print(f"Model Pipeline Instantiated: {family} {hf_name}")
         else:
