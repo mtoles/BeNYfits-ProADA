@@ -26,8 +26,9 @@ def unit_test_dataset():
         row = {}
         for name, bp in BenefitsProgramMeta.registry.items():
             row[name] = bp.__call__(hh)
-        row["nl_desc"] = hh.nl_household_profile()
+        row["hh_nl_desc"] = hh.nl_household_profile()
         rows.append(row)
 
     df = pd.DataFrame(rows)
+    df["hh"] = hhs
     return df

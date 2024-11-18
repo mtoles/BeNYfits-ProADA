@@ -27,12 +27,14 @@ class LmBackboneModel:
     def __init__(
         self,
         lm_wrapper,
+        use_cache: bool,
         mode: PromptMode = PromptMode.DEFAULT,
         lm_logger: Optional[LmLogger] = None,
     ):
         self.lm_wrapper = lm_wrapper
         self.mode = mode
         self.lm_logger = lm_logger
+        self.use_cache = use_cache
         # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
         if lm_wrapper.family in ["llama"]:
             self.hf_api_key = os.getenv("HF_TOKEN")
@@ -114,7 +116,7 @@ class LmBackboneModel:
                 [
                     LmPrompt(
                         formatted_prompt,
-                        cache=True,
+                        cache=self.use_cache,
                         logprobs=0,
                         num_completions=num_completions,
                         max_tokens=OUTPUT_TOKEN_LIMIT,

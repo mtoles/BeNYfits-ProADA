@@ -11,6 +11,7 @@ class SyntheticUser:
         self,
         hh_nl_desc: str,
         lm_wrapper: LanguageModelWrapper,
+        use_cache: bool, 
         lm_logger: LmLogger,
         top_k: int = 5,
     ):
@@ -19,9 +20,10 @@ class SyntheticUser:
         """
         self.lm_wrapper = lm_wrapper
         self.nl_profile = hh_nl_desc
+        self.use_cache = use_cache
         # Model to answer clarifying question
         # self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper, lm_logger=lm_logger)
+        self.lm_backbone = LmBackboneModel(self.lm_wrapper, self.use_cache, lm_logger=lm_logger)
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
         self.sentence_encoder = SentenceTransformer('all-MiniLM-L6-v2')        

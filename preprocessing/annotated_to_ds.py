@@ -39,8 +39,12 @@ for i, row in df.iterrows():
         for j, (k, v) in enumerate(feature_kvs):
             if v.isnumeric():
                 feature_kvs[j] = (k, int(v))
-            if v == "True" or v == "False":
-                feature_kvs[j] = (k, bool(v))
+            # if v == "True" or v == "False":
+            #     feature_kvs[j] = (k, bool(v))
+            if v == "True":
+                feature_kvs[j] = (k, True)
+            if v == "False":
+                feature_kvs[j] = (k, False)
         non_default_features = dict(feature_kvs)
         relation = non_default_features["relation"]
         if relation == "self":
