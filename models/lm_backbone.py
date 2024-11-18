@@ -41,6 +41,7 @@ class LmBackboneModel:
             ("gpt", PromptMode.DEFAULT): self._format_gpt_prompt_default,
             ("o1", PromptMode.DEFAULT): self._format_o1_prompt_default,
             ("gemma", PromptMode.DEFAULT): self._format_gemma_prompt_default,
+            ("opencoder", PromptMode.DEFAULT): self._format_opencoder_prompt_default,
             (
                 "mistral",
                 PromptMode.DEFAULT,
@@ -64,6 +65,9 @@ class LmBackboneModel:
         for turn in history:
             if turn["role"] == "system":
                 turn["role"] = "user"
+        return history
+    
+    def _format_opencoder_prompt_default(self, history: list[dict]) -> str:
         return history
 
     def _format_gemma_prompt_default(self, history: list[dict]) -> str:
