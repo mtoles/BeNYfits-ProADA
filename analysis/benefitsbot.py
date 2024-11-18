@@ -9,7 +9,8 @@ from datetime import datetime
 from tqdm import tqdm
 from acc_over_time_experiment import plot_metrics_per_turn
 from models.lm_logging import LmLogger
-from users import Household
+from users.dataset_generation import unit_test_dataset
+from users.users import Household
 from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
@@ -91,6 +92,12 @@ parser.add_argument(
     type=str,
     help="Experiment tracking string",
 )
+parser.add_argument(
+    "--use_cache",
+    default=True,
+    type=lambda x: (str(x).lower() == "true") if str(x).lower() in ("true", "false") else (_ for _ in ()).throw(ValueError("Value must be 'true' or 'false'")),
+    help="Use lmwrapper cache. Disable to allow sampling",
+)
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -140,8 +147,13 @@ eligibility_requirements = eligibility_df.set_index("program")["description"].to
 
 
 # Load the dataset
-df = pd.read_json(args.dataset_path, lines=True)
-df["hh"] = df["hh"].apply(lambda hh: Household.from_dict(hh))
+if os.path.exists(args.dataset_path):
+    df = pd.read_json(args.dataset_path, lines=True)
+elif args.dataset_path == "unittest":
+    df = unit_test_dataset()
+df["hh"] = df["hh"].apply(
+    lambda hh: Household.from_dict(hh) if isinstance(hh, dict) else hh
+)
 if args.ds_shift:
     df = df.iloc[args.ds_shift :]
 if args.downsample_size:
@@ -153,8 +165,6 @@ per_turn_all_predictions = []
 last_turn_iteration = []
 
 num_benefits = len(args.programs)
-# print(f"Total number of programs: {no_of_benefits}")
-# print(f"Household Description: {hh_nl_desc}")
 
 # Load language models and pipeline setup
 chatbot_model_wrapper = load_lm(args.chatbot_model_name)
@@ -166,37 +176,34 @@ lm_logger = LmLogger(log_dir=output_dir)
 def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> ChatBot:
     if model_name == "backbone":
         chatbot = ChatBot(
-            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            args.use_cache,
+            lm_logger,
         )
     elif model_name == "backbone_fixed":
         chatbot = ChatBotBackboneFixed(
-            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
+            chatbot_model_wrapper,
+            num_benefits,
+            eligibility_requirements,
+            args.use_cache,
+            lm_logger,
         )
     elif model_name == "prompt_engineering_loose":
         chatbot = ChatBotPredictCQPromptLoose(
-            chatbot_model_wrapper, num_benefits, eligibility_requirements, lm_logger
-        )
-    elif model_name == "notetaker":
-        chatbot = NotetakerChatBot(
             chatbot_model_wrapper,
             num_benefits,
             eligibility_requirements,
-            notebook_only=False,
-            lm_logger=lm_logger,
-        )
-    elif model_name == "notetaker-2":
-        chatbot = NotetakerChatBot(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            notebook_only=True,
-            lm_logger=lm_logger,
+            args.use_cache,
+            lm_logger,
         )
     elif model_name == "cot":
         chatbot = CotChatBot(
             chatbot_model_wrapper,
             num_benefits,
             eligibility_requirements,
+            args.use_cache,
             lm_logger=lm_logger,
         )
     elif model_name == "coderef":
@@ -204,6 +211,7 @@ def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> C
             chatbot_model_wrapper,
             num_benefits,
             eligibility_requirements,
+            args.use_cache,
             lm_logger=lm_logger,
         )
     elif model_name == "codebot":
@@ -211,6 +219,7 @@ def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> C
             chatbot_model_wrapper,
             num_benefits,
             eligibility_requirements,
+            args.use_cache,
             lm_logger=lm_logger,
         )
     else:
@@ -229,6 +238,7 @@ for index, row in tqdm(df.iterrows()):
     synthetic_user = SyntheticUser(
         hh_nl_desc,
         synthetic_user_model_wrapper,
+        use_cache=args.use_cache,
         lm_logger=lm_logger,
         top_k=args.top_k,
     )
@@ -255,6 +265,7 @@ for index, row in tqdm(df.iterrows()):
                     "llama",
                     args.codellama_model_name,
                 ),
+                use_cache=args.use_cache,
                 lm_logger=lm_logger,
             )
 
@@ -262,7 +273,6 @@ for index, row in tqdm(df.iterrows()):
         if os.path.exists(generated_code_path):
             os.remove(generated_code_path)
         try:
-
             tf = open(generated_code_path, "w")
             chatbot.pre_conversation(locals())
         finally:

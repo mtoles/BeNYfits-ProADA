@@ -4,7 +4,7 @@ import json
 import os
 from copy import deepcopy
 import pandas as pd
-from users import Household
+from users.users import Household
 from dataset_procedural import show_household
 
 

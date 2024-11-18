@@ -26,12 +26,14 @@ class LmBackboneModel:
     def __init__(
         self,
         lm_wrapper,
+        use_cache: bool,
         mode: PromptMode = PromptMode.DEFAULT,
         lm_logger: Optional[LmLogger] = None,
     ):
         self.lm_wrapper = lm_wrapper
         self.mode = mode
         self.lm_logger = lm_logger
+        self.use_cache = use_cache
 
     def _get_format_func(self) -> Callable:
         format_funcs = {
@@ -91,7 +93,7 @@ class LmBackboneModel:
 
         prompts = [
             LmPrompt(formatted_prompt,
-                        cache=True,
+                        cache=self.use_cache,
                         logprobs=0,
                         max_tokens=OUTPUT_TOKEN_LIMIT,
                     )
