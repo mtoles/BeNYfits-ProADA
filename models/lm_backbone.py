@@ -59,23 +59,10 @@ class LmBackboneModel:
 
     def _format_llama_prompt_default(self, history: list[dict]) -> str:
         history = copy.deepcopy(history)
-
-        # convert the first n-1 dictionaries in the history to a single string
-        if len(history) > 1:
-            history_str = "\n".join(
-                [f"{turn['role']}:{turn['content']}" for turn in history[:-1]]
-            )
-            history = [
-                {"role": "system", "content": history_str},
-                history[-1],
-            ]
-        history[-1]["role"]="user"
-
-        return ""
     
         # TODO - RATTAN - EXPOSE THE APPLY CHAT TEMPLATE FUNCTIONALITY FROM THE API
-        return self.lm_wrapper.language_model._tokenizer.apply_chat_template(
-            history, tokenize=False, add_generation_prompt=True
+        return self.lm_wrapper.apply_chat_template(
+            history
         )
 
     def _format_gpt_prompt_default(self, history: list[dict]) -> str:

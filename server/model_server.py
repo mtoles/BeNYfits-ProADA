@@ -89,3 +89,38 @@ def predict_many(request: PredictManyRequest):
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+class ChatHistoryInput(BaseModel):
+    history: list[dict]
+    model_id: str
+
+@app.post("/apply_chat_template")
+def apply_chat_template(request: ChatHistoryInput):
+    print(f"Request Received: {request}")
+
+    try:
+        model = model_server.get_model(request.model_id)
+
+        history = request.history
+
+        # convert the first n-1 dictionaries in the history to a single string
+        if len(history) > 1:
+            history_str = "\n".join(
+                [f"{turn['role']}:{turn['content']}" for turn in history[:-1]]
+            )
+            history = [
+                {"role": "system", "content": history_str},
+                history[-1],
+            ]
+        history[-1]["role"]="user"
+
+        output = model._tokenizer.apply_chat_template(
+            history, tokenize=False, add_generation_prompt=True
+        )
+
+        print(f"Chat Template Applied: {output}")
+
+        return {"formatted_chat": output}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

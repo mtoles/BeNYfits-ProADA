@@ -31,6 +31,20 @@ class LanguageModelWrapper:
     def __str__(self):
         return f"{self.display_name} ({self.family})"
     
+    def apply_chat_template(self, history: list[dict]):
+        response = requests.post(
+            f"{self.api_url}/apply_chat_template",
+            json={
+                "model_id": self.language_model_name,
+                "history": history,
+            },
+        )
+
+        if response.status_code == 200:
+            return response.json()["formatted_chat"]
+        else:
+            raise Exception(f"Prediction error: {response.json()['detail']}")
+
     def predict_many_outputs(self, prompts: list[LmPrompt]):
 
         print("In function Predict Many outputs")
