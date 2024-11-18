@@ -10,7 +10,6 @@ from enum import Enum
 from models.lm_logging import LmLogger
 from models.model_utils import load_lm
 from inspect import currentframe
-from transformers import GPT2TokenizerFast
 import copy
 
 tqdm.pandas()
@@ -27,20 +26,14 @@ class LmBackboneModel:
     def __init__(
         self,
         lm_wrapper,
+        use_cache: bool,
         mode: PromptMode = PromptMode.DEFAULT,
         lm_logger: Optional[LmLogger] = None,
     ):
         self.lm_wrapper = lm_wrapper
         self.mode = mode
         self.lm_logger = lm_logger
-        # # self.hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
-        # if lm_wrapper.family in ["llama"]:
-        #     self.hf_api_key = os.getenv("HF_TOKEN")
-        #     login(token=self.hf_api_key)
-        # if lm_wrapper.family in ["gpt", "o1"]:
-        #     self.lm_wrapper.language_model._tokenizer = (
-        #         GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo")
-        #     )
+        self.use_cache = use_cache
 
     def _get_format_func(self) -> Callable:
         format_funcs = {
@@ -59,11 +52,7 @@ class LmBackboneModel:
 
     def _format_llama_prompt_default(self, history: list[dict]) -> str:
         history = copy.deepcopy(history)
-    
-        # TODO - RATTAN - EXPOSE THE APPLY CHAT TEMPLATE FUNCTIONALITY FROM THE API
-        return self.lm_wrapper.apply_chat_template(
-            history
-        )
+        return self.lm_wrapper.apply_chat_template(history)
 
     def _format_gpt_prompt_default(self, history: list[dict]) -> str:
         # bechmark_template_json = 'Return the questions as a list in JSON format, as in {{"questions": ["The first question?", "The second question?"]}}'
@@ -97,40 +86,14 @@ class LmBackboneModel:
         formatted_prompt = format_func(history)
 
         # TODO - BRING BACK THIS FUNCTIONALITY LATER
-
         # assert (
         #     len(self.lm_wrapper.language_model._tokenizer.encode(str(formatted_prompt)))
         #     < INPUT_TOKEN_LIMIT
         # ), f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
 
-        
-        # sequences = list(
-        #     self.lm_wrapper.language_model.predict_many(
-        #         [
-        #             LmPrompt(
-        #                 formatted_prompt,
-        #                 cache=True,
-        #                 logprobs=0,
-        #                 num_completions=num_completions,
-        #                 max_tokens=OUTPUT_TOKEN_LIMIT,
-        #             )
-        #         ],
-        #         completion_window=CompletionWindow.ASAP,
-        #     )
-        # )
-        # sequence = sequences[0]
-        # # Sequence is a OpenAiLmPrediction object
-        # if num_completions is None:
-        #     output = sequence.completion_text
-        # # Sequence is a list of OpenAiLmPrediction objects
-        # else:
-        #     output = [x.completion_text for x in sequence]
-
-        print("IN LM MODEL FORWARD")
-
         prompts = [
             LmPrompt(formatted_prompt,
-                        cache=True,
+                        cache=self.use_cache,
                         logprobs=0,
                         max_tokens=OUTPUT_TOKEN_LIMIT,
                     )

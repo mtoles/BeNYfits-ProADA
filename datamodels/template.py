@@ -1,4 +1,4 @@
-from users import Household
+from users.users import Household
 import traceback
 from copy import deepcopy
 
@@ -98,7 +98,15 @@ class ImaginaryData:
     def __bool__(self):
         self.establish_value()
         try:
-            return bool(self.value)
+            if str(self.value).lower() in ["true", "yes"]:
+                return True
+            elif str(self.value).lower() in ["false", "no"]:
+                return False
+            for t in [int, float, list, tuple, dict, set, bool]:
+                try:
+                    return t(self.value)
+                except (ValueError, TypeError):
+                    pass
         except (ValueError, TypeError):
             return self.chatbot.cast_with_lm(self.cq, self.answer, "bool")
 
