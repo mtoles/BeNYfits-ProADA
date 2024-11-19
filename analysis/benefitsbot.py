@@ -254,45 +254,46 @@ for index, row in tqdm(df.iterrows()):
 
     ### PRE-CONVERSATION (codellama and code gen) ###
     if code_run_mode:
-        if secondary_code_model_mode:
-            print("temporarily entering codellama mode")
-            if "llama" in args.code_model_name.lower():
-                codellama_model_size = re.search(
-                    r"(\d+b)", args.code_model_name
-                ).group(1)
-                chatbot.lm_backbone = LmBackboneModel(
-                    LanguageModelWrapper(
-                        f"Codellama {codellama_model_size} Instruct",
-                        "llama",
-                        args.code_model_name,
-                    ),
-                    use_cache=args.use_cache,
-                    lm_logger=lm_logger,
-                )
-            elif "opencoder" in args.code_model_name.lower():
-                chatbot.lm_backbone = LmBackboneModel(
-                    LanguageModelWrapper(
-                        f"infly OpenCoder 8B Instruct",
-                        "opencoder",
-                        args.code_model_name,
-                    ),
-                    use_cache=args.use_cache,
-                    lm_logger=lm_logger,
-                )
-            else:
-                raise ValueError(
-                    f"Invalid code model name: {args.code_model_name}"
-                )
+        if not os.path.exists(generated_code_path): # somewhat unsafe check if code has been generated
+            if secondary_code_model_mode:
+                print("temporarily entering codellama mode")
+                if "llama" in args.code_model_name.lower():
+                    codellama_model_size = re.search(
+                        r"(\d+b)", args.code_model_name
+                    ).group(1)
+                    chatbot.lm_backbone = LmBackboneModel(
+                        LanguageModelWrapper(
+                            f"Codellama {codellama_model_size} Instruct",
+                            "llama",
+                            args.code_model_name,
+                        ),
+                        use_cache=args.use_cache,
+                        lm_logger=lm_logger,
+                    )
+                elif "opencoder" in args.code_model_name.lower():
+                    chatbot.lm_backbone = LmBackboneModel(
+                        LanguageModelWrapper(
+                            f"infly OpenCoder 8B Instruct",
+                            "opencoder",
+                            args.code_model_name,
+                        ),
+                        use_cache=args.use_cache,
+                        lm_logger=lm_logger,
+                    )
+                else:
+                    raise ValueError(
+                        f"Invalid code model name: {args.code_model_name}"
+                    )
 
-        # create named temp file for codebot code gen
-        if os.path.exists(generated_code_path):
-            os.remove(generated_code_path)
-        try:
-            tf = open(generated_code_path, "w")
-            chatbot.pre_conversation(locals())
-        finally:
-            tf.close()
-            # os.remove("generated_code.py")
+            # # create named temp file for codebot code gen
+            # if os.path.exists(generated_code_path):
+            #     os.remove(generated_code_path)
+            try:
+                tf = open(generated_code_path, "w")
+                chatbot.pre_conversation(locals())
+            finally:
+                tf.close()
+                # os.remove("generated_code.py")
 
         # run generated code
         chatbot = get_model(args.chatbot_strategy)
