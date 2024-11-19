@@ -11,6 +11,8 @@ import torch
 import traceback
 from transformers import GPT2TokenizerFast
 
+MAX_NEW_TOKENS = 4096
+
 class PromptInput(BaseModel):
     text: str
     cache: bool = True
@@ -35,7 +37,7 @@ class ModelUnwrapped:
             device_map="auto",
             trust_remote_code=True,
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        self._tokenizer = AutoTokenizer.from_pretrained(
             model_name, trust_remote_code=True
         )
         # self.model._tokenizer.pad_token_id = self.model._tokenizer.eos_token_id
@@ -46,13 +48,13 @@ class ModelUnwrapped:
         print(lm_prompts)
         messages = [{"role": "user", "content": prompt.text} for prompt in lm_prompts]
 
-        input = self.tokenizer.apply_chat_template(
+        input = self._tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, return_tensors="pt"
         ).to(self.model.device)
 
-        output = self.model.generate(input, max_new_tokens=512, do_sample=False)
+        output = self.model.generate(input, do_sample=False, max_new_tokens=MAX_NEW_TOKENS)
 
-        result = self.tokenizer.decode(
+        result = self._tokenizer.decode(
             output[0][len(input[0]) :], skip_special_tokens=True
         )
         return [result]
@@ -72,13 +74,16 @@ class ModelServer:
                     model._tokenizer.padding_side = "left"
                 else:
                     model = get_open_ai_lm(hf_name)
-                    model._tokenizer = (GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo"))
+                    model._tokenizer = GPT2TokenizerFast.from_pretrained(
+                        "Xenova/gpt-3.5-turbo"
+                    )
                 self.models[hf_name] = model
                 print(f"Model Pipeline Instantiated: {family} {hf_name}")
         else:
             if hf_name not in self.models:
                 print("loading unwrapped model")
-                self.models[hf_name] = ModelUnwrapped(hf_name)
+                model = ModelUnwrapped(hf_name)
+                self.models[hf_name] = model
         return hf_name
 
     def get_model(self, model_id):

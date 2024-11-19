@@ -7,6 +7,8 @@ import pandas as pd
 from openai._types import NotGiven
 from typing import Optional
 import torch
+import ast
+import re
 
 load_dotenv()
 
@@ -120,3 +122,39 @@ def print_device():
         print("Current Device: GPU")
     else:
         print("Current Device: CPU")
+
+
+def extract_function_definitions(code: str):
+    """
+    Extract syntactically valid Python function definitions from a string.
+
+    Parameters:
+        code (str): Input string containing Python code.
+
+    Returns:
+        list: A list of extracted function definitions as strings.
+    """
+    # if the code contains ```, extract the part inside them
+    blocks = re.findall(r"```(.*?)```", code, re.DOTALL)  # any code inside ``` ... ```
+    blocks.extend(code.split("```python\n"))
+    blocks.append(code)
+
+    functions = dict()
+    # try:
+    # Parse the code into an abstract syntax tree
+    for block in blocks:
+        try:
+            tree = ast.parse(block)
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef):
+                # Unparse the function definition back to code
+                fn_code = ast.unparse(node)
+                fn_name = node.name
+                # functions.append({"fn": fn_code, "name": fn_name})
+                functions[fn_name] = fn_code
+
+    assert len(functions) > 0, "no functions found in code"
+
+    return functions

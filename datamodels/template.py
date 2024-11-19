@@ -11,6 +11,18 @@ class ImaginaryData:
         self.synthetic_user = synthetic_user
         self.program_desc = program_desc
 
+        # Helper function to capture the method correctly
+        # def make_method(method):
+        #     return lambda *args, **kwargs: method(self.value, *args, **kwargs)
+
+        # # Dynamically define all callable attributes of `str`
+        # for name in dir(str):
+        #     if not name.startswith('__'):
+        #         method = getattr(str, name)
+        #         if callable(method):
+        #             setattr(self, name, make_method(method))
+
+
     def __iter__(self):
         return iter(self.features)
 
@@ -36,8 +48,9 @@ class ImaginaryData:
     def __contains__(self, key):
         return True
 
-    def __call__(cls, *args, **kwargs):
-        return cls.__init__(*args, **kwargs)
+    def __call__(self, *args, **kwargs):
+        # return cls.__init__(*args, **kwargs)
+        return self.value()
 
     def __lt__(self, other):
         self.establish_value()
@@ -74,9 +87,20 @@ class ImaginaryData:
         except (ValueError, TypeError):
             return self.chatbot.compare_with_lm(self.value, other, ">=")
 
-    def __getattr__(self, name):
+    def __getattr__(self, name, *args, **kwargs):
         self.establish_value()
+        if name in dir(str) and name not in dir(ImaginaryData):
+            str_attr = getattr(str, name)
+            if callable(str_attr):
+                return lambda *args, **kwargs: str_attr(self.value, *args, **kwargs)
+            else:
+                return str_attr
+
         return getattr(self.value, name)
+
+    # def strip(self):
+    #     self.establish_value()
+    #     print("stripping!")
 
     def get(self, key, default=None):
         return self.__getitem__(key)
@@ -109,6 +133,15 @@ class ImaginaryData:
                     pass
         except (ValueError, TypeError):
             return self.chatbot.cast_with_lm(self.cq, self.answer, "bool")
+
+    # def replace(self, old, new):
+    #     # return imaginary data so the imaginary data functions still work
+    #     self.establish_value()
+    #     new_imaginary_data = ImaginaryData(
+    #         self.chatbot, self.synthetic_user, self.program_desc
+    #     )
+    #     new_imaginary_data.value = self.value.replace(old, new)
+    #     return new_imaginary_data
 
     # def __hash__(self):
     #     if self.value is not None:
@@ -167,5 +200,7 @@ def run(local_scope: dict) -> bool:
     outputs = {}
     # run each program
     for name, p in eligibility.items():
-        outputs[name] = p(ImaginaryData(chatbot, synthetic_user, eligibility_requirements[name]))
+        outputs[name] = p(
+            ImaginaryData(chatbot, synthetic_user, eligibility_requirements[name])
+        )
     return outputs

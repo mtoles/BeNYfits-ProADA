@@ -2,6 +2,7 @@ from tqdm import tqdm
 from typing import List, Optional
 from tqdm import tqdm
 import os
+
 # from huggingface_hub import login
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
@@ -14,7 +15,7 @@ import copy
 
 tqdm.pandas()
 INPUT_TOKEN_LIMIT = 4096
-OUTPUT_TOKEN_LIMIT = 1024
+OUTPUT_TOKEN_LIMIT = 4096
 ### TEMPLATES ###
 
 
@@ -66,9 +67,10 @@ class LmBackboneModel:
             if turn["role"] == "system":
                 turn["role"] = "user"
         return history
-    
+
     def _format_opencoder_prompt_default(self, history: list[dict]) -> str:
-        return history
+        history = copy.deepcopy(history)
+        return self.lm_wrapper.apply_chat_template(history)
 
     def _format_gemma_prompt_default(self, history: list[dict]) -> str:
         raise NotImplementedError
@@ -96,15 +98,16 @@ class LmBackboneModel:
         # ), f"For cost reasons, hard cap on prompt length is {INPUT_TOKEN_LIMIT}"
 
         prompts = [
-            LmPrompt(formatted_prompt,
-                        cache=self.use_cache,
-                        logprobs=0,
-                        max_tokens=OUTPUT_TOKEN_LIMIT,
-                    )
-            ]
+            LmPrompt(
+                formatted_prompt,
+                cache=self.use_cache,
+                logprobs=0,
+                max_tokens=OUTPUT_TOKEN_LIMIT,
+            )
+        ]
 
         output = self.lm_wrapper.predict_many_outputs(prompts)
-        
+
         if self.lm_logger:
             first_output = output[-1] if isinstance(output, list) else output
             self.lm_logger.log_io(

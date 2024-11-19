@@ -4,7 +4,7 @@ from tempfile import NamedTemporaryFile
 import re
 import sys
 import importlib.util
-
+from utils import extract_function_definitions
 
 class CodeBot(ChatBot):
     code_gen_prompt = """{eligibility_requirement}. Write a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information in string form and determines user eligibility. `check_eligibility` returns a bool. Make your code as detailed as possible capturing every edge case. Do not provide anything besides code in your response."""
@@ -32,14 +32,15 @@ class CodeBot(ChatBot):
                 logging_role="code_gen",
             ).strip()
             # extract code between ```
-            clean_code_output_matches = re.findall(
-                r"(def check_eligibility.*?)```", str(lm_output), re.DOTALL
-            )
-            clean_code_output = (
-                clean_code_output_matches[0]
-                if len(clean_code_output_matches) > 0
-                else lm_output
-            )
+            # clean_code_output_matches = re.findall(
+            #     r"(def check_eligibility.*?)```", str(lm_output), re.DOTALL
+            # )
+            # clean_code_output = (
+            #     clean_code_output_matches[0]
+            #     if len(clean_code_output_matches) > 0
+            #     else lm_output
+            # )
+            clean_code_output = extract_function_definitions(lm_output)["check_eligibility"]
 
             clean_code_output = clean_code_output.replace(
                 "def check_eligibility(hh):", f"def {name}(hh):"
@@ -206,7 +207,7 @@ class CodeBot(ChatBot):
         # get the captured group that isn't empty
         actual_reduced = [x for x in reduced if x][-1]
         float_output = float(actual_reduced)
-        if target_type == float:
+        if target_type == "float":
             return float_output
         # handle ints in case integer is represented with a .
         return int(float_output)
