@@ -318,7 +318,7 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
                 [
                     hh.user()["lives_in_rent_stabilized_apartment"],
                     hh.user()["lives_in_rent_controlled_apartment"],
-                    hh.user()["lives_in_mitchell-lama"],
+                    hh.user()["lives_in_mitchell_lama"],
                     hh.user()["lives_in_limited_dividend_development"],
                     hh.user()["lives_in_redevelopment_company_development"],
                     hh.user()["lives_in_hdfc_development"],

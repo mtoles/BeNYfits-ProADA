@@ -42,7 +42,6 @@ class ModelUnwrapped:
         # self.model._tokenizer.padding_side = "left"
 
     def predict_many(self, lm_prompts: list[LmPrompt], completion_window):
-        # messages = [{"role": "user", "content": "write a quick sort algorithm in python."}]
         print(lm_prompts)
         messages = [{"role": "user", "content": prompt.text} for prompt in lm_prompts]
 
@@ -104,6 +103,9 @@ def load_model(request: LoadModelRequest):
         result = model_server.load_model(
             request.family, request.hf_name, request.wrapped
         )
+
+        print(f"Model loaded successfully: {result}")
+        
         return {"message": "Model loaded successfully!", "model": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
