@@ -136,6 +136,7 @@ def extract_function_definitions(code: str):
     """
     # if the code contains ```, extract the part inside them
     blocks = re.findall(r"```(.*?)```", code, re.DOTALL)  # any code inside ``` ... ```
+    blocks.extend(re.findall(r"```python\n(.*?)```", code, re.DOTALL))
     blocks.extend(code.split("```python\n"))
     blocks.append(code)
 
@@ -151,6 +152,14 @@ def extract_function_definitions(code: str):
             if isinstance(node, ast.FunctionDef):
                 # Unparse the function definition back to code
                 fn_code = ast.unparse(node)
+                # replace any `raise ...` with `pass`
+                # fn_code = fn_code.replace(
+                #     r"raise .*\n", "pass # raise exception replaced with regex\n"
+                # )
+                # fn_code = re.sub(r"raise .*\n", "pass # raise exception replaced with regex\n", fn_code)
+                # fn_code = re.sub(r"raise\s+[^\n]*\n(?:\s+.+\n)*", "pass # raise exception replaced with regex\n", fn_code)
+                # use ast to replace all raise statements with pass
+                # fn_code = ast.unparse(ast.parse(fn_code).body[0].body[0])
                 fn_name = node.name
                 # functions.append({"fn": fn_code, "name": fn_name})
                 functions[fn_name] = fn_code
@@ -158,3 +167,33 @@ def extract_function_definitions(code: str):
     assert len(functions) > 0, "no functions found in code"
 
     return functions
+
+
+def hist_to_str(history):
+    return "\n".join([f"{turn['role']}: {turn['content']}" for turn in history])
+
+import ast
+
+def remove_raise_statements(code: str) -> str:
+    """
+    Remove all `raise` statements from the given Python code.
+
+    Args:
+        code (str): The original Python code as a string.
+
+    Returns:
+        str: The modified Python code without `raise` statements.
+    """
+    class RaiseRemover(ast.NodeTransformer):
+        def visit_Raise(self, node):
+            return ast.Pass()  # Remove raise statements
+    
+    # Parse the code into an AST
+    tree = ast.parse(code)
+    
+    # Transform the AST to remove raise statements
+    transformer = RaiseRemover()
+    modified_tree = transformer.visit(tree)
+    
+    # Convert the modified AST back to source code
+    return ast.unparse(modified_tree)

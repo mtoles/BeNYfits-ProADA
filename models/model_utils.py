@@ -36,7 +36,7 @@ class LanguageModelWrapper:
         response = requests.post(
             f"{self.api_url}/apply_chat_template",
             json={
-                "model_id": self.language_model_name,
+                "id_of_model": self.language_model_name,
                 "history": history,
             },
         )
@@ -62,7 +62,7 @@ class LanguageModelWrapper:
         response = requests.post(
             f"{self.api_url}/predict_many",
             json={
-                "model_id": self.language_model_name,
+                "id_of_model": self.language_model_name,
                 "prompts": prompts_data,
             },
         )
@@ -82,6 +82,12 @@ MODEL_MAP: Dict[str, LanguageModelWrapper] = {
     ),
     "meta-llama/Meta-Llama-3-70B-Instruct": LanguageModelWrapper(
         "Llama 70B Instruct", "llama", "meta-llama/Meta-Llama-3-70B-Instruct"
+    ),
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": LanguageModelWrapper(
+        "Llama 8B Instruct", "llama", "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    ),
+    "meta-llama/Meta-Llama-3.1-70B-Instruct": LanguageModelWrapper(
+        "Llama 70B Instruct", "llama", "meta-llama/Meta-Llama-3.1-70B-Instruct"
     ),
     "meta-llama/CodeLlama-7b-Instruct-hf": LanguageModelWrapper(
         "meta-llama/CodeLlama-7b-Instruct-hf",

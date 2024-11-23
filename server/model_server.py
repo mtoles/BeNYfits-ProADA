@@ -22,7 +22,7 @@ class PromptInput(BaseModel):
 
 class PredictManyRequest(BaseModel):
     prompts: List[PromptInput]
-    model_id: str
+    id_of_model: str
 
 
 app = FastAPI()
@@ -86,11 +86,11 @@ class ModelServer:
                 self.models[hf_name] = model
         return hf_name
 
-    def get_model(self, model_id):
-        if model_id in self.models:
-            return self.models[model_id]
+    def get_model(self, id_of_model):
+        if id_of_model in self.models:
+            return self.models[id_of_model]
         else:
-            raise ValueError(f"Model with ID '{model_id}' not found!")
+            raise ValueError(f"Model with ID '{id_of_model}' not found!")
 
 
 model_server = ModelServer()
@@ -122,7 +122,7 @@ def predict_many(request: PredictManyRequest):
     print(f"Request Received: {request}")
 
     try:
-        model = model_server.get_model(request.model_id)
+        model = model_server.get_model(request.id_of_model)
         lm_prompts = [
             LmPrompt(
                 prompt.text,
@@ -148,7 +148,7 @@ def predict_many(request: PredictManyRequest):
         # responses = [
         #     jsonable_encoder(result) for result in results
         # ]
-        return {"model_id": request.model_id, "responses": output}
+        return {"id_of_model": request.id_of_model, "responses": output}
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
@@ -158,7 +158,7 @@ def predict_many(request: PredictManyRequest):
 
 class ChatHistoryInput(BaseModel):
     history: list[dict]
-    model_id: str
+    id_of_model: str
 
 
 @app.post("/apply_chat_template")
@@ -166,7 +166,7 @@ def apply_chat_template(request: ChatHistoryInput):
     print(f"Request Received: {request}")
 
     try:
-        model = model_server.get_model(request.model_id)
+        model = model_server.get_model(request.id_of_model)
 
         history = request.history
 

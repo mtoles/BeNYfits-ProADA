@@ -3,170 +3,6 @@ import traceback
 from copy import deepcopy
 
 
-class ImaginaryData:
-    def __init__(self, chatbot, synthetic_user, program_desc):
-        self.value = None
-        self.features = {}
-        self.chatbot = chatbot
-        self.synthetic_user = synthetic_user
-        self.program_desc = program_desc
-
-        # Helper function to capture the method correctly
-        # def make_method(method):
-        #     return lambda *args, **kwargs: method(self.value, *args, **kwargs)
-
-        # # Dynamically define all callable attributes of `str`
-        # for name in dir(str):
-        #     if not name.startswith('__'):
-        #         method = getattr(str, name)
-        #         if callable(method):
-        #             setattr(self, name, make_method(method))
-
-
-    def __iter__(self):
-        return iter(self.features)
-
-    def __getitem__(self, key):
-        if type(key) == ImaginaryData:
-            key = key.value
-        if key in self.features:
-            return self.features[key]
-        else:
-            self.features[key] = ImaginaryData(
-                self.chatbot, self.synthetic_user, self.program_desc
-            )
-            return self.features[key]
-
-    def __setitem__(self, key, value):
-        # self.features[key] = value
-        pass
-
-    def __str__(self):
-        self.establish_value()
-        return self.value
-
-    def __contains__(self, key):
-        return True
-
-    def __call__(self, *args, **kwargs):
-        # return cls.__init__(*args, **kwargs)
-        return self.value()
-
-    def __lt__(self, other):
-        self.establish_value()
-        try:
-            return type(other)(self.value) < other
-        except (ValueError, TypeError):
-            return self.chatbot.compare_with_lm(self.value, other, "<")
-
-    def __gt__(self, other):
-        self.establish_value()
-        try:
-            return type(other)(self.value) > other
-        except (ValueError, TypeError):
-            return self.chatbot.compare_with_lm(self.value, other, ">")
-
-    def __eq__(self, other):
-        self.establish_value()
-        try:
-            return type(other)(self.value) == other
-        except (ValueError, TypeError):
-            return self.chatbot.compare_with_lm(self.value, other, "==")
-
-    def __le__(self, other):
-        self.establish_value()
-        try:
-            return type(other)(self.value) <= other
-        except (ValueError, TypeError):
-            return self.chatbot.compare_with_lm(self.value, other, "<=")
-
-    def __ge__(self, other):
-        self.establish_value()
-        try:
-            return type(other)(self.value) >= other
-        except (ValueError, TypeError):
-            return self.chatbot.compare_with_lm(self.value, other, ">=")
-
-    def __getattr__(self, name, *args, **kwargs):
-        self.establish_value()
-        if name in dir(str) and name not in dir(ImaginaryData):
-            str_attr = getattr(str, name)
-            if callable(str_attr):
-                return lambda *args, **kwargs: str_attr(self.value, *args, **kwargs)
-            else:
-                return str_attr
-
-        return getattr(self.value, name)
-
-    # def strip(self):
-    #     self.establish_value()
-    #     print("stripping!")
-
-    def get(self, key, default=None):
-        return self.__getitem__(key)
-
-    def __int__(self):
-        self.establish_value()
-        try:
-            return int(self.value)
-        except (ValueError, TypeError):
-            return self.chatbot.cast_with_lm(self.cq, self.answer, "int")
-
-    def __float__(self):
-        self.establish_value()
-        try:
-            return float(self.value)
-        except (ValueError, TypeError):
-            return self.chatbot.cast_with_lm(self.cq, self.answer, "float")
-
-    def __bool__(self):
-        self.establish_value()
-        try:
-            if str(self.value).lower() in ["true", "yes"]:
-                return True
-            elif str(self.value).lower() in ["false", "no"]:
-                return False
-            for t in [int, float, list, tuple, dict, set, bool]:
-                try:
-                    return t(self.value)
-                except (ValueError, TypeError):
-                    pass
-        except (ValueError, TypeError):
-            return self.chatbot.cast_with_lm(self.cq, self.answer, "bool")
-
-    # def replace(self, old, new):
-    #     # return imaginary data so the imaginary data functions still work
-    #     self.establish_value()
-    #     new_imaginary_data = ImaginaryData(
-    #         self.chatbot, self.synthetic_user, self.program_desc
-    #     )
-    #     new_imaginary_data.value = self.value.replace(old, new)
-    #     return new_imaginary_data
-
-    # def __hash__(self):
-    #     if self.value is not None:
-
-    def establish_value(self):
-        if self.value is None:
-            # parse the ast to get the line of code we are at from `generated_code.py`
-            stack = list(reversed(traceback.extract_stack()))
-            # relevant frame should always be frame 2
-            self.line = stack[2].line
-            assert "hasattr" not in self.line
-            print("line:   ", self.line)
-            ### Pranay's dialog lookup call goes here ###
-            self.cq = self.chatbot.ask_question_from_code(
-                program_text=self.program_desc, key=self.line
-            )
-            print("cq:     ", self.cq)
-            self.answer = self.synthetic_user.answer_cq(self.cq)
-            print("answer: ", self.answer)
-            self.value = self.chatbot.extract_value_from_ans(
-                key=self.line, cq=self.cq, answer=self.answer
-            )
-            print("value:  ", self.value)
-            print
-
 
 def dummy_eligibility_program(hh: dict) -> bool:
     """
@@ -181,6 +17,7 @@ def dummy_eligibility_program(hh: dict) -> bool:
 
 
 def run(local_scope: dict) -> bool:
+    hh = local_scope["hh"]
     synthetic_user = local_scope["synthetic_user"]
     chatbot = local_scope["chatbot"]
     eligibility_requirements = local_scope["eligibility_requirements"]
@@ -201,6 +38,6 @@ def run(local_scope: dict) -> bool:
     # run each program
     for name, p in eligibility.items():
         outputs[name] = p(
-            ImaginaryData(chatbot, synthetic_user, eligibility_requirements[name])
+            hh
         )
     return outputs

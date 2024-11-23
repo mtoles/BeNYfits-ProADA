@@ -17,7 +17,7 @@ class ModelAPIClient:
         else:
             raise Exception(f"Error loading model: {response.json()['detail']}")
 
-    def predict_many(self, model_id, prompts: list[LmPrompt]):
+    def predict_many(self, id_of_model, prompts: list[LmPrompt]):
         prompts_data = [
             {
                 "text": p.text,
@@ -33,7 +33,7 @@ class ModelAPIClient:
         response = requests.post(
             f"{self.api_url}/predict_many",
             json={
-                "model_id": model_id,
+                "id_of_model": id_of_model,
                 "prompts": prompts_data,
             },
         )

@@ -40,7 +40,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_dialog_turns",
-    default=10,
+    default=float("inf"),
     help="Maximum number of iterations between benefits bot and synthetic user",
     type=int,
 )
