@@ -2,6 +2,7 @@ import requests
 from lmwrapper.structs import LmPrompt
 from lmwrapper.batch_config import CompletionWindow
 import json
+from lmwrapper.openai_wrapper import OpenAiModelNames
 
 class ModelAPIClient:
     def __init__(self, api_url):
@@ -45,7 +46,9 @@ class ModelAPIClient:
 
 # Usage
 client = ModelAPIClient("http://localhost:8000")
-model_info = client.load_model("llama", "meta-llama/Meta-Llama-3-8B-Instruct")
+# model_info = client.load_model("llama", "meta-llama/Meta-Llama-3-8B-Instruct")
+
+model_info = client.load_model("gpt", OpenAiModelNames.gpt_4o_mini_2024_07_18)
 
 print(f"Model Info: {model_info}")
 

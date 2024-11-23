@@ -10,6 +10,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import traceback
 from transformers import GPT2TokenizerFast
+import threading
+import time
+from datetime import datetime
 
 class PromptInput(BaseModel):
     text: str
@@ -17,14 +20,11 @@ class PromptInput(BaseModel):
     logprobs: int = 0
     max_tokens: int = 50
 
-
 class PredictManyRequest(BaseModel):
     prompts: List[PromptInput]
     model_id: str
 
-
 app = FastAPI()
-
 
 class ModelUnwrapped:
     def __init__(self, model_name):
@@ -56,35 +56,62 @@ class ModelUnwrapped:
         )
         return [result]
 
+class ModelEntry:
+    def __init__(self, model):
+        self.model = model
+        self.last_access_time = datetime.now()
 
 # Model container
 class ModelServer:
     def __init__(self):
         self.models = {}
+        self.lock = threading.Lock()
+        self.unload_interval = 12 * 60 * 60  # 12 hours in seconds
+        self.cleanup_thread = threading.Thread(target=self.unload_old_models, daemon=True)
+        self.cleanup_thread.start()
+
+    def unload_old_models(self):
+        while True:
+            time.sleep(3600)  # Sleep for 1 hour
+            print(f"Background thread to unload model")
+            with self.lock:
+                current_time = datetime.now()
+                models_to_unload = []
+                for model_id, model_entry in list(self.models.items()):
+                    elapsed_time = (current_time - model_entry.last_access_time).total_seconds()
+                    if elapsed_time > self.unload_interval:
+                        models_to_unload.append(model_id)
+                for model_id in models_to_unload:
+                    del self.models[model_id]
+                    print(f"Model {model_id} has been unloaded due to inactivity.")
 
     def load_model(self, family, hf_name, wrapped=True):
-        if wrapped:
-            if hf_name not in self.models:
-                if family in ["llama", "gemma"]:
-                    model = get_huggingface_lm(hf_name)
-                    model._tokenizer.pad_token_id = model._tokenizer.eos_token_id
-                    model._tokenizer.padding_side = "left"
-                else:
-                    model = get_open_ai_lm(hf_name)
-                    model._tokenizer = (GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo"))
-                self.models[hf_name] = model
-                print(f"Model Pipeline Instantiated: {family} {hf_name}")
-        else:
-            if hf_name not in self.models:
-                print("loading unwrapped model")
-                self.models[hf_name] = ModelUnwrapped(hf_name)
+        with self.lock:
+            if wrapped:
+                if hf_name not in self.models:
+                    if family in ["llama", "gemma"]:
+                        model = get_huggingface_lm(hf_name)
+                        model._tokenizer.pad_token_id = model._tokenizer.eos_token_id
+                        model._tokenizer.padding_side = "left"
+                    else:
+                        model = get_open_ai_lm(hf_name)
+                        model._tokenizer = GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo")
+                    self.models[hf_name] = ModelEntry(model)
+                    print(f"Model Pipeline Instantiated: {family} {hf_name}")
+            else:
+                if hf_name not in self.models:
+                    print("loading unwrapped model")
+                    self.models[hf_name] = ModelEntry(ModelUnwrapped(hf_name))
         return hf_name
 
     def get_model(self, model_id):
-        if model_id in self.models:
-            return self.models[model_id]
-        else:
-            raise ValueError(f"Model with ID '{model_id}' not found!")
+        with self.lock:
+            if model_id in self.models:
+                model_entry = self.models[model_id]
+                model_entry.last_access_time = datetime.now()  # Reset the timer
+                return model_entry.model
+            else:
+                raise ValueError(f"Model with ID '{model_id}' not found!")
 
 
 model_server = ModelServer()
@@ -93,8 +120,7 @@ model_server = ModelServer()
 class LoadModelRequest(BaseModel):
     family: str
     hf_name: str
-    wrapped: bool
-
+    wrapped: bool = True
 
 @app.post("/load_model")
 def load_model(request: LoadModelRequest):
@@ -105,13 +131,10 @@ def load_model(request: LoadModelRequest):
         )
 
         print(f"Model loaded successfully: {result}")
-        
+
         return {"message": "Model loaded successfully!", "model": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# Define request schema for predict_many
 
 
 @app.post("/predict_many")
