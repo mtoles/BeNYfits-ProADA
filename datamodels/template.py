@@ -1,26 +1,40 @@
-from users.users import Household
-import traceback
 from copy import deepcopy
 
-
+class SchemaError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 def dummy_eligibility_program(hh: dict) -> bool:
     """
-    Dummy function overwritten by the generated code
+    Dummy function ignored by the generated code
     """
     if hh[0]["age"] < 18:
         return True
     return False
 
+def validate_dummy_eligibility_program(hh: dict) -> bool:
+    """
+    Dummy validation function for `dummy_eligibility_program`
+    """
+    try: 
+        _ = float(hh.get("age", 0))
+    except ValueError:
+        raise ValueError("Age must be an number.")
+    return None
 
-### FUNCTIONS PLACEHOLDER ###
 
+### ELIGIBILITY PROGRAMS PLACEHOLDER ###
+
+### ELIGIBILITY VALIDATORS PLACEHOLDER ###
+
+vals = {
+    # "dummy_eligibility_program": validate_dummy_eligibility_program
+    ### VALS PLACEHOLDER ###
+}
 
 def run(local_scope: dict) -> bool:
     hh = local_scope["hh"]
-    synthetic_user = local_scope["synthetic_user"]
-    chatbot = local_scope["chatbot"]
-    eligibility_requirements = local_scope["eligibility_requirements"]
+
     calls = {
         # "dummy_eligibility_program": dummy_eligibility_program
     }

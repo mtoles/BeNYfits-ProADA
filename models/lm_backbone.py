@@ -42,14 +42,15 @@ class LmBackboneModel:
             ("gpt", PromptMode.DEFAULT): self._format_gpt_prompt_default,
             ("o1", PromptMode.DEFAULT): self._format_o1_prompt_default,
             ("gemma", PromptMode.DEFAULT): self._format_gemma_prompt_default,
-            ("opencoder", PromptMode.DEFAULT): self._format_opencoder_prompt_default,
+            # ("opencoder", PromptMode.DEFAULT): self._format_default_prompt_default,
+            # ("qwen", PromptMode.DEFAULT): self._format_default_prompt_default,
             (
                 "mistral",
                 PromptMode.DEFAULT,
             ): self._format_mistral_prompt_default,
         }
         return format_funcs.get(
-            (self.lm_wrapper.family, self.mode), self._format_default_prompt
+            (self.lm_wrapper.family, self.mode), self._format_default_prompt_default
         )
 
     def _format_llama_prompt_default(self, history: list[dict]) -> str:
@@ -68,7 +69,7 @@ class LmBackboneModel:
                 turn["role"] = "user"
         return history
 
-    def _format_opencoder_prompt_default(self, history: list[dict]) -> str:
+    def _format_default_prompt_default(self, history: list[dict]) -> str:
         history = copy.deepcopy(history)
         return self.lm_wrapper.apply_chat_template(history)
 
@@ -78,8 +79,8 @@ class LmBackboneModel:
     def _format_mistral_prompt_default(self, history: list[dict]) -> str:
         raise NotImplementedError
 
-    def _format_default_prompt(self, history: list[dict]) -> str:
-        raise NotImplementedError
+    # def _format_default_prompt(self, history: list[dict]) -> str:
+    #     raise NotImplementedError
 
     def forward(
         self,

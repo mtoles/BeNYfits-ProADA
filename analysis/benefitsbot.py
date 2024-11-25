@@ -95,7 +95,11 @@ parser.add_argument(
 parser.add_argument(
     "--use_cache",
     default=True,
-    type=lambda x: (str(x).lower() == "true") if str(x).lower() in ("true", "false") else (_ for _ in ()).throw(ValueError("Value must be 'true' or 'false'")),
+    type=lambda x: (
+        (str(x).lower() == "true")
+        if str(x).lower() in ("true", "false")
+        else (_ for _ in ()).throw(ValueError("Value must be 'true' or 'false'"))
+    ),
     help="Use lmwrapper cache. Disable to allow sampling",
 )
 args = parser.parse_args()
@@ -248,42 +252,52 @@ for index, row in tqdm(df.iterrows()):
     chatbot = get_model(args.chatbot_strategy)
     # Temporarily load codellama if we are using llama
     code_run_mode = "code" in args.chatbot_strategy
-    secondary_code_model_mode = (
-        "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
-    ) and "code" in args.chatbot_strategy
+    # secondary_code_model_mode = (
+    #     "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
+    # ) and "code" in args.chatbot_strategy
 
     ### PRE-CONVERSATION (codellama and code gen) ###
     if code_run_mode:
-        if not os.path.exists(generated_code_path): # somewhat unsafe check if code has been generated
-            if secondary_code_model_mode:
-                print("temporarily entering codellama mode")
-                if "llama" in args.code_model_name.lower():
-                    codellama_model_size = re.search(
-                        r"(\d+b)", args.code_model_name
-                    ).group(1)
-                    chatbot.lm_backbone = LmBackboneModel(
-                        LanguageModelWrapper(
-                            f"Codellama {codellama_model_size} Instruct",
-                            "llama",
-                            args.code_model_name,
-                        ),
-                        use_cache=args.use_cache,
-                        lm_logger=lm_logger,
-                    )
-                elif "opencoder" in args.code_model_name.lower():
-                    chatbot.lm_backbone = LmBackboneModel(
-                        LanguageModelWrapper(
-                            f"infly OpenCoder 8B Instruct",
-                            "opencoder",
-                            args.code_model_name,
-                        ),
-                        use_cache=args.use_cache,
-                        lm_logger=lm_logger,
-                    )
-                else:
-                    raise ValueError(
-                        f"Invalid code model name: {args.code_model_name}"
-                    )
+        if not os.path.exists(
+            generated_code_path
+        ):  # somewhat unsafe check if code has been generated
+            # if secondary_code_model_mode:
+            print("temporarily entering code mode")
+            if "llama" in args.code_model_name.lower():
+                codellama_model_size = re.search(r"(\d+b)", args.code_model_name).group(
+                    1
+                )
+                chatbot.lm_backbone = LmBackboneModel(
+                    LanguageModelWrapper(
+                        f"Codellama {codellama_model_size} Instruct",
+                        "llama",
+                        args.code_model_name,
+                    ),
+                    use_cache=args.use_cache,
+                    lm_logger=lm_logger,
+                )
+            elif args.code_model_name == "infly/OpenCoder-8B-Instruct":
+                chatbot.lm_backbone = LmBackboneModel(
+                    LanguageModelWrapper(
+                        f"infly OpenCoder 8B Instruct",
+                        "opencoder",
+                        args.code_model_name,
+                    ),
+                    use_cache=args.use_cache,
+                    lm_logger=lm_logger,
+                )
+            elif args.code_model_name == "Qwen/Qwen2.5-7B-Instruct":
+                chatbot.lm_backbone = LmBackboneModel(
+                    LanguageModelWrapper(
+                        f"Qwen 7B Instruct",
+                        "qwen",
+                        args.code_model_name,
+                    ),
+                    use_cache=args.use_cache,
+                    lm_logger=lm_logger,
+                )
+            else:
+                raise ValueError(f"Invalid code model name: {args.code_model_name}")
 
             # # create named temp file for codebot code gen
             # if os.path.exists(generated_code_path):

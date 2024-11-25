@@ -13,6 +13,7 @@ from transformers import GPT2TokenizerFast
 
 MAX_NEW_TOKENS = 4096
 
+
 class PromptInput(BaseModel):
     text: str
     cache: bool = True
@@ -40,8 +41,8 @@ class ModelUnwrapped:
         self._tokenizer = AutoTokenizer.from_pretrained(
             model_name, trust_remote_code=True
         )
-        # self.model._tokenizer.pad_token_id = self.model._tokenizer.eos_token_id
-        # self.model._tokenizer.padding_side = "left"
+        self.model._tokenizer.pad_token_id = self.model._tokenizer.eos_token_id
+        self.model._tokenizer.padding_side = "left"
 
     def predict_many(self, lm_prompts: list[LmPrompt], completion_window):
         # messages = [{"role": "user", "content": "write a quick sort algorithm in python."}]
@@ -52,7 +53,9 @@ class ModelUnwrapped:
             messages, add_generation_prompt=True, return_tensors="pt"
         ).to(self.model.device)
 
-        output = self.model.generate(input, do_sample=False, max_new_tokens=MAX_NEW_TOKENS)
+        output = self.model.generate(
+            input, do_sample=False, max_new_tokens=MAX_NEW_TOKENS
+        )
 
         result = self._tokenizer.decode(
             output[0][len(input[0]) :], skip_special_tokens=True
@@ -68,10 +71,11 @@ class ModelServer:
     def load_model(self, family, hf_name, wrapped=True):
         if wrapped:
             if hf_name not in self.models:
-                if family in ["llama", "gemma"]:
+                if family in ["llama", "gemma", "qwen", "opencoder"]:
                     model = get_huggingface_lm(hf_name)
                     model._tokenizer.pad_token_id = model._tokenizer.eos_token_id
                     model._tokenizer.padding_side = "left"
+                    print(f"setting eos token to {model._tokenizer.eos_token_id}")
                 else:
                     model = get_open_ai_lm(hf_name)
                     model._tokenizer = GPT2TokenizerFast.from_pretrained(
