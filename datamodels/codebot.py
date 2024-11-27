@@ -10,16 +10,21 @@ import inspect
 from utils import hist_to_str, remove_raise_statements
 from datamodels.template import SchemaError
 
+
 class CodeBot(ChatBot):
-    gen_checker_prompt = """Eligibility Requirements:\n{eligibility_requirement}\n\nWrite a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information in string form and determines user eligibility. `check_eligibility` returns a bool. Make your code as detailed as possible capturing every edge case. Here is an example:
+    gen_checker_prompt = """Eligibility Requirements:\n{eligibility_requirement}\n\nWrite a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information in string form and determines user eligibility. `check_eligibility` returns a bool. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Here is an example:
 
 def dummy_eligibility_program(hh: dict) -> bool:
-    if hh["age"] < 18:
+    def _helper(hh):
+        if hh["has_id"]:
+            return True
+    if hh["age"] < 18 and _helper(hh):
         return True
     return False
 
 DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhere. Do not use default values. Do not raise any exceptions. Do not provide anything besides code in your response."""
-    gen_validator_prompt = """Eligibility Requirements:\n{eligibility_requirement}\n\ncode:\n{code}\n\nWrite a python function called `validate_user_data` that takes a dictionary `hh` containing relevant information and whether the type is correct. Keys and values of `hh` are strings. For each key that appears in the code, raise a ValueError exception if the value is not valid. If all checks pass, return None. For example:
+
+    gen_validator_prompt = """Eligibility Requirements:\n{eligibility_requirement}\n\ncode:\n{code}\n\nWrite a python function called `validate_{name}` that takes a dictionary `hh` containing relevant information and outputs whether all values in `hh` are of correct type. A value is of correct type if it will cause no errors in the code above, EVEN IF the code above would return `False`. Keys and values of `hh` are strings. For each key that appears in the code, raise a ValueError exception if the value is not valid. If all checks pass, return None. For example:
 
 def eligibility_program(hh: dict) -> bool:
     if hh["age"] =< 18 and hh["filing_status"] == "single":
@@ -27,8 +32,9 @@ def eligibility_program(hh: dict) -> bool:
     return False
 
 def validate_user_data(hh: dict):
+    # note that we DO NOT check whether all keys are present
     try: 
-        _ = int(hh.get("age", 0))
+        _ = int(hh.get("age", 0)) # note that we DO NOT check the range of age
     except ValueError:
         raise ValueError("Age must be an integer.")
     try:
@@ -37,12 +43,13 @@ def validate_user_data(hh: dict):
         raise ValueError("Filing status must be 'single' or 'married'.")
     return None
 
-Always use `dict.get()` to access values in `hh`. Make sure the default value of `.get()` is valid. Do not provide anything besides code in your response."""
+Always use `dict.get()` to access values in `hh`. Make sure the default value of `.get()` is valid. Do not check that all values are present. Ensure that an empty dictionary is valid. Do not provide anything besides code in your response."""
+
     extract_value_from_ans_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to extract the value of {key} from the following dialog:\n\nQuestion: {cq}\n\nAnswer:\n{answer}\n\nWhat should we set as the value of {key}? Return ONLY the value."""
     key_error_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to determine what value of {key} should be stored in the `hh` dictionary. Ask a question to the user that would get this value. Return ONLY the question."""
     type_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, cannot be cast to type {target_type}. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
     value_error_find_key_prompt = """Code:\n{code}\n\nLine:\n{line}\n\nTraceback: {traceback}\n\nWhat key is responsible for the error in the traceback? Return ONLY the key."""
-    schema_validation_error_prompt = """"""
+    update_val_gen_prompt = """Attempt no. {attempt_no}\n\nCode:\n{code}\n\nError message:\n{error_message}.\n\nThe code above checks whether the type of the input is correct. Update the code so that all defaults pass, but nonsensical inputs of the wrong type fail. If there are no defaults in a dict.get() call, add a default value. Only check the type of the input, not the range. Do not check that all values are present. Ensure that an empty dictionary is valid. Return ONLY the code. """
 
     def pre_conversation(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
@@ -77,42 +84,68 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
             # check if the code is a valid python function
             try:
                 exec(clean_checker_output)
+                generated_checker_text[name] = clean_checker_output
             except SyntaxError:
                 raise ValueError(
                     f"Generated code is not a valid python function: {clean_checker_output[0]}"
                 )
+            error_var = None
+            attempt_no = 0
+            while True:
+                # generate the validator
+                try:
+                    if error_var is None:
+                        val_gen_prompt = [
+                            {
+                                "role": "system",
+                                "content": self.gen_validator_prompt.format(
+                                    eligibility_requirement=desc,
+                                    code=clean_checker_output,
+                                    name=name,
+                                ),
+                            }
+                        ]
+                    else:
+                        val_gen_prompt = [
+                            {
+                                "role": "system",
+                                "content": self.update_val_gen_prompt.format(
+                                    attempt_no=attempt_no,
+                                    code=dirty_val_output,
+                                    error_message=error_var.args[0],
+                                ),
+                            }
+                        ]
+                    dirty_val_output = self.lm_backbone.forward(
+                        val_gen_prompt,
+                        logging_role="val_gen",
+                    ).strip()
+                    clean_val_output = extract_function_definitions(dirty_val_output)[
+                        f"validate_{name}"
+                    ]
+                    # clean_val_output = clean_val_output.replace(
+                    #     "def validate_{name}", f"def validate_{name}"
+                    # )
+                    clean_val_output = clean_val_output.replace(
+                        "raise ValueError", "raise SchemaError"
+                    )
+                    exec(clean_val_output)  # define the val_{name} fn
+                    val_fn = eval(f"validate_{name}")
 
-            # generate the validator
-            val_gen_prompt = [
-                {
-                    "role": "system",
-                    "content": self.gen_validator_prompt.format(
-                        eligibility_requirement=desc,
-                        code=clean_checker_output,
-                    ),
-                }
-            ]
-            dirty_val_output = self.lm_backbone.forward(
-                val_gen_prompt,
-                logging_role="val_gen",
-            ).strip()
-            clean_val_output = extract_function_definitions(dirty_val_output)[
-                "validate_user_data"
-            ]
-            clean_val_output = clean_val_output.replace(
-                "def validate_user_data", f"def validate_{name}"
-            )
-            clean_val_output = clean_val_output.replace(
-                "raise ValueError", "raise SchemaError"
-            )
-            # clean_val_output = remove_raise_statements(clean_val_output)
+                    # check if the validator passes on empty input
+                    attempt_no += 1
+                    if val_fn({}) is None:
+                        break
+                    # clean_val_output = remove_raise_statements(clean_val_output)
 
+                except Exception as e:
+                    error_var = e
+                    print(f"{type(e).__name__} generating validator: {e}")
+                    
+                # if we succeeded, add the validator
             generated_val_text[name] = clean_val_output
         ### run the validator on empty input and rebuild it if empty input errors out ###
 
-
-
-        
         # copy the template into a string
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
@@ -160,7 +193,7 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
             ### validate all inputs ##
             generated_validators = generated_code.vals
             for name, val in generated_validators.items():
-                try: 
+                try:
                     val(locals["hh"])
                 except SchemaError as e:
                     # get the stack trace
@@ -169,10 +202,10 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
                     )  # TODO: check accuracy
                     fn_name = traceback.extract_tb(e.__traceback__)[-1].name
                     fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
-                    relevant_program = locals["eligibility_requirements"][fn_name.lstrip("validate_")]
+                    relevant_program = locals["eligibility_requirements"][
+                        fn_name.lstrip("validate_")
+                    ]
 
-                    # if there is a key error, ask a question to get the value
-                    
             ### Run the actual generated code ###
             try:
                 eligibility = generated_code.run(local_scope=locals)
@@ -182,9 +215,14 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
                 line = "\n".join(
                     traceback.format_exc().split("\n")[-3:-2]
                 )  # TODO: check accuracy
-                fn_name = traceback.extract_tb(e.__traceback__)[-1].name
+                fn_name = traceback.extract_tb(e.__traceback__)[
+                    2
+                ].name  # TODO: get without hard coding index
+                assert fn_name in list(locals["eligibility_requirements"].keys())
                 fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
-                relevant_program = locals["eligibility_requirements"][fn_name.lstrip("validate_")]
+                relevant_program = locals["eligibility_requirements"][
+                    fn_name.lstrip("validate_")
+                ]
 
                 # if there is a key error, ask a question to get the value
                 if type(e) == KeyError:
@@ -260,7 +298,7 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
                     # history.append({"role": "assistant", "content": retyped_val})
                     locals["hh"][key] = final_val
                     continue
-                
+
                 # check if the dialog can be used to update hh
 
                 # code =
@@ -283,146 +321,3 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
                 lm_output = lm_output.strip(c)
 
         return lm_output
-
-    # def ask_question_from_missing_key(self, eligibility_requirements, fn_code, key):
-    #     prompt = [
-    #         {
-    #             "role": "system",
-    #             "content": self.key_error_prompt.format(
-    #                 eligibility_requirements=eligibility_requirements,
-    #                 line=fn_code,
-    #                 key=key,
-    #             ),
-    #         }
-    #     ]
-    #     lm_output = self.lm_backbone.forward(
-    #         prompt, logging_role="ask_question_from_missing_key"
-    #     )
-    #     return lm_output
-    # def ask_question_from_code(self, program_text: str, key: str):
-    #     prompt = [
-    #         {
-    #             "role": "system",
-    #             "content": self.ask_question_from_code_prompt.format(
-    #                 program_text=program_text, key=key
-    #             ),
-    #         }
-    #     ]
-    #     lm_output = self.lm_backbone.forward(
-    #         prompt, logging_role="ask_question_from_code"
-    #     )
-    #     # clean up the lm_output
-    #     found_questions = re.findall(r'"(.*\?)"', lm_output)
-
-    #     if len(found_questions) == 0:
-    #         # nothing matching the regex
-    #         return lm_output
-
-    #     return found_questions[-1]
-
-    # def extract_value_from_ans(self, key: str, line: str, cq: str, answer: str):
-    #     prompt = [
-    #         {
-    #             "role": "system",
-    #             "content": self.extract_value_from_ans_prompt.format(
-    #                 key=key, cq=cq, answer=answer
-    #             ),
-    #         }
-    #     ]
-    #     lm_output = self.lm_backbone.forward(
-    #         prompt, logging_role="extract_value_from_ans"
-    #     )
-
-    #     # clean up the lm_output
-    #     try:
-    #         clean_value = re.findall(r"\"(.*)\"", lm_output)[-1]
-    #     except IndexError:
-    #         try:
-    #             clean_value = re.findall(r"\'(.*)\'", lm_output)[-1]
-    #         except IndexError:
-    #             try:
-    #                 clean_value = re.findall(r"\`(.*)\`", lm_output)[-1]
-    #             except IndexError:
-    #                 clean_value = lm_output
-
-    #     return clean_value
-
-    # def compare_with_lm(self, a, b, operator):
-    #     prompt = [
-    #         {
-    #             "role": "system",
-    #             "content": self.compare_prompt.format(a=a, expression=operator, b=b),
-    #         }
-    #     ]
-    #     lm_output = self.lm_backbone.forward(prompt, logging_role="compare_with_lm")
-    #     # clean up the lm_output
-    #     found_values = re.findall(r"True|False|true|false|TRUE|FALSE", lm_output)
-
-    #     if len(found_values) == 0:
-    #         # raise ValueError(
-    #         #     f"Could not find value in the following output: {lm_output}"
-    #         # )
-    #         # default to False
-    #         print("Could not find value in the following output: ", lm_output)
-    #         return False
-    #     return found_values[-1]
-
-    # def cast_with_lm(self, cq, answer, target_type):
-    #     assert target_type in ["int", "float", "bool"]
-    #     # cast = {"int": int, "float": float, "bool": bool}[target_type]
-    #     prompt = [
-    #         {
-    #             "role": "system",
-    #             "content": self.cast_value_prompt.format(
-    #                 cq=cq, answer=answer, target_type=target_type
-    #             ),
-    #         }
-    #     ]
-    #     lm_output = self.lm_backbone.forward(
-    #         prompt, logging_role="cast_with_lm"
-    #     ).strip()
-    #     # Find anything in backticks
-
-    #     # handle bools
-    #     if "true" in lm_output.lower():
-    #         return True
-    #     if "false" in lm_output.lower():
-    #         return False
-
-    #     # handle floats
-    #     patterns_without = r"|".join(
-    #         [
-    #             r"(?<!\S)(\d+)(?!\S)",
-    #             r"(?<!\S)(.\d+)(?!\S)",
-    #             r"(?<!\S)(\d+.)(?!\S)",
-    #             r"(?<!\S)(\d+.\d+)(?!\S)",
-    #         ]
-    #     )
-    #     pattern = "|".join(
-    #         [
-    #             r"(?<!\S)[\"'`](\d+)[\"'`](?!\S)",
-    #             r"(?<!\S)[\"'`](.\d+)[\"'`](?!\S)",
-    #             r"(?<!\S)[\"'`](\d+.)[\"'`](?!\S)",
-    #             r"(?<!\S)[\"'`](\d+.\d)+[\"'`](?!\S)",
-    #         ]
-    #     )
-    #     try:
-    #         reduced = re.findall(
-    #             f"{pattern}",  # double quotes
-    #             lm_output.replace(",", "").replace("$", ""),
-    #         )[-1]
-    #     except:
-    #         try:
-    #             reduced = re.findall(
-    #                 f"{patterns_without}",  # anything
-    #                 lm_output.replace(",", "").replace("$", ""),
-    #             )[-1]
-    #         except:
-    #             return 0
-    #     # get the captured group that isn't empty
-    #     actual_reduced = [x for x in reduced if x][-1]
-    #     float_output = float(actual_reduced)
-    #     if target_type == "float":
-    #         return float_output
-    #     # handle ints in case integer is represented with a .
-    #     return int(float_output)

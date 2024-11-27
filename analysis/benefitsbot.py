@@ -286,10 +286,10 @@ for index, row in tqdm(df.iterrows()):
                     use_cache=args.use_cache,
                     lm_logger=lm_logger,
                 )
-            elif args.code_model_name == "Qwen/Qwen2.5-7B-Instruct":
+            elif "qwen" in args.code_model_name.lower():
                 chatbot.lm_backbone = LmBackboneModel(
                     LanguageModelWrapper(
-                        f"Qwen 7B Instruct",
+                        f"qwen",
                         "qwen",
                         args.code_model_name,
                     ),
