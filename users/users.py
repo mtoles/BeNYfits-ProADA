@@ -106,15 +106,18 @@ class Household:
     A data class to represent a household
     """
 
-    def __init__(self, members: list[Person] = []):
+    def __init__(self, members: list[Person] = [], co_owners: list[Person] = []):
         # create household from list of Persons
-        for member in members:
+        for member in members + co_owners:
             assert isinstance(member, Person)
         # self.members = members
 
         self.members = members
+        self.co_owners = co_owners
+
         self.features = {
-            "members": self.members
+            "members": self.members,
+            "co_owners": self.co_owners,
         }  # TODO: remove after integrating Nikhil's programs
         self.validate()
 

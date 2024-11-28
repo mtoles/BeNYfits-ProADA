@@ -553,6 +553,33 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
         else f"{n} is not receiving treatment for substance abuse."
     )
 
+class housing_type(BasePersonAttr):
+    schema = And(str, lambda x: x in [
+        "house",
+        "condo",
+        "cooperative_apartment",
+        "manufactured_home",
+        "farmhouse",
+        "mixed_use_property",
+    ])
+    random = lambda: np.random.choice([
+        "house",
+        "condo",
+        "cooperative_apartment",
+        "manufactured_home",
+        "farmhouse",
+        "mixed_use_property",
+    ])
+    default = "house"
+    nl_fn = lambda n, x: f"{n} owns a {x}."
+
+class primary_residence(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = True
+    nl_fn = lambda n, x: (
+        f"{n}'s primary residence is the property." if x else f"{n}'s primary residence is elsewhere."
+    )
 
 # person_features = [
 #     #| Field Name | Schema | Random | Default | NL Function |

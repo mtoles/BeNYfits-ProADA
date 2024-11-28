@@ -79,70 +79,6 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
         return _r1_and_r2(hh) and _r3(hh) and _r4(hh)
 
 
-# def ComprehensiveAfterSchool(hh) -> bool:
-class ComprehensiveAfterSchool(BaseBenefitsProgram):
-    @staticmethod
-    def __call__(hh) -> bool:
-        """
-        All NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs. Each program may have different age and eligibility requirements.
-        """
-        for m in hh.members:
-            if m["current_school_level"] in list(range(1, 13)) + ["k"]:
-                return True
-        return False
-
-
-
-# def EarlyHeadStartPrograms(hh) -> bool:
-class EarlyHeadStartPrograms(BaseBenefitsProgram):
-    @staticmethod
-    def __call__(hh) -> bool:
-        """
-        The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
-        1. You live in temporary housing.
-        2. You receive HRA Cash Assistance.
-        3. You receive SSI (Supplemental Security Insurance).
-        4. You are enrolling a child who is in foster care.
-        5. If your household income is at or below these amounts:
-        Family size and yearly income:
-        1 - $14,580
-        2 - $19,720
-        3 - $24,860
-        4 - $30,000
-        5 - $35,140
-        6 - $40,280
-        7 - $45,420
-        8 - $50,560
-        For each additional person, add $5,140.
-        """
-
-        def _has_toddler(hh) -> bool:
-            members = hh.members
-            for m in members:
-                if m["age"] <= 3:
-                    return True
-            return False
-
-        temp_housing = hh.user()["lives_in_temp_housing"]
-        hra = hh.user()["receives_hra"]
-        ssi = hh.user()["receives_ssi"]
-        foster_care = bool([m for m in hh.members if m["in_foster_care"]])
-        hh_income = hh.hh_total_income()
-        hh_size = hh.num_members()
-
-        def _income_eligible(hh_income: float, hh_size: int) -> bool:
-            return hh_income <= 9440 + 5140 * hh_size
-
-        return _has_toddler(hh) and (
-            temp_housing
-            or hra
-            or ssi
-            or foster_care
-            or _income_eligible(hh_income, hh_size)
-        )
-
-
-# def InfantToddlerPrograms(hh) -> bool:
 class InfantToddlerPrograms(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
@@ -406,6 +342,55 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
         return _r1(hh) and _r2_r3(hh) and _r4(hh) and _r5(hh) and _r6(hh)
 
 
+# def EarlyHeadStartPrograms(hh) -> bool:
+class EarlyHeadStartPrograms(BaseBenefitsProgram):
+    @staticmethod
+    def __call__(hh) -> bool:
+        """
+        The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
+        1. You live in temporary housing.
+        2. You receive HRA Cash Assistance.
+        3. You receive SSI (Supplemental Security Insurance).
+        4. You are enrolling a child who is in foster care.
+        5. If your household income is at or below these amounts:
+        Family size and yearly income:
+        1 - $14,580
+        2 - $19,720
+        3 - $24,860
+        4 - $30,000
+        5 - $35,140
+        6 - $40,280
+        7 - $45,420
+        8 - $50,560
+        For each additional person, add $5,140.
+        """
+
+        def _has_toddler(hh) -> bool:
+            members = hh.members
+            for m in members:
+                if m["age"] <= 3:
+                    return True
+            return False
+
+        temp_housing = hh.user()["lives_in_temp_housing"]
+        hra = hh.user()["receives_hra"]
+        ssi = hh.user()["receives_ssi"]
+        foster_care = bool([m for m in hh.members if m["in_foster_care"]])
+        hh_income = hh.hh_total_income()
+        hh_size = hh.num_members()
+
+        def _income_eligible(hh_income: float, hh_size: int) -> bool:
+            return hh_income <= 9440 + 5140 * hh_size
+
+        return _has_toddler(hh) and (
+            temp_housing
+            or hra
+            or ssi
+            or foster_care
+            or _income_eligible(hh_income, hh_size)
+        )
+
+
 # def HeadStart(hh) -> bool:
 class HeadStart(BaseBenefitsProgram):
     """
@@ -458,3 +443,189 @@ class HeadStart(BaseBenefitsProgram):
         return _r0(hh) and (_r1(hh) or _r2(hh) or _r3(hh) or _r4(hh) or _r5(hh) or _r6(hh))
 
 
+# def ComprehensiveAfterSchool(hh) -> bool:
+class ComprehensiveAfterSchool(BaseBenefitsProgram):
+    @staticmethod
+    def __call__(hh) -> bool:
+        """
+        All NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs. Each program may have different age and eligibility requirements.
+        """
+        for m in hh.members:
+            if m["current_school_level"] in list(range(1, 13)) + ["k"]:
+                return True
+        return False
+
+# TODO - RATTAN
+# Cash Assistance --- Very vague --- No clear requirements
+
+# Health Insurance Assistance - Vague and Not clear
+
+
+class SchoolTaxReliefProgram(BaseBenefitsProgram):
+    """
+    Eligibility for the School Tax Relief (STAR) Program.
+
+    To be eligible for STAR, you should be a homeowner of one of these types of housing:
+    - a house
+    - a condo
+    - a cooperative apartment
+    - a manufactured home
+    - a farmhouse
+    - a mixed-use property, including apartment buildings (only the owner-occupied portion is eligible)
+
+    There are two types of STAR benefits:
+
+    **1. Basic STAR**
+       - **Age:** No age restriction
+       - **Primary residence:** An owner must live on the property as their primary residence.
+       - **Income:**
+         - The total income of only the owners and their spouses who live at the property must be:
+           - $500,000 or less for the credit
+           - $250,000 or less for the exemption (you cannot apply for the exemption anymore but you can restore it if you got it in 2015-16 but lost the benefit later.)
+
+    **2. Enhanced STAR**
+       - **Age:**
+         - All owners must be 65 or older as of December 31 of the year of the exemption.
+         - However, only one owner needs to be 65 or older if the property is jointly owned by only a married couple or only siblings.
+       - **Primary residence:**
+         - At least one owner who's 65 or older must live on the property as their primary residence.
+       - **Income:**
+         - Total income of all owners and resident spouses or registered domestic partners must be $98,700 or less.
+
+    *Income eligibility for the 2024 STAR credit is based on your federal or state income tax return from the 2022 tax year.*
+    """
+
+    @staticmethod
+    def __call__(hh):
+        def _is_eligible_homeowner(hh):
+            # Check if the user owns an eligible type of housing
+            eligible_housing_types = [
+                "house",
+                "condo",
+                "cooperative_apartment",
+                "manufactured_home",
+                "farmhouse",
+                "mixed_use_property",
+            ]
+            return hh.user().get("housing_type") in eligible_housing_types
+
+        def _basic_star_primary_residence(hh):
+            # An owner must live on the property as their primary residence
+            return hh.user().get("primary_residence", False)
+
+        def _basic_star_income(hh):
+            # Total income of owners and their spouses who live at the property must be <= $500,000
+            owners = [hh.user()]
+            spouse = hh.spouse()
+            if spouse and spouse.get("primary_residence", False):
+                owners.append(spouse)
+            total_income = sum(owner.total_income() for owner in owners)
+            return total_income <= 500000
+
+        def _enhanced_star_age(hh):
+            # All owners must be 65 or older, unless jointly owned by only a married couple or only siblings
+            owners = [hh.user()]
+            co_owners = hh.features.get("co_owners", [])
+            owners.extend(co_owners)
+
+            if all(owner["age"] >= 65 for owner in owners):
+                return True
+            elif len(owners) == 2:
+                if hh.user().get("filing_jointly") and any(owner["age"] >= 65 for owner in owners):
+                    # Jointly owned by a married couple
+                    return True
+                elif all(owner["relation"] == "sibling" for owner in owners) and any(owner["age"] >= 65 for owner in owners):
+                    # Jointly owned by siblings
+                    return True
+            return False
+
+        def _enhanced_star_primary_residence(hh):
+            # At least one owner who's 65 or older must live on the property as their primary residence
+            owners = [hh.user()]
+            co_owners = hh.features.get("co_owners", [])
+            owners.extend(co_owners)
+            for owner in owners:
+                if owner["age"] >= 65 and owner.get("primary_residence", False):
+                    return True
+            return False
+
+        def _enhanced_star_income(hh):
+            # Total income of all owners and resident spouses or registered domestic partners must be <= $98,700
+            owners = [hh.user()]
+            co_owners = hh.features.get("co_owners", [])
+            owners.extend(co_owners)
+            resident_spouses = []
+            for owner in owners:
+                if owner.get("primary_residence", False):
+                    # Include resident spouses or registered domestic partners
+                    spouse = hh.spouse() if owner["relation"] == "self" else None
+                    if spouse and spouse.get("primary_residence", False):
+                        resident_spouses.append(spouse)
+            total_income = sum(owner.total_income() for owner in owners + resident_spouses)
+            return total_income <= 98700
+
+        # Check eligibility for Basic STAR
+        basic_star_eligible = (
+            _is_eligible_homeowner(hh)
+            and _basic_star_primary_residence(hh)
+            and _basic_star_income(hh)
+        )
+
+        # Check eligibility for Enhanced STAR
+        enhanced_star_eligible = (
+            _is_eligible_homeowner(hh)
+            and _enhanced_star_age(hh)
+            and _enhanced_star_primary_residence(hh)
+            and _enhanced_star_income(hh)
+        )
+
+        return basic_star_eligible or enhanced_star_eligible
+
+
+class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
+    """
+    Eligibility for the Section 8/HCV programs is primarily based on how much your family earns and family size.
+
+    Household Size | Annual Income
+    -------------- | -------------
+    1              | $54,350
+    2              | $62,150
+    3              | $69,900
+    4              | $77,650
+    5              | $83,850
+    6              | $90,050
+    7              | $96,300
+    8              | $102,500
+    """
+
+    @staticmethod
+    def __call__(hh):
+        def _income_eligible(hh) -> bool:
+            income_limits = {
+                1: 54350,
+                2: 62150,
+                3: 69900,
+                4: 77650,
+                5: 83850,
+                6: 90050,
+                7: 96300,
+                8: 102500,
+            }
+            hh_size = hh.num_members()
+            if hh_size <= 8:
+                income_limit = income_limits[hh_size]
+            else:
+                # For household sizes over 8, increase limit by an approximate amount per additional member
+                additional_members = hh_size - 8
+                income_limit = income_limits[8] + (additional_members * 6200)
+
+            return hh.hh_total_income() <= income_limit
+
+        return _income_eligible(hh)
+    
+
+
+
+
+
+# ChatGPT Link - https://chatgpt.com/c/6748084a-bf98-8002-83e0-cc8e4d80c137
