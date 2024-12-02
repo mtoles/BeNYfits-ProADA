@@ -1,3 +1,7 @@
+import random
+
+from users.users import Household, Person
+
 # from users.users import Household, Person # don't import this to avoid circular logic
 class BenefitsProgramMeta(type):
     registry = {}
@@ -14,6 +18,133 @@ class BaseBenefitsProgram(metaclass=BenefitsProgramMeta):
     pass
 
 
+def get_random_household_input():
+    """
+    Fetches a random household to be used for all programs.
+    """
+    members = []
+
+    self_is_employed = random.choice([True, False])
+
+    if self_is_employed:
+        primary = Person.default_employed()
+        primary["works_outside_home"] = random.choice([True, False])
+        primary["work_income"] = random.randint(0, 50000)
+        primary["work_hours_per_week"] = random.randint(0, 80)
+    else:
+        primary = Person.default_unemployed()
+    
+    if not primary["works_outside_home"]:
+        primary["looking_for_work"] = random.choice([True, False])
+    
+    primary["relation"] = "self"
+    primary["lives_in_temp_housing"] = random.choice([True, False])
+    primary["receives_hra"] = random.choice([True, False])
+    primary["receives_ssi"] = random.choice([True, False])
+    primary["student"] = random.choice([True, False])
+    primary["enrolled_in_educational_training"] = random.choice([True, False])
+    primary["enrolled_in_vocational_training"] = random.choice([True, False])
+    primary["attending_service_for_domestic_violence"] = random.choice([True, False])
+    primary["receiving_treatment_for_substance_abuse"] = random.choice([True, False])
+    primary["has_ssn"] = random.choice([True, False])
+    primary["has_itin"] = random.choice([True, False])
+    primary["name_is_on_lease"] = random.choice([True, False])
+    primary["monthly_rent_spending"] = random.randint(0, primary.total_income() // 12)
+    primary["place_of_residence"] = random.choice(["NYC", "Jersey"])
+    primary["lives_in_rent_stabilized_apartment"] = random.choice([True, False])
+    primary["lives_in_rent_controlled_apartment"] = random.choice([True, False])
+    primary["lives_in_mitchell-lama"] = random.choice([True, False])
+    primary["lives_in_limited_dividend_development"] = random.choice([True, False])
+    primary["lives_in_redevelopment_company_development"] = random.choice([True, False])
+    primary["lives_in_hdfc_development"] = random.choice([True, False])
+    primary["lives_in_section_213_coop"] = random.choice([True, False])
+    primary["lives_in_rent_regulated_hotel"] = random.choice([True, False])
+    primary["lives_in_rent_regulated_single"] = random.choice([True, False])
+    primary["receives_ssi"] = random.choice([True, False])
+    primary["receives_snap"] = random.choice([True, False])
+    primary["receives_ssdi"] = random.choice([True, False])
+    primary["receives_va_disability"] = random.choice([True, False])
+    primary["receives_disability_medicaid"] = random.choice([True, False])
+    primary["has_received_ssi_or_ssdi"] = random.choice([True, False])
+
+
+    members.append(primary)
+
+    spouse_exists = random.choice([True, False])
+
+    if spouse_exists:
+        spouse_is_employed = random.choice([True, False])
+
+        if spouse_is_employed:
+            spouse = Person.default_employed()
+            spouse["works_outside_home"] = random.choice([True, False])
+            spouse["work_income"] = random.randint(0, 50000)
+            spouse["work_hours_per_week"] = random.randint(0, 80)
+        else:
+            spouse = Person.default_unemployed()
+        
+        if not spouse["works_outside_home"]:
+            spouse["looking_for_work"] = random.choice([True, False])
+
+        spouse["relation"] = "spouse"
+        spouse["lives_in_temp_housing"] = random.choice([True, False])
+        spouse["receives_hra"] = random.choice([True, False])
+        spouse["receives_ssi"] = random.choice([True, False])
+        spouse["receives_snap"] = random.choice([True, False])
+        spouse["student"] = random.choice([True, False])
+        spouse["enrolled_in_educational_training"] = random.choice([True, False])
+        spouse["enrolled_in_vocational_training"] = random.choice([True, False])
+        spouse["attending_service_for_domestic_violence"] = random.choice([True, False])
+        spouse["receiving_treatment_for_substance_abuse"] = random.choice([True, False])
+        spouse["has_ssn"] = random.choice([True, False])
+        spouse["has_itin"] = random.choice([True, False])
+
+        members.append(spouse)
+
+        filing_jointly = random.choice([True, False])
+
+        spouse["filing_jointly"] = filing_jointly
+        primary["filing_jointly"] = filing_jointly
+
+    n_children = random.randint(0, 2)
+
+    for _ in range(n_children):
+        child = Person.default_child()
+
+        child["relation"] = "child"
+        child["in_foster_care"] = random.choice([True, False])
+        child["age"] = random.randint(1, 17)
+        child["has_paid_caregiver"] = random.choice([True, False])
+        child["duration_more_than_half_prev_year"] = random.choice([True, False])
+        child["provides_over_half_of_own_financial_support"] = random.choice([True, False])
+
+        raw_school_level = child["age"] - 5 + random.choice([-1, 0, 1])
+        
+        if raw_school_level == 0:
+            child["current_school_level"] = "k"
+        elif raw_school_level == -1:
+            child["current_school_level"] = "pk"
+        elif raw_school_level > 12 or raw_school_level < -1:
+            child["current_school_level"] = None
+        else:
+            child["current_school_level"] = raw_school_level
+
+        members.append(child)
+
+    n_adult_dependents = random.randint(0, 2)
+
+    for _ in range(n_adult_dependents):
+        adult_dependent = Person.default_adult_dependent()
+
+        adult_dependent["relation"] = "other_family"
+        adult_dependent["age"] = random.randint(50, 95)
+        adult_dependent["has_paid_caregiver"] = random.choice([True, False])
+        adult_dependent["duration_more_than_half_prev_year"] = random.choice([True, False])
+
+        members.append(adult_dependent)
+
+    return Household(members)
+
 class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
     """ "
     To be eligible for the Child and Dependent Care Tax Credit, you should be able to answer yes to the following questions:
@@ -27,56 +158,113 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
     def __call__(hh) -> bool:
 
         def _r1_and_r2(hh) -> bool:
-            self_works = (
-                hh.user()["works_outside_home"] or hh.user()["looking_for_work"]
-            )
-            spouse_works = (
-                hh.spouse() is None
-                or hh.spouse()["works_outside_home"]
-                or hh.spouse()["looking_for_work"]
-            )
-            filing_jointly = hh.user()["filing_jointly"]
-            members_with_paid_caregiver = [
-                m for m in hh.members if m["has_paid_caregiver"]
-            ]
-            qualifying_children = [
-                m for m in members_with_paid_caregiver if m["age"] < 13
-            ]
-            qualify_adults = [
-                m
-                for m in members_with_paid_caregiver
-                if not m["can_care_for_self"] and m["dependent"]
-            ]
+
+            self_works = False
+
+            if hh.user()["works_outside_home"]:
+                self_works = True
+            
+            elif hh.user()["looking_for_work"]:
+                self_works = True
+
+            spouse_works = False
+
+            if hh.spouse() is None:
+                spouse_works = True
+            
+            elif hh.spouse()["works_outside_home"]:
+                spouse_works = True
+            
+            elif hh.spouse()["looking_for_work"]:
+                spouse_works = True
+            
+            filing_jointly = False
+
+            if hh.user()["filing_jointly"]:
+                filing_jointly = True
+
+            members_with_paid_caregiver = []
+
+            for m in hh.members:
+                if m["has_paid_caregiver"]:
+                    members_with_paid_caregiver.append(m)
+            
+            qualifying_children = []
+
+            for m in members_with_paid_caregiver:
+                if m["age"] < 13:
+                    qualifying_children.append(m)
+
+            qualify_adults = []
+
+            for m in members_with_paid_caregiver:
+                if not m["can_care_for_self"] and m["dependent"]:
+                    qualify_adults.append(m)
+
             qualifying_family = qualifying_children + qualify_adults
             # drop family members who did not live with the household for more than half of the year
-            qualifying_family_lived_with_hh = [
-                m for m in qualifying_family if m["duration_more_than_half_prev_year"]
-            ]
+            
+            qualifying_family_lived_with_hh = []
+
+            for m in qualifying_family:
+                if m["duration_more_than_half_prev_year"]:
+                    qualifying_family_lived_with_hh.append(m)
+            
             if filing_jointly:
-                return self_works and spouse_works and qualifying_family_lived_with_hh
+                if self_works:
+                    return True
+                if spouse_works:
+                    return True
+                if qualifying_family_lived_with_hh:
+                    return True
+
+                return False
             else:
-                return bool(self_works and qualifying_family_lived_with_hh)
+                if self_works and qualifying_family_lived_with_hh:
+                    return True
+                return False
 
         def _r3(hh) -> bool:
-            return bool(hh.marriage_work_income() > 0)
+            if hh.marriage_work_income() > 0:
+                return True
+            return False
 
         def _r4(hh) -> bool:
-            user_not_at_home = (
-                hh.user()["works_outside_home"]
-                or hh.user()["looking_for_work"]
-                or hh.user()["student"]
-                or hh.user()["disabled"]
-            )
-            spouse_not_at_home = (
-                hh.spouse() is None
-                or hh.spouse()["works_outside_home"]
-                or hh.spouse()["looking_for_work"]
-                or hh.spouse()["student"]
-                or hh.spouse()["disabled"]
-            )
-            return bool(user_not_at_home and spouse_not_at_home)
+            user_not_at_home = False
 
-        return _r1_and_r2(hh) and _r3(hh) and _r4(hh)
+            if hh.user()["works_outside_home"]:
+                user_not_at_home = True
+            elif hh.user()["looking_for_work"]:
+                user_not_at_home = True
+            elif hh.user()["student"]:
+                user_not_at_home = True
+            elif hh.user()["disabled"]:
+                user_not_at_home = True
+
+            spouse_not_at_home = False
+
+            if hh.spouse() is None:
+                spouse_not_at_home = True
+            elif hh.spouse()["works_outside_home"]:
+                spouse_not_at_home = True
+            elif hh.spouse()["student"]:
+                spouse_not_at_home = True
+            elif hh.spouse()["disabled"]:
+                spouse_not_at_home = True
+
+            if user_not_at_home and spouse_not_at_home:
+                return True
+            
+            return False
+        
+        if not _r1_and_r2(hh):
+            return False
+        elif not _r3(hh):
+            return False
+        elif not _r4(hh):
+            return False
+        
+        return True
 
 
 # def ComprehensiveAfterSchool(hh) -> bool:
@@ -92,29 +280,28 @@ class ComprehensiveAfterSchool(BaseBenefitsProgram):
         return False
 
 
-
 # def EarlyHeadStartPrograms(hh) -> bool:
 class EarlyHeadStartPrograms(BaseBenefitsProgram):
+    """
+    The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
+    1. You live in temporary housing.
+    2. You receive HRA Cash Assistance.
+    3. You receive SSI (Supplemental Security Insurance).
+    4. You are enrolling a child who is in foster care.
+    5. If your household income is at or below these amounts:
+    Family size and yearly income:
+    1 - $14,580
+    2 - $19,720
+    3 - $24,860
+    4 - $30,000
+    5 - $35,140
+    6 - $40,280
+    7 - $45,420
+    8 - $50,560
+    For each additional person, add $5,140.
+    """
     @staticmethod
     def __call__(hh) -> bool:
-        """
-        The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
-        1. You live in temporary housing.
-        2. You receive HRA Cash Assistance.
-        3. You receive SSI (Supplemental Security Insurance).
-        4. You are enrolling a child who is in foster care.
-        5. If your household income is at or below these amounts:
-        Family size and yearly income:
-        1 - $14,580
-        2 - $19,720
-        3 - $24,860
-        4 - $30,000
-        5 - $35,140
-        6 - $40,280
-        7 - $45,420
-        8 - $50,560
-        For each additional person, add $5,140.
-        """
 
         def _has_toddler(hh) -> bool:
             members = hh.members
@@ -131,15 +318,27 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
         hh_size = hh.num_members()
 
         def _income_eligible(hh_income: float, hh_size: int) -> bool:
-            return hh_income <= 9440 + 5140 * hh_size
+            if hh_income <= 9440 + 5140 * hh_size:
+                return True
+            return False
+        
+        secondary_conditions = False
 
-        return _has_toddler(hh) and (
-            temp_housing
-            or hra
-            or ssi
-            or foster_care
-            or _income_eligible(hh_income, hh_size)
-        )
+        if temp_housing:
+            secondary_conditions = True
+        elif hra:
+            secondary_conditions = True
+        elif ssi:
+            secondary_conditions = True
+        elif _income_eligible(hh_income, hh_size):
+            secondary_conditions = True
+
+        if not _has_toddler(hh):
+            return False
+        elif not secondary_conditions:
+            return False
+
+        return True
 
 
 # def InfantToddlerPrograms(hh) -> bool:
@@ -183,17 +382,25 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
             # return member is None or member["work_hours_per_week"] >= 10 or member["student"] or member["enrolled_in_educational_training"] or member["enrolled_in_vocational_training"] or member["looking_for_work"] or member["lives_in_temp_housing"] or member["attending_services_for_domestic_violence"] or member["receiving_treatment_for_substance_abuse"]
             if member is None:
                 return True
-            reasons = [
-                member["work_hours_per_week"] >= 10,
-                member["student"],
-                member["enrolled_in_educational_training"],
-                member["enrolled_in_vocational_training"],
-                member["looking_for_work"],
-                member["lives_in_temp_housing"],
-                member["attending_service_for_domestic_violence"],
-                member["receiving_treatment_for_substance_abuse"],
-            ]
-            return any(reasons)
+
+            if member["work_hours_per_week"] >= 10:
+                return True
+            elif member["student"]:
+                return True
+            elif member["enrolled_in_educational_training"]:
+                return True
+            elif member["enrolled_in_vocational_training"]:
+                return True
+            elif member["looking_for_work"]:
+                return True
+            elif member["lives_in_temp_housing"]:
+                return True
+            elif member["attending_service_for_domestic_violence"]:
+                return True
+            elif member["receiving_treatment_for_substance_abuse"]:
+                return True
+
+            return False
 
         def _income_eligible(hh_income: float, hh_size: int) -> bool:
             limit = {
@@ -214,16 +421,28 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
                 15: 157807,
             }
             if hh_size > 15:
-                return hh_income <= 157807 + 3022.5 * (hh_size - 15)
-            return hh_income <= limit[hh_size]
+                if hh_income <= 157807 + 3022.5 * (hh_size - 15):
+                    return True
+                return False
+            if hh_income <= limit[hh_size]:
+                return True
+            return False
 
         has_toddler = _has_infant_toddler(hh)
         user_qualifies = _qualifies(hh.user())
         spouse_qualifies = _qualifies(hh.spouse())
         hh_income_qualifies = _income_eligible(hh.hh_total_income(), hh.num_members())
-        return has_toddler and (
-            (user_qualifies and spouse_qualifies) or hh_income_qualifies
-        )
+        
+        if not has_toddler:
+            return False
+        if hh_income_qualifies:
+            return True
+        if not user_qualifies:
+            return False
+        if not spouse_qualifies:
+            return False
+        
+        return True
 
 
 # def ChildTaxCredit(hh) -> bool:
@@ -238,32 +457,41 @@ class ChildTaxCredit(BaseBenefitsProgram):
     def __call__(hh):
         def _r1(hh) -> bool:
             if hh.user()["filing_jointly"]:
-                return hh.marriage_total_income() <= 400000
-            return hh.marriage_total_income() <= 200000
+                if hh.marriage_total_income() <= 400000:
+                    return True
+                return False
+            if hh.marriage_total_income() <= 200000:
+                return True
+            return False
 
         def _r2(hh) -> list:
             eligible_child = False
 
             def _qualifies(m) -> bool:
-                return (
-                    m["age"] <= 16
-                    and (m["has_ssn"] or m["has_atin"])
-                    and m["dependent"]
-                    and m["relation"]
-                    in [
-                        "child",
-                        "stepchild",
-                        "grandchild",
-                        "foster_child",
-                        "adopted_child",
-                        "sibling",
-                        "niece_nephew",
-                    ]
-                )
 
-            eligible_children = [m for m in hh.members if _qualifies(m)]
+                if not m["age"] <= 16:
+                    return False
+                elif not (m["has_ssn"] or m["has_atin"]):
+                    return False
+                elif not m["dependent"]:
+                    return False
+                elif not m["relation"]:
+                    return False
+                return True
 
-            user_has_ssn = hh.user()["has_ssn"] or hh.user()["has_itin"]
+            eligible_children = []
+
+            for m in hh.members:
+                if _qualifies(m):
+                    eligible_children.append(m)
+
+            user_has_ssn = False
+
+            if hh.user()["has_ssn"]:
+                user_has_ssn = True
+            elif hh.user()["has_itin"]:
+                user_has_ssn = True
+
             if user_has_ssn:
                 return eligible_children
             else:
@@ -271,19 +499,35 @@ class ChildTaxCredit(BaseBenefitsProgram):
 
         def _r3(eligible_children: list) -> list:
             def _qualifies(m) -> bool:
-                return (
-                    m["duration_more_than_half_prev_year"]
-                    and m["dependent"]
-                    and not m["provides_over_half_of_own_financial_support"]
-                )
 
-            r3_children = [m for m in eligible_children if _qualifies(m)]
+                if not m["duration_more_than_half_prev_year"]:
+                    return False
+                elif not m["dependent"]:
+                    return False
+                elif m["provides_over_half_of_own_financial_support"]:
+                    return False
+                
+                return True
+            
+            r3_children = []
+
+            for m in eligible_children:
+                if _qualifies(m):
+                    r3_children.append(m)
             return r3_children
 
         r1 = _r1(hh)
         r2_children = _r2(hh)
         r3_children = _r3(r2_children)
-        return r1 and bool(r2_children) and bool(r3_children)
+
+        if not r1:
+            return False
+        elif not bool(r2_children):
+            return False
+        elif not bool(r3_children):
+            return False
+        
+        return True
 
 
 # def DisabilityRentIncreaseExemption(hh) -> bool:
@@ -300,48 +544,79 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         def _r1(hh) -> bool:
-            return hh.user()["age"] >= 18
+            if hh.user()["age"] >= 18:
+                return True
+            return False
 
         def _r2(hh) -> bool:
-            return hh.user()["name_is_on_lease"]
+            if hh.user()["name_is_on_lease"]:
+                return True
+            return False
 
         def _r3(hh) -> bool:
-            return hh.hh_total_income() <= 50000
+            if hh.hh_total_income() <= 50000:
+                return True
+            return False
 
         def _r4(hh) -> bool:
             income = hh.user().total_income() / 12
             rent = hh.user()["monthly_rent_spending"]
-            return rent > income / 3
+            if rent > income / 3:
+                return True
+            return False
 
         def _r5(hh) -> bool:
-            return hh.user()["place_of_residence"] == "NYC" and any(
-                [
-                    hh.user()["lives_in_rent_stabilized_apartment"],
-                    hh.user()["lives_in_rent_controlled_apartment"],
-                    hh.user()["lives_in_mitchell-lama"],
-                    hh.user()["lives_in_limited_dividend_development"],
-                    hh.user()["lives_in_redevelopment_company_development"],
-                    hh.user()["lives_in_hdfc_development"],
-                    hh.user()["lives_in_section_213_coop"],
-                    hh.user()["lives_in_rent_regulated_hotel"],
-                    hh.user()["lives_in_rent_regulated_single"],
-                ]
-            )
+
+            if not hh.user()["place_of_residence"] == "NYC":
+                return False
+            elif hh.user()["lives_in_rent_stabilized_apartment"]:
+                return True
+            elif hh.user()["lives_in_rent_controlled_apartment"]:
+                return True
+            elif hh.user()["lives_in_mitchell-lama"]:
+                return True
+            elif hh.user()["lives_in_limited_dividend_development"]:
+                return True
+            elif hh.user()["lives_in_redevelopment_company_development"]:
+                return True
+            elif hh.user()["lives_in_hdfc_development"]:
+                return True
+            elif hh.user()["lives_in_section_213_coop"]:
+                return True
+            elif hh.user()["lives_in_rent_regulated_hotel"]:
+                return True
+            elif hh.user()["lives_in_rent_regulated_single"]:
+                return True
+            
+            return False
 
         def _r6(hh) -> bool:
-            return any(
-                [
-                    hh.user()["receives_ssi"],
-                    hh.user()["receives_ssdi"],
-                    hh.user()["receives_va_disability"],
-                    (
-                        hh.user()["receives_disability_medicaid"]
-                        and hh.user()["has_received_ssi_or_ssdi"]
-                    ),
-                ]
-            )
+            if hh.user()["receives_ssi"]:
+                return True
+            elif hh.user()["receives_ssdi"]:
+                return True
+            elif hh.user()["receives_va_disability"]:
+                return True
+            elif hh.user()["receives_disability_medicaid"]:
+                if hh.user()["has_received_ssi_or_ssdi"]:
+                    return True
+            
+            return False
 
-        return _r1(hh) and _r2(hh) and _r3(hh) and _r4(hh) and _r5(hh) and _r6(hh)
+        if not _r1(hh):
+            return False
+        elif not _r2(hh):
+            return False
+        elif not _r3(hh):
+            return False
+        elif not _r4(hh):
+            return False
+        elif not _r5(hh):
+            return False
+        elif not _r6(hh):
+            return False
+        
+        return True
 
 
 # def EarnedIncomeTaxCredit(hh):
@@ -359,35 +634,52 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
     def __call__(hh):
 
         def _r1(hh) -> bool:
-            return hh.user()["has_ssn"]
+            if hh.user()["has_ssn"]:
+                return True
+            return False
 
         def _r2_r3(hh) -> bool:
-            qualifying_children = bool(
-                [
-                    m
-                    for m in hh.members
-                    if m["relation"] in ["child", "stepchild", "foster_child", "grandchild"]
-                ]
-            )
-            if hh.user()["filing_jointly"] and qualifying_children:
-                return hh.marriage_total_income() <= 63398
-            elif hh.user()["filing_jointly"] and not qualifying_children:
-                return hh.marriage_total_income() <= 24210
-            elif not hh.user()["filing_jointly"] and qualifying_children:
-                return hh.marriage_total_income() <= 56838
+            qualifying_children = []
+
+            for m in hh.members:
+                if m["relation"] in ["child", "stepchild", "foster_child", "grandchild"]:
+                    qualifying_children.append(m)
+            
+            qualifying_children = bool(qualifying_children)
+            
+            if hh.user()["filing_jointly"]:
+                if qualifying_children:
+                    if hh.marriage_total_income() <= 63398:
+                        return True
+                    return False
+            elif hh.user()["filing_jointly"]:
+                if not qualifying_children:
+                    if hh.marriage_total_income() <= 24210:
+                        return True
+                    return False
+            elif not hh.user()["filing_jointly"]:
+                if qualifying_children:
+                    if hh.marriage_total_income() <= 56838:
+                        return True
+                    return False
             else:
-                return hh.marriage_total_income() <= 17640
+                if hh.marriage_total_income() <= 17640:
+                    return True
+                return False
 
         def _r4(hh) -> bool:
-            qualifying_children = bool(
-                [
-                    m
-                    for m in hh.members
-                    if m["relation"] in ["child", "stepchild", "foster_child", "grandchild"]
-                ]
-            )
+            qualifying_children = []
+
+            for m in hh.members:
+                if m["relation"] in ["child", "stepchild", "foster_child", "grandchild"]:
+                    qualifying_children.append(m)
+            
+            qualifying_children = bool(qualifying_children)
+
             if not qualifying_children:
-                return 25 <= hh.user()["age"] <= 64
+                if 25 <= hh.user()["age"] <= 64:
+                    return True
+                return False
             else:
                 return True
 
@@ -396,14 +688,32 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
             if hh.user()["filing_jointly"]:
                 return True
             else:
-                return bool(
-                    [m for m in hh.members if m["duration_more_than_half_prev_year"]]
-                )
+                duration_more_than_half_prev_year_members = []
+
+                for m in hh.members:
+                    if m["duration_more_than_half_prev_year"]:
+                        duration_more_than_half_prev_year_members.append(m)
+                if bool(duration_more_than_half_prev_year_members):
+                    return True
+                return False
 
         def _r6(hh) -> bool:
-            return hh.marriage_investment_income() < 11000
+            if hh.marriage_investment_income() < 11000:
+                return True
+            return False
 
-        return _r1(hh) and _r2_r3(hh) and _r4(hh) and _r5(hh) and _r6(hh)
+        if not _r1(hh):
+            return False
+        elif not _r2_r3(hh):
+            return False
+        elif not _r4(hh):
+            return False
+        elif not _r5(hh):
+            return False
+        elif not _r6(hh):
+            return False
+        
+        return True
 
 
 # def HeadStart(hh) -> bool:
@@ -436,25 +746,51 @@ class HeadStart(BaseBenefitsProgram):
             return False
 
         def _r1(hh) -> bool:
-            return hh.user()["lives_in_temp_housing"]
+            if hh.user()["lives_in_temp_housing"]:
+                return True
+            return False
 
         def _r2(hh) -> bool:
-            return hh.user()["receives_hra"]
+            if hh.user()["receives_hra"]:
+                return True
+            return False
 
         def _r3(hh) -> bool:
-            return hh.user()["receives_snap"]
+            if hh.user()["receives_snap"]:
+                return True
+            return False
 
         def _r4(hh) -> bool:
-            return hh.user()["receives_ssi"]
+            if hh.user()["receives_ssi"]:
+                return True
+            return False
 
         def _r5(hh) -> bool:
-            return bool([m for m in hh.members if m["in_foster_care"]])
+            if bool([m for m in hh.members if m["in_foster_care"]]):
+                return True
+            return False
 
         def _r6(hh) -> bool:
             hh_income = hh.hh_total_income()
             hh_size = hh.num_members()
-            return hh_income <= 20440 + 5380 * (hh_size - 2)
+            if hh_income <= 20440 + 5380 * (hh_size - 2):
+                return True
+            return False
 
-        return _r0(hh) and (_r1(hh) or _r2(hh) or _r3(hh) or _r4(hh) or _r5(hh) or _r6(hh))
-
+        if not _r0(hh):
+            return False
+        elif _r1(hh):
+            return True
+        elif _r2(hh):
+            return True
+        elif _r3(hh):
+            return True
+        elif _r4(hh):
+            return True
+        elif _r5(hh):
+            return True
+        elif _r6(hh):
+            return True
+        
+        return False
 

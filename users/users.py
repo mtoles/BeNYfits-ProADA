@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
 from users.user_features import PersonAttributeMeta
-from users.benefits_programs import BenefitsProgramMeta
 np.random.seed(0)
 
 ### CLASSES ###
@@ -43,7 +42,7 @@ class Person:
         for attr, value in self.features.items():
             assert Schema(schemas[attr]).is_valid(
                 value
-            ), f"Invalid value `{value}` for attribute `{attr}` under schema `{schemas[attr]}`"
+            ), f"Invalid value `{value}` (of type {type(value)}) for attribute `{attr}` under schema `{schemas[attr]}`"
 
     @staticmethod
     def default_unemployed(random_name=True, is_self=False):
@@ -89,6 +88,16 @@ class Person:
         child["age"] = 4
         child["student"] = True
         child["current_school_level"] = "pk"
+        child["dependent"] = True
+        return child
+
+    @staticmethod
+    def default_adult_dependent(random_name=True):
+        child = Person.default_unemployed(random_name=random_name)
+        child["relation"] = "dependent"
+        child["provides_over_half_of_own_financial_support"] = False
+        child["can_care_for_self"] = False
+        child["age"] = 78
         child["dependent"] = True
         return child
 
