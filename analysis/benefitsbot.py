@@ -148,7 +148,7 @@ if args.programs is not None:
         eligibility_df["program"].apply(lambda x: x in args.programs)
     ].reset_index(drop=True)
 eligibility_requirements = eligibility_df.set_index("program")["description"].to_dict()
-
+program_names = list(eligibility_requirements.keys())
 
 # Load the dataset
 if os.path.exists(args.dataset_path):

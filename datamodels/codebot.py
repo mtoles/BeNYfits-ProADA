@@ -187,6 +187,13 @@ return ONLY your function."""
         sys.path.append(tf.name)
 
     def run_generated_code(self, locals):
+        single_program_outputs = []
+        for program_name in locals["program_names"]:
+            single_program_outputs.append(self.run_single_program(program_name, locals))
+
+        return single_program_outputs
+
+    def run_single_program(self, program_name, locals):
         gen_code_path = locals["tf"].name
         synthetic_user = locals["synthetic_user"]
         # import the generated code from the temp file
@@ -204,10 +211,10 @@ return ONLY your function."""
                     "hh": locals["hh"],
                     "history": history,
                     "eligibility": eligibility,
-                    "completed": False
+                    "completed": False,
                 }
             ### validate all inputs ##
-            val_result = generated_code.validate_user_data(locals["hh"])
+            val_result = generated_code.validate_user_data(program_name, locals["hh"])
             if val_result is not None:
                 key, criterion = val_result
                 val = locals["hh"][key]
@@ -230,19 +237,11 @@ return ONLY your function."""
                 prev_hh = deepcopy(locals["hh"])
                 locals["hh"][key] = fix_val
 
-                # # get the stack trace
-                # line = "\n".join(
-                #     traceback.format_exc().split("\n")[-3:-2]
-                # )  # TODO: check accuracy
-                # fn_name = traceback.extract_tb(e.__traceback__)[-1].name
-                # fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
-                # relevant_program = locals["eligibility_requirements"][
-                #     fn_name.lstrip("validate_")
-                # ]
-
             ### Run the actual generated code ###
             try:
-                eligibility = generated_code.run(local_scope=locals)
+                p_fn = generated_code.calls[program_name]
+                # eligibility = generated_code.calls[program_name](local_scope=locals)
+                eligibility = p_fn(hh=locals["hh"])
                 break
             except Exception as e:
                 error_var = e
@@ -250,15 +249,16 @@ return ONLY your function."""
                 line = "\n".join(
                     traceback.format_exc().split("\n")[-3:-2]
                 )  # TODO: check accuracy
-                fn_name = traceback.extract_tb(e.__traceback__)[
-                    2
-                ].name  # TODO: get without hard coding index
+                fn_name = program_name
+                # fn_name = traceback.extract_tb(e.__traceback__)[
+                #     1
+                # ].name  # TODO: get without hard coding index
                 assert fn_name in list(locals["eligibility_requirements"].keys())
                 fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
                 relevant_program = locals["eligibility_requirements"][
                     fn_name.lstrip("validate_")
                 ]
-                relevant_val_dict = generated_code.val_dict_getters[fn_name]()
+                relevant_val_dict = generated_code.vals[program_name]()
 
                 # if there is a key error, ask a question to get the value
                 if type(e) == KeyError:
@@ -331,32 +331,13 @@ return ONLY your function."""
                     prev_hh = deepcopy(locals["hh"])
                     locals["hh"][key] = retyped_val
                     continue
-                    # try:
-                    #     _ = target_type(retyped_val)
-                    #     final_val = retyped_val
-                    # except ValueError:
-                    #     final_val = {
-                    #         "str": "None",
-                    #         "int": "0",
-                    #         "float": "0.0",
-                    #         "bool": "False",
-                    #     }[target_type]
-                    #     print(
-                    #         f"type_error retyping failed, setting val {original_value} to {final_val}"
-                    #     )
-                    # # history.append({"role": "assistant", "content": retyped_val})
 
-                # check if the dialog can be used to update hh
-
-                # code =
-                # if we don't get a valid output, check the dialog to see if we can update hh
-                # if not, ask another question
                 continue
         return {
             "hh": locals["hh"],
             "history": history,
             "eligibility": eligibility,
-            "completed": True
+            "completed": True,
         }
 
     def forward_generic(self, prompt: str, logging_role: str):

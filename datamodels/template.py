@@ -60,38 +60,61 @@ val_dict_getters = {
 }
 
 
-def validate_user_data(hh: dict):
-    for p, vdg in val_dict_getters.items():
-        for k, criterion in vdg().items():
-            if k in hh.keys():
-                if not check_single_key(hh[k], criterion):
-                    # return k and criterion on error
-                    return (k, criterion)
+def validate_user_data(program_name: str, hh: dict):
+    # for p, vdg in val_dict_getters.items():
+    vd = val_dict_getters[program_name]
+    for k, criterion in vd().items():
+        if k in hh.keys():
+            if not check_single_key(hh[k], criterion):
+                # return k and criterion on error
+                return (k, criterion)
     # return None on success
     return None
 
 
 vals = {k: v for k, v in val_dict_getters.items()}
 
-
-def run(local_scope: dict) -> bool:
-    calls = {
-        # "dummy_eligibility_program": dummy_eligibility_program
+calls = {
+    # "dummy_eligibility_program": dummy_eligibility_program
+}
+calls.update(
+    {
+        # "dummy": dummy_eligibility_program
+        ### CALLS PLACEHOLDER ###
     }
-    calls.update(
-        {
-            # "dummy": dummy_eligibility_program
-            ### CALLS PLACEHOLDER ###
-        }
-    )
-    hh = local_scope["hh"]
+)
 
-    eligibility = {}
-    for name, p in calls.items():
-        eligibility[name] = p
+# def run(program_name: str, local_scope: dict) -> bool:
+#     hh = local_scope["hh"]
 
-    outputs = {}
-    # run each program
-    for name, p in eligibility.items():
-        outputs[name] = p(hh)
-    return outputs
+#     eligibility = {}
+#     for name, p in calls.items():
+#         eligibility[name] = p
+
+#     outputs = {}
+#     # run each program
+#     for name, p in eligibility.items():
+#         outputs[name] = p(hh)
+#     return outputs
+
+# def run(local_scope: dict) -> bool:
+#     hh = local_scope["hh"]
+
+#     calls = {
+#         # "dummy_eligibility_program": dummy_eligibility_program
+#     }
+#     calls.update(
+#         {
+#             # "dummy": dummy_eligibility_program
+#             ### CALLS PLACEHOLDER ###
+#         }
+#     )
+#     eligibility = {}
+#     for name, p in calls.items():
+#         eligibility[name] = p
+
+#     outputs = {}
+#     # run each program
+#     for name, p in eligibility.items():
+#         outputs[name] = p(hh)
+#     return outputs
