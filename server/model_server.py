@@ -13,6 +13,11 @@ from transformers import GPT2TokenizerFast
 import threading
 import time
 from datetime import datetime
+# run with
+"""
+uvicorn server.model_server:app --reload
+"""
+
 
 MAX_NEW_TOKENS = 4096
 
@@ -154,6 +159,7 @@ def predict_many(request: PredictManyRequest):
                 cache=prompt.cache,
                 logprobs=prompt.logprobs,
                 max_tokens=prompt.max_tokens,
+                temperature=1.0,
             )
             for prompt in request.prompts
         ]

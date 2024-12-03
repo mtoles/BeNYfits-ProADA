@@ -311,18 +311,22 @@ for index, row in tqdm(df.iterrows()):
 
         # run generated code
         chatbot = get_model(args.chatbot_strategy)
-        code_mode_predictions = chatbot.run_generated_code(locals())
+        generated_code_result = chatbot.run_generated_code(locals())
+        code_hh = generated_code_result["hh"]
+        code_mode_predictions = generated_code_result["eligibility"]
+        code_history = generated_code_result["history"]
+        code_passed = code_mode_predictions is not None
 
         # TODO: compute dialog turns correctly
         per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
         lm_logger.log_predictions(per_turn_all_predictions)
 
-    else:
+    if not code_run_mode or not code_passed:
 
         per_turn_predictions = []
         ### -------- ###
 
-        history = [
+        history = code_history if "code_history" in locals() else [
             {
                 "role": "system",
                 "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",

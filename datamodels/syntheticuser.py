@@ -6,12 +6,13 @@ from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import torch
 
+
 class SyntheticUser:
     def __init__(
         self,
         hh_nl_desc: str,
         lm_wrapper: LanguageModelWrapper,
-        use_cache: bool, 
+        use_cache: bool,
         lm_logger: LmLogger,
         top_k: int = 5,
     ):
@@ -23,11 +24,13 @@ class SyntheticUser:
         self.use_cache = use_cache
         # Model to answer clarifying question
         # self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
-        self.lm_backbone = LmBackboneModel(self.lm_wrapper, self.use_cache, lm_logger=lm_logger)
+        self.lm_backbone = LmBackboneModel(
+            self.lm_wrapper, self.use_cache, lm_logger=lm_logger
+        )
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
-        self.sentence_encoder = SentenceTransformer('all-MiniLM-L6-v2')        
-        self.profile_sentences = self.nl_profile.split('\n')
+        self.sentence_encoder = SentenceTransformer("all-MiniLM-L6-v2")
+        self.profile_sentences = self.nl_profile.split("\n")
         self.profile_vectors = self.sentence_encoder.encode(self.profile_sentences)
         self.top_k = top_k
 
@@ -38,12 +41,14 @@ class SyntheticUser:
         """
         question_vector = self.sentence_encoder.encode(question)
         similarity_scores = util.cos_sim(question_vector, self.profile_vectors)[0]
-        cur_top_k = min(self.top_k, len(similarity_scores)) # Ensure top_k is valid and less than length of similarity score tensor
+        cur_top_k = min(
+            self.top_k, len(similarity_scores)
+        )  # Ensure top_k is valid and less than length of similarity score tensor
         sim_scores = np.argsort(similarity_scores)[-cur_top_k:]
         top_k_indices = torch.flip(sim_scores, dims=[0])
         relevant_sentences = [self.profile_sentences[idx] for idx in top_k_indices]
-        return '\n'.join(relevant_sentences)
-    
+        return "\n".join(relevant_sentences)
+
     def answer_cq(self, cq: str):
         """
         Function to answer the question asked from the user using the user profile in natural language
@@ -75,8 +80,9 @@ class SyntheticUser:
             },
             {
                 "role": "user",
-                "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, respond with 'Sorry, I'm not sure.' Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n" + f"Question: {cq}",
-            }
+                "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, explain why you cannot answer the question. Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n"
+                + f"Question: {cq}",
+            },
         ]
         lm_output = self.lm_backbone.forward(prompt, logging_role="answer_cq")
         return lm_output
