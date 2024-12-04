@@ -7,14 +7,14 @@ class SchemaError(Exception):
         super().__init__(message)
 
 
-def check_single_key(key, criterion: Union[type, list]):
+def check_single_key(value, criterion: Union[type, list]):
     # If criteria is a list, check if key is in the list
     if type(criterion) == list:
-        return key in criterion
+        return value in criterion
     # If criteria is a type, check if key can be cast to that type
     elif type(criterion) == type:
         try:
-            criterion(key)
+            criterion(value)
             return True
         except:
             return False

@@ -55,9 +55,9 @@ return ONLY your function."""
     type_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, cannot be cast to type {target_type}. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
     str_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, is not one of {target_options}. Which option of {target_options} is most similar to {value}? Return ONLY the value."""  # same as above but for when the target is a list of strings
 
-    value_error_find_key_prompt = """Code:\n{code}\n\nLine:\n{line}\n\nTraceback: {traceback}\n\nWhat key is responsible for the error in the traceback? The possible keys are {key_options}. Return ONLY the key."""
+    value_error_find_key_prompt = """Attempt: {attempt_no}\nCode:\n{code}\n\nLine:\n{line}\n\nTraceback: {traceback}\n\nWhat key is responsible for the error in the traceback? The possible keys are {key_options}. Return ONLY the key."""
     update_val_gen_prompt = """Attempt no. {attempt_no}\n\nCode:\n{code}\n\nError message:\n{error_message}.\n\nThe code above checks whether the type of the input is correct. Update the code so that all defaults pass, but nonsensical inputs of the wrong type fail. If there are no defaults in a dict.get() call, add a default value. Only check the type of the input, not the range. Do not check that all values are present. Ensure that an empty dictionary is valid. Return ONLY the code. """
-    schema_error_prompt = """Context:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
+    schema_error_prompt = """Attempt: {attempt_no}\nContext:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
 
     def pre_conversation(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
@@ -187,11 +187,26 @@ return ONLY your function."""
         sys.path.append(tf.name)
 
     def run_generated_code(self, locals):
-        single_program_outputs = []
+        program_outputs = {
+            # program 1: {
+            #     "program_name": program_name,
+            #     "eligibility": None,
+            #     "completed": False,
+            # },
+            # program 2: {
+            #     "program_name": program_name,
+            #     "eligibility": None,
+            #     "completed": False,
+            # },...
+        }
         for program_name in locals["program_names"]:
-            single_program_outputs.append(self.run_single_program(program_name, locals))
+            spo = self.run_single_program(program_name, locals) # single program output
+            # drop history and hh
+            del spo["history"]
+            del spo["hh"]
+            program_outputs[spo["program_name"]] = spo
 
-        return single_program_outputs
+        return program_outputs
 
     def run_single_program(self, program_name, locals):
         gen_code_path = locals["tf"].name
@@ -204,13 +219,16 @@ return ONLY your function."""
         history = []
         locals["hh"] = dict()
         # run the generated code until we get a valid output
+        attempt_no = 0
         prev_hh = None
         while True:
             if locals["hh"] == prev_hh:
+                print("returning None eligibility due to no change in locals")
                 return {
+                    "program_name": program_name,
                     "hh": locals["hh"],
                     "history": history,
-                    "eligibility": eligibility,
+                    "eligibility": None,
                     "completed": False,
                 }
             ### validate all inputs ##
@@ -223,19 +241,25 @@ return ONLY your function."""
                 )
                 # TODO: use lm to cast it to the type or retry the question
                 #     schema_error_prompt = """Context:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
-
-                fix_val = self.forward_generic(
-                    self.schema_error_prompt.format(
-                        eligibility_requirements=relevant_program,
-                        dialog=hist_to_str(history),
-                        line=line,
-                        value=val,
-                        target_type=criterion,
-                    ),
-                    logging_role="fix_val",
-                )
-                prev_hh = deepcopy(locals["hh"])
-                locals["hh"][key] = fix_val
+                attempt_no = 0
+                while True:
+                    fix_val = self.forward_generic(
+                        self.schema_error_prompt.format(
+                            attempt_no=attempt_no,
+                            eligibility_requirements=relevant_program,
+                            dialog=hist_to_str(history),
+                            line=line,
+                            value=val,
+                            target_type=criterion,
+                        ),
+                        logging_role="fix_val",
+                    )
+                    if generated_code.check_single_key(fix_val, criterion):
+                        val_result = fix_val
+                        prev_hh = deepcopy(locals["hh"])
+                        locals["hh"][key] = val_result
+                        break
+                    attempt_no += 1
 
             ### Run the actual generated code ###
             try:
@@ -293,16 +317,21 @@ return ONLY your function."""
                     key_options = set(locals["hh"].keys()).intersection(
                         set(relevant_val_dict.keys())
                     )
-                    raw_key = self.forward_generic(
-                        prompt=self.value_error_find_key_prompt.format(
-                            code=fn_code,
-                            line=line,
-                            traceback=str(e),
-                            key_options=str(key_options),
-                        ),
-                        logging_role="value_error_find_key",
-                    )
-                    key = raw_key.strip("'\"` \n.")
+                    key = None
+                    attempt_no = 0
+                    while key not in relevant_val_dict.keys():
+                        raw_key = self.forward_generic(
+                            prompt=self.value_error_find_key_prompt.format(
+                                attempt_no=attempt_no,
+                                code=fn_code,
+                                line=line,
+                                traceback=str(e),
+                                key_options=str(key_options),
+                            ),
+                            logging_role="value_error_find_key",
+                        )
+                        key = raw_key.strip("'\"` \n.")
+                        attempt_no += 1
                     # target_type = e.args[0]
                     # print(e)
                     target_type = relevant_val_dict[key]
@@ -334,6 +363,7 @@ return ONLY your function."""
 
                 continue
         return {
+            "program_name": program_name,
             "hh": locals["hh"],
             "history": history,
             "eligibility": eligibility,

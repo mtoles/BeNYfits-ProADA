@@ -7,7 +7,7 @@ from datamodels.chatbot import *
 from datamodels.syntheticuser import SyntheticUser
 from datetime import datetime
 from tqdm import tqdm
-from acc_over_time_experiment import plot_metrics_per_turn
+from acc_over_time_experiment import plot_metrics_per_turn, plot_code_mode_results
 from models.lm_logging import LmLogger
 from users.dataset_generation import unit_test_dataset
 from users.users import Household
@@ -140,14 +140,14 @@ def eligibility_to_string(eligibility_df):
 # df["labels"] = df["labels"].apply(lambda x: x[: args.num_programs])
 
 # Description about all the benefits eligbility in natural language
-eligibility_df = read_eligibility_requirements(
+predictions_df = read_eligibility_requirements(
     args.eligibility_requirements, args.num_programs
 )
 if args.programs is not None:
-    eligibility_df = eligibility_df[
-        eligibility_df["program"].apply(lambda x: x in args.programs)
+    predictions_df = predictions_df[
+        predictions_df["program"].apply(lambda x: x in args.programs)
     ].reset_index(drop=True)
-eligibility_requirements = eligibility_df.set_index("program")["description"].to_dict()
+eligibility_requirements = predictions_df.set_index("program")["description"].to_dict()
 program_names = list(eligibility_requirements.keys())
 
 # Load the dataset
@@ -237,6 +237,7 @@ generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
 generated_code_path = os.path.join("generated_code", generated_code_filename)
 os.makedirs("generated_code", exist_ok=True)
 
+generated_code_results = []
 for index, row in tqdm(df.iterrows()):
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
@@ -311,27 +312,34 @@ for index, row in tqdm(df.iterrows()):
 
         # run generated code
         chatbot = get_model(args.chatbot_strategy)
-        generated_code_result = chatbot.run_generated_code(locals())
-        code_hh = generated_code_result["hh"]
-        code_mode_predictions = generated_code_result["eligibility"]
-        code_history = generated_code_result["history"]
-        code_passed = code_mode_predictions is not None
+        generated_code_results.append(chatbot.run_generated_code(locals()))
+
+        # code_hh = generated_code_result["hh"]
+        # code_mode_predictions = generated_code_result["eligibility"]
+        # code_history = generated_code_result["history"]
+        # code_passed = code_mode_predictions is not None
 
         # TODO: compute dialog turns correctly
-        per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
-        lm_logger.log_predictions(per_turn_all_predictions)
+        # per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
+        # lm_logger.log_predictions(per_turn_all_predictions)
 
+        # if code_passed:
+    continue
     if not code_run_mode or not code_passed:
 
         per_turn_predictions = []
         ### -------- ###
 
-        history = code_history if "code_history" in locals() else [
-            {
-                "role": "system",
-                "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
-            },
-        ]
+        history = (
+            code_history
+            if "code_history" in locals()
+            else [
+                {
+                    "role": "system",
+                    "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
+                },
+            ]
+        )
         print(f"Index: {index}")
 
         cur_iter_count = 0
@@ -408,23 +416,58 @@ for index, row in tqdm(df.iterrows()):
 lm_logger.save()
 
 
+# convert dict of dicts to separate dfs
+eligibility_li = []
+completed_li = []
+for i, d in enumerate(generated_code_results):
+    eligibility_line = {}
+    completed_line = {}
+    for pn, dd in d.items():
+        eligibility_line[pn] = dd["eligibility"]
+        completed_line[pn] = dd["completed"]
+    eligibility_li.append(eligibility_line)
+    completed_li.append(completed_line)
+
+predictions_df = pd.DataFrame(
+    [
+        {k: (1 if v is True else 0 if v is False else v) for k, v in d.items()}
+        for d in eligibility_li
+    ]
+)
+completed_df = pd.DataFrame(completed_li)
+
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 # call one final time
-plot_metrics_per_turn(
-    per_turn_all_predictions,
-    df[args.programs],
-    last_turn_iteration,
-    output_dir=output_dir,
-    experiment_params={
-        "Backbone Model": args.chatbot_model_name,
-        "Strategy": f"{args.estring} {args.chatbot_strategy}",
-        "Programs": ", ".join(args.programs),
-        "Max Dialog Turns": args.max_dialog_turns,
-        "Downsample Size": args.downsample_size,
-        "Top K Sentences": args.top_k,
-    },
-)
+if code_run_mode:
+    plot_code_mode_results(
+        predictions_df,
+        df[args.programs].reset_index(),
+        output_dir=output_dir,
+        experiment_params={
+            "Backbone Model": args.chatbot_model_name,
+            "Strategy": f"{args.estring} {args.chatbot_strategy}",
+            "Programs": ", ".join(args.programs),
+            "Max Dialog Turns": args.max_dialog_turns,
+            "Downsample Size": args.downsample_size,
+            "Top K Sentences": args.top_k,
+        },
+    )
+else:
+    plot_metrics_per_turn(
+        predictions_df,
+        df[args.programs].reset_index(),
+        last_turn_iteration,
+        output_dir=output_dir,
+        experiment_params={
+            "Backbone Model": args.chatbot_model_name,
+            "Strategy": f"{args.estring} {args.chatbot_strategy}",
+            "Programs": ", ".join(args.programs),
+            "Max Dialog Turns": args.max_dialog_turns,
+            "Downsample Size": args.downsample_size,
+            "Top K Sentences": args.top_k,
+        },
+    )
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
