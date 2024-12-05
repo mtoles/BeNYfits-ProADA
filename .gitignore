@@ -19,3 +19,4 @@ analysis/notetaker.sh
 */package.json
 */package-lock.json
 generated_code/
+.DS_Store
