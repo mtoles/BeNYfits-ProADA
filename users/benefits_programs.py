@@ -794,3 +794,35 @@ class HeadStart(BaseBenefitsProgram):
         
         return False
 
+class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
+    """
+    Eligibility for the Section 8/HCV programs is primarily based on household income and family size.
+    """
+
+    @staticmethod
+    def __call__(hh) -> bool:
+        income_limits = {
+            1: 54350,
+            2: 62150,
+            3: 69900,
+            4: 77650,
+            5: 83850,
+            6: 90050,
+            7: 96300,
+            8: 102500,
+        }
+
+        hh_size = hh.num_members()
+        total_income = hh.hh_total_income()
+
+        # Determine income limit for the household size
+        if hh_size in income_limits:
+            income_limit = income_limits[hh_size]
+        else:
+            # For households larger than 8, extrapolate the income limit
+            extra_members = hh_size - 8
+            additional_limit = extra_members * (income_limits[8] - income_limits[7])
+            income_limit = income_limits[8] + additional_limit
+
+        # Check if the household's total income is within the limit
+        return total_income <= income_limit
