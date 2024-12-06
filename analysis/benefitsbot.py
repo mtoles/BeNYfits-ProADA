@@ -2,7 +2,8 @@ import os
 import argparse
 
 import pandas as pd
-from models.model_utils import load_lm
+
+# from models.model_utils import load_lm
 from datamodels.chatbot import *
 from datamodels.syntheticuser import SyntheticUser
 from datetime import datetime
@@ -18,12 +19,12 @@ from uuid import uuid4
 start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
-    "--chatbot_model_name",
+    "--chat_model_id",
     default="meta-llama/Meta-Llama-3-8B-Instruct",
     help="Name of the benefits bot model to use.",
 )
 parser.add_argument(
-    "--code_model_name",
+    "--code_model_id",
     default=None,
     type=str,
     help="Name of the codellama model to use.",
@@ -68,7 +69,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--top_k",
-    default=None,
+    default=20,
     type=int,
     help="Number of similar sentences to pick from natural language profile to match with question in synthetic user",
 )
@@ -170,68 +171,43 @@ last_turn_iteration = []
 
 num_benefits = len(args.programs)
 
-# Load language models and pipeline setup
-chatbot_model_wrapper = load_lm(args.chatbot_model_name)
-
 
 lm_logger = LmLogger(log_dir=output_dir)
 
 
-def get_model(model_name: str, chatbot_model_wrapper=chatbot_model_wrapper) -> ChatBot:
-    if model_name == "backbone":
-        chatbot = ChatBot(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            args.use_cache,
-            lm_logger,
-        )
-    elif model_name == "backbone_fixed":
-        chatbot = ChatBotBackboneFixed(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            args.use_cache,
-            lm_logger,
-        )
-    elif model_name == "prompt_engineering_loose":
-        chatbot = ChatBotPredictCQPromptLoose(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            args.use_cache,
-            lm_logger,
-        )
-    elif model_name == "cot":
-        chatbot = CotChatBot(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            args.use_cache,
+# def get_model(model_name: str) -> ChatBot:
+def get_chatbot(
+    strategy: str = args.chatbot_strategy,
+    no_of_programs: str = len(args.programs),
+    eligibility_requirements: dict = args.eligibility_requirements,
+    use_cache: bool = args.use_cache,
+    lm_logger: LmLogger = lm_logger,
+) -> ChatBot:
+    if strategy == "backbone":
+        return ChatBot(
+            chat_model_id=args.chat_model_id,
+            no_of_programs=no_of_programs,
+            eligibility_requirements=eligibility_requirements,
+            use_cache=use_cache,
             lm_logger=lm_logger,
         )
-    elif model_name == "coderef":
-        chatbot = CodeRefChatBot(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            args.use_cache,
+    elif strategy == "codebot":
+        return CodeBot(
+            chat_model_id=args.chat_model_id,
+            no_of_programs=no_of_programs,
+            eligibility_requirements=eligibility_requirements,
+            use_cache=use_cache,
             lm_logger=lm_logger,
-        )
-    elif model_name == "codebot":
-        chatbot = CodeBot(
-            chatbot_model_wrapper,
-            num_benefits,
-            eligibility_requirements,
-            args.use_cache,
-            lm_logger=lm_logger,
+            code_model_id=args.code_model_id,
         )
     else:
-        raise ValueError(f"Invalid chatbot strategy: {args.chatbot_strategy}")
-    return chatbot
+        raise NotImplementedError(f"Invalid chatbot strategy: {strategy}")
 
 
-synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
+chatbot = get_chatbot()
+
+
+# synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
 
 generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
 generated_code_path = os.path.join("generated_code", generated_code_filename)
@@ -242,7 +218,7 @@ for index, row in tqdm(df.iterrows()):
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
         hh_nl_desc,
-        synthetic_user_model_wrapper,
+        args.synthetic_user_model_name,
         use_cache=args.use_cache,
         lm_logger=lm_logger,
         top_k=args.top_k,
@@ -250,7 +226,7 @@ for index, row in tqdm(df.iterrows()):
     # reinstantiate the model every time to dump the chat history
     labels = row[args.programs]
     lm_logger.add_empty_convo(labels.to_dict())
-    chatbot = get_model(args.chatbot_strategy)
+    chatbot = get_chatbot(args.chatbot_strategy)
     # Temporarily load codellama if we are using llama
     code_run_mode = "code" in args.chatbot_strategy
     # secondary_code_model_mode = (
@@ -262,47 +238,7 @@ for index, row in tqdm(df.iterrows()):
         if not os.path.exists(
             generated_code_path
         ):  # somewhat unsafe check if code has been generated
-            # if secondary_code_model_mode:
-            print("temporarily entering code mode")
-            if "llama" in args.code_model_name.lower():
-                codellama_model_size = re.search(r"(\d+b)", args.code_model_name).group(
-                    1
-                )
-                chatbot.lm_backbone = LmBackboneModel(
-                    LanguageModelWrapper(
-                        f"Codellama {codellama_model_size} Instruct",
-                        "llama",
-                        args.code_model_name,
-                    ),
-                    use_cache=args.use_cache,
-                    lm_logger=lm_logger,
-                )
-            elif args.code_model_name == "infly/OpenCoder-8B-Instruct":
-                chatbot.lm_backbone = LmBackboneModel(
-                    LanguageModelWrapper(
-                        f"infly OpenCoder 8B Instruct",
-                        "opencoder",
-                        args.code_model_name,
-                    ),
-                    use_cache=args.use_cache,
-                    lm_logger=lm_logger,
-                )
-            elif "qwen" in args.code_model_name.lower():
-                chatbot.lm_backbone = LmBackboneModel(
-                    LanguageModelWrapper(
-                        f"qwen",
-                        "qwen",
-                        args.code_model_name,
-                    ),
-                    use_cache=args.use_cache,
-                    lm_logger=lm_logger,
-                )
-            else:
-                raise ValueError(f"Invalid code model name: {args.code_model_name}")
 
-            # # create named temp file for codebot code gen
-            # if os.path.exists(generated_code_path):
-            #     os.remove(generated_code_path)
             try:
                 tf = open(generated_code_path, "w")
                 chatbot.pre_conversation(locals())
@@ -311,7 +247,7 @@ for index, row in tqdm(df.iterrows()):
                 # os.remove("generated_code.py")
 
         # run generated code
-        chatbot = get_model(args.chatbot_strategy)
+        chatbot = get_chatbot(args.chatbot_strategy)
         generated_code_results.append(chatbot.run_generated_code(locals()))
 
         # code_hh = generated_code_result["hh"]
@@ -323,17 +259,18 @@ for index, row in tqdm(df.iterrows()):
         # per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
         # lm_logger.log_predictions(per_turn_all_predictions)
 
-        # if code_passed:
-    continue
+        code_passed = True
+    # continue
     if not code_run_mode or not code_passed:
 
         per_turn_predictions = []
         ### -------- ###
 
         history = (
-            code_history
-            if "code_history" in locals()
-            else [
+            # code_history
+            # if "code_history" in locals()
+            # else
+            [
                 {
                     "role": "system",
                     "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
@@ -385,7 +322,7 @@ for index, row in tqdm(df.iterrows()):
                     last_turn_iteration.append(cur_iter_count)
                     break
                 ### otherwise, ask a question ###
-                cq = chatbot.predict_cq(history, cur_iter_count)
+                cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
                 history.append({"role": "assistant", "content": cq})
                 cq_answer = synthetic_user.answer_cq(cq)
                 history.append({"role": "user", "content": cq_answer})
@@ -446,7 +383,7 @@ if code_run_mode:
         df[args.programs].reset_index(),
         output_dir=output_dir,
         experiment_params={
-            "Backbone Model": args.chatbot_model_name,
+            "Backbone Model": args.chat_model_id,
             "Strategy": f"{args.estring} {args.chatbot_strategy}",
             "Programs": ", ".join(args.programs),
             "Max Dialog Turns": args.max_dialog_turns,
@@ -461,7 +398,7 @@ else:
         last_turn_iteration,
         output_dir=output_dir,
         experiment_params={
-            "Backbone Model": args.chatbot_model_name,
+            "Backbone Model": args.chat_model_id,
             "Strategy": f"{args.estring} {args.chatbot_strategy}",
             "Programs": ", ".join(args.programs),
             "Max Dialog Turns": args.max_dialog_turns,

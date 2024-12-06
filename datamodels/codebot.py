@@ -72,16 +72,19 @@ return ONLY your function."""
                 print(f"attempting to generate checker, attempt {checker_attempt_no}")
                 checker_gen_prompt = [
                     {
-                        "role": "system",
+                        "role": "user",
                         "content": self.gen_checker_prompt.format(
                             attempt_no=checker_attempt_no, eligibility_requirement=desc
                         ),
                     }
                 ]
-                dirty_checker_output = self.lm_backbone.forward(
+
+                dirty_checker_output = self.lm_api.forward(
                     checker_gen_prompt,
+                    chat_model_id=local_scope["args"].code_model_id,
+                    use_cache=local_scope["args"].use_cache,
                     logging_role="code_gen",
-                ).strip()
+                ).strip("`")
                 try:
                     clean_checker_output = extract_function_definitions(
                         dirty_checker_output
@@ -130,8 +133,10 @@ return ONLY your function."""
                     #             ),
                     #         }
                     #     ]
-                    dirty_val_output = self.lm_backbone.forward(
+                    dirty_val_output = self.lm_api.forward(
                         val_gen_prompt,
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
                         logging_role="val_gen",
                     ).strip()
                     clean_val_output = extract_function_definitions(dirty_val_output)[
@@ -200,7 +205,7 @@ return ONLY your function."""
             # },...
         }
         for program_name in locals["program_names"]:
-            spo = self.run_single_program(program_name, locals) # single program output
+            spo = self.run_single_program(program_name, locals)  # single program output
             # drop history and hh
             del spo["history"]
             del spo["hh"]
@@ -293,6 +298,7 @@ return ONLY your function."""
                             line=line,
                             key=key,
                         ),
+                        
                         logging_role="key_error",
                     )
                     print(cq)
@@ -377,7 +383,7 @@ return ONLY your function."""
                 "content": prompt,
             }
         ]
-        lm_output = self.lm_backbone.forward(prompt, logging_role=logging_role)
+        lm_output = self.lm_api.forward(prompt, chat_model_id=self.chat_model_id, use_cache=self.use_cache, logging_role=logging_role)
         # if lm_output starts and ends with '"`, remove them
         for c in ["'", '"', "`"]:
             if lm_output.startswith(c) and lm_output.endswith(c):

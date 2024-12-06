@@ -55,11 +55,11 @@ def forward_hf(request: ForwardRequest):
     if name_of_model != current_name_of_model:
         if model is not None:
             del model
-            del tk
+            del tk 
             torch.cuda.empty_cache()
         try:
             tk = AutoTokenizer.from_pretrained(name_of_model)
-            model = outlines.models.transformers(name_of_model)
+            model = outlines.models.transformers(name_of_model, device="cuda:0")
             current_name_of_model = name_of_model
         except Exception as e:
             print(e)
@@ -70,6 +70,7 @@ def forward_hf(request: ForwardRequest):
         prompt = tk.apply_chat_template(
             history,
             tokenize=False,
+            add_generation_prompt=True,
         )
         if type(request.constraints) == list:
             generator = outlines.generate.choice(model, request.constraints)
@@ -116,8 +117,13 @@ def forward(request: ForwardRequest):
 if __name__ == "__main__":
     # if False:
     name_of_model = "Qwen/Qwen2.5-Coder-7B-Instruct"
+    # name_of_model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
     history = [
+        {
+            "role": "system",
+            "content": "You are a chatbot. Respond to the question:",
+        },
         {
             "role": "user",
             "content": "How many words are in the sentence 'Hello World'?",

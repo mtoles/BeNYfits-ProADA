@@ -1,17 +1,17 @@
-from models.model_utils import LanguageModelWrapper
 from datamodels.userprofile import UserProfile
 from models.lm_backbone import LmBackboneModel
 from models.lm_logging import LmLogger
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import torch
+from server.model_client import ModelAPIClient
 
 
 class SyntheticUser:
     def __init__(
         self,
         hh_nl_desc: str,
-        lm_wrapper: LanguageModelWrapper,
+        chat_model_id: str,
         use_cache: bool,
         lm_logger: LmLogger,
         top_k: int = 5,
@@ -19,14 +19,16 @@ class SyntheticUser:
         """
         The ground truth information about the user
         """
-        self.lm_wrapper = lm_wrapper
+        # self.lm_wrapper = lm_wrapper
         self.nl_profile = hh_nl_desc
+        self.chat_model_id = chat_model_id
         self.use_cache = use_cache
         # Model to answer clarifying question
         # self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
-        self.lm_backbone = LmBackboneModel(
-            self.lm_wrapper, self.use_cache, lm_logger=lm_logger
-        )
+        # self.lm_backbone = LmBackboneModel(
+        #     id_of_model, self.use_cache, lm_logger=lm_logger
+        # )
+        self.lm_api = ModelAPIClient("http://localhost:8000", lm_logger)
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
         self.sentence_encoder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -84,5 +86,10 @@ class SyntheticUser:
                 + f"Question: {cq}",
             },
         ]
-        lm_output = self.lm_backbone.forward(prompt, logging_role="answer_cq")
+        lm_output = self.lm_api.forward(
+            prompt,
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
+            logging_role="answer_cq",
+        )
         return lm_output
