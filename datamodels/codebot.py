@@ -1,6 +1,5 @@
 from .chatbot import *
 from tqdm import tqdm
-from tempfile import NamedTemporaryFile
 import re
 import sys
 import importlib.util
@@ -122,17 +121,7 @@ return ONLY your function."""
                             ),
                         }
                     ]
-                    # else:
-                    #     val_gen_prompt = [
-                    #         {
-                    #             "role": "system",
-                    #             "content": self.update_val_gen_prompt.format(
-                    #                 attempt_no=attempt_no,
-                    #                 code=dirty_val_output,
-                    #                 error_message=error_var.args[0],
-                    #             ),
-                    #         }
-                    #     ]
+
                     dirty_val_output = self.lm_api.forward(
                         val_gen_prompt,
                         chat_model_id=local_scope["args"].code_model_id,
@@ -142,14 +131,8 @@ return ONLY your function."""
                     clean_val_output = extract_function_definitions(dirty_val_output)[
                         f"get_{name}_type_dict"
                     ]
-                    # exec(clean_val_output)  # define the val_{name} fn
-                    # val_dict = eval(f"get_{name}_type_dict()")
-                    break  # just one iteration, assume it's right
 
-                    # check if the validator passes on empty input
-                    # if val_fn({}) is None:
-                    #     break
-                    # clean_val_output = remove_raise_statements(clean_val_output)
+                    break  # just one iteration, assume it's right
 
                 except Exception as e:
                     error_var = e
@@ -163,10 +146,6 @@ return ONLY your function."""
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
 
-        # replace the template with the generated code
-        # program_texts = []
-        # program_dict_text = []
-        # for name, code in generated_fns_text.items():
         eligibility_definition_block = "\n\n".join(generated_checker_text.values())
         eligibility_call_block = ",".join(
             [f"'{k}':{k}" for k in generated_checker_text.keys()]
@@ -240,6 +219,9 @@ return ONLY your function."""
             val_result = generated_code.validate_user_data(program_name, locals["hh"])
             if val_result is not None:
                 key, criterion = val_result
+                if type(criterion) == str:
+                    print(f"invalid criterion {criterion} wrapped in list")
+                    criterion = [criterion]
                 val = locals["hh"][key]
                 print(
                     f"val '{val}' for key: '{key}' does not fit criterion: `{criterion}`"
@@ -258,6 +240,9 @@ return ONLY your function."""
                             target_type=criterion,
                         ),
                         logging_role="fix_val",
+                        constraints=(
+                            [criterion] if type(criterion) != list else criterion
+                        ),
                     )
                     if generated_code.check_single_key(fix_val, criterion):
                         val_result = fix_val
@@ -298,7 +283,6 @@ return ONLY your function."""
                             line=line,
                             key=key,
                         ),
-                        
                         logging_role="key_error",
                     )
                     print(cq)
@@ -317,9 +301,10 @@ return ONLY your function."""
                         logging_role="extract_value_from_ans",
                     )
                     history.append({"role": "assistant", "content": new_hh_value})
+                    prev_hh = deepcopy(locals["hh"])
                     locals["hh"][key] = new_hh_value
                     continue
-                if type(e) == ValueError:
+                elif type(e) == ValueError:
                     key_options = set(locals["hh"].keys()).intersection(
                         set(relevant_val_dict.keys())
                     )
@@ -348,7 +333,7 @@ return ONLY your function."""
                             eligibility_requirements=relevant_program,
                             line=line,
                             value=original_value,
-                            target_type=target_type,
+                            target_type=[target_type],
                             dialog=hist_to_str(history),
                         )
                     else:  # type(target_type) == list[str]
@@ -366,8 +351,17 @@ return ONLY your function."""
                     prev_hh = deepcopy(locals["hh"])
                     locals["hh"][key] = retyped_val
                     continue
-
-                continue
+                else:
+                    print(
+                        f"returning None because of error in generated code. Error: {error_var}"
+                    )
+                    return {
+                        "program_name": program_name,
+                        "hh": locals["hh"],
+                        "history": history,
+                        "eligibility": None,
+                        "completed": False,
+                    }
         return {
             "program_name": program_name,
             "hh": locals["hh"],
@@ -376,14 +370,20 @@ return ONLY your function."""
             "completed": True,
         }
 
-    def forward_generic(self, prompt: str, logging_role: str):
+    def forward_generic(self, prompt: str, logging_role: str, constraints=None):
         prompt = [
             {
                 "role": "system",
                 "content": prompt,
             }
         ]
-        lm_output = self.lm_api.forward(prompt, chat_model_id=self.chat_model_id, use_cache=self.use_cache, logging_role=logging_role)
+        lm_output = self.lm_api.forward(
+            prompt,
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
+            constraints=constraints,
+            logging_role=logging_role,
+        )
         # if lm_output starts and ends with '"`, remove them
         for c in ["'", '"', "`"]:
             if lm_output.startswith(c) and lm_output.endswith(c):

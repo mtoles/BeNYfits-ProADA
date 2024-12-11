@@ -1,5 +1,7 @@
 from server.model_server import ForwardRequest
 import requests
+from enum import Enum
+from typing import Union, Optional
 
 
 class ModelAPIClient:
@@ -13,13 +15,34 @@ class ModelAPIClient:
         chat_model_id: str,
         use_cache: bool,
         logging_role: str,
-        constraints: str = None,
+        constraints: Optional[Union[list[str], list[type]]] = [],
     ):
+        if constraints:
+            assert "int" not in constraints  # probably an error
+            assert "float" not in constraints  # probably an error
+            assert type(constraints) == list
+
+        if not constraints:
+            constraint_type = "none"
+            constraints = None
+        else:
+            first_type = type(constraints[0])
+            if first_type == str:
+                constraint_type = "options"
+            elif first_type == type:
+                constraint_type = "types"
+                constraints = [(x).__name__ for x in constraints]
+            elif first_type == type(None):
+                constraint_type = "none"
+            else:
+                raise NotImplementedError
+
         fr = ForwardRequest(
             name_of_model=chat_model_id,
             history=history,
             use_cache=use_cache,
             constraints=constraints,
+            constraint_type=constraint_type,
         )
         response = requests.post(f"{self.api_url}/forward", json=vars(fr))
 

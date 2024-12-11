@@ -162,9 +162,9 @@ class ChatBot:
         if output is None:
             # default to all fails
             print(
-                "*** WARNING: Could not extract prediction from model output. Defaulting to all fails. ***"
+                "*** WARNING: Could not extract prediction from model output. Defaulting to all Nones. ***"
             )
-            output = ["fail"] * len(programs)
+            output = [None] * len(programs)
         output = [1 if x == "pass" else 0 for x in output]
         # convert to dict
         output = {programs[i]: output[i] for i in range(len(programs))}

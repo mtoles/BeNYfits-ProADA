@@ -348,7 +348,7 @@ for index, row in tqdm(df.iterrows()):
         finally:
             # delete the tempfile
             lm_logger.save()
-
+    non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
 
 lm_logger.save()
 
@@ -392,10 +392,9 @@ if code_run_mode:
         },
     )
 else:
-    plot_metrics_per_turn(
-        predictions_df,
+    plot_code_mode_results(
+        non_code_preds_df,
         df[args.programs].reset_index(),
-        last_turn_iteration,
         output_dir=output_dir,
         experiment_params={
             "Backbone Model": args.chat_model_id,
@@ -406,5 +405,20 @@ else:
             "Top K Sentences": args.top_k,
         },
     )
+    # plot_metrics_per_turn(
+    #     non_code_preds_df,
+    #     df[args.programs].reset_index(),
+    #     last_turn_iteration,
+    #     output_dir=output_dir,
+    #     experiment_params={
+    #         "Backbone Model": args.chat_model_id,
+    #         "Strategy": f"{args.estring} {args.chatbot_strategy}",
+    #         "Programs": ", ".join(args.programs),
+    #         "Max Dialog Turns": args.max_dialog_turns,
+    #         "Downsample Size": args.downsample_size,
+    #         "Top K Sentences": args.top_k,
+    #     },
+    # )
+
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
