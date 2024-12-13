@@ -215,6 +215,7 @@ os.makedirs("generated_code", exist_ok=True)
 
 generated_code_results = []
 for index, row in tqdm(df.iterrows()):
+    chatbot = get_chatbot(args.chatbot_strategy)
     hh_nl_desc = row["hh_nl_desc"]
     synthetic_user = SyntheticUser(
         hh_nl_desc,
@@ -226,7 +227,6 @@ for index, row in tqdm(df.iterrows()):
     # reinstantiate the model every time to dump the chat history
     labels = row[args.programs]
     lm_logger.add_empty_convo(labels.to_dict())
-    chatbot = get_chatbot(args.chatbot_strategy)
     # Temporarily load codellama if we are using llama
     code_run_mode = "code" in args.chatbot_strategy
     # secondary_code_model_mode = (
@@ -235,19 +235,16 @@ for index, row in tqdm(df.iterrows()):
 
     ### PRE-CONVERSATION (codellama and code gen) ###
     if code_run_mode:
-        if not os.path.exists(
-            generated_code_path
-        ):  # somewhat unsafe check if code has been generated
-
-            try:
-                tf = open(generated_code_path, "w")
-                chatbot.pre_conversation(locals())
-            finally:
-                tf.close()
-                # os.remove("generated_code.py")
+        with open(generated_code_path, "w") as tf:
+            chatbot.pre_conversation(locals())
+            #     tf = open(generated_code_path, "w")
+            #     chatbot.pre_conversation(locals())
+            # finally:
+            #     tf.close()
+            # os.remove("generated_code.py")
 
         # run generated code
-        chatbot = get_chatbot(args.chatbot_strategy)
+        # chatbot = get_chatbot(args.chatbot_strategy)
         generated_code_results.append(chatbot.run_generated_code(locals()))
 
         # code_hh = generated_code_result["hh"]

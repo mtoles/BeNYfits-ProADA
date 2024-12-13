@@ -15,27 +15,18 @@ class ModelAPIClient:
         chat_model_id: str,
         use_cache: bool,
         logging_role: str,
+        constraint_type: str = "none",
         constraints: Optional[Union[list[str], list[type]]] = [],
     ):
-        if constraints:
-            assert "int" not in constraints  # probably an error
-            assert "float" not in constraints  # probably an error
-            assert type(constraints) == list
+        assert constraint_type in ["types", "choice", "regex", "none"]
+        assert not (constraint_type == "none" and constraints)
+        # if constraints:
+        #     assert "int" not in constraints  # probably an error
+        #     assert "float" not in constraints  # probably an error
+        #     assert type(constraints) == list
 
-        if not constraints:
-            constraint_type = "none"
-            constraints = None
-        else:
-            first_type = type(constraints[0])
-            if first_type == str:
-                constraint_type = "options"
-            elif first_type == type:
-                constraint_type = "types"
-                constraints = [(x).__name__ for x in constraints]
-            elif first_type == type(None):
-                constraint_type = "none"
-            else:
-                raise NotImplementedError
+        if constraint_type == "types":
+            constraints = [(x).__name__ for x in constraints]
 
         fr = ForwardRequest(
             name_of_model=chat_model_id,

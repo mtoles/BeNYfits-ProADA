@@ -68,7 +68,9 @@ def forward_hf(request: ForwardRequest):
 
     if request.constraint_type == "types":
         constraints = [_str_to_type(x) for x in request.constraints]
-    elif request.constraint_type == "options":
+    elif request.constraint_type == "choice":
+        constraints = request.constraints
+    elif request.constraint_type == "regex":
         constraints = request.constraints
     elif request.constraint_type == "none":
         constraints = None
@@ -88,6 +90,7 @@ def forward_hf(request: ForwardRequest):
             model = outlines.models.transformers(name_of_model, device="cuda:0")
             current_name_of_model = name_of_model
         except Exception as e:
+            print(traceback.format_exc())
             print(e)
             raise HTTPException(
                 status_code=500, detail=f"Error loading model '{name_of_model}': {e}"
@@ -100,11 +103,13 @@ def forward_hf(request: ForwardRequest):
         )
         if request.constraint_type == "none":
             generator = outlines.generate.text(model)
-        elif request.constraint_type == "options":
+        elif request.constraint_type == "choice":
             generator = outlines.generate.choice(model, request.constraints)
         elif request.constraint_type == "types":
             assert len(constraints) == 1
             generator = outlines.generate.format(model, constraints[0])
+        elif request.constraint_type == "regex":
+            generator = outlines.generate.regex(model, request.constraints)
         else:
             print(f"Unknown constraints: {request.constraints}")
             raise NotImplementedError
@@ -112,9 +117,12 @@ def forward_hf(request: ForwardRequest):
         print(f"hf Generated: {generated_text}")
         return {"generated_text": generated_text}
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
-        raise HTTPException(status_code=500, detail=f"Error generating text: {e}")
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating text: {e} in line {traceback.format_exc()}",
+        )
 
 
 @memory.cache
