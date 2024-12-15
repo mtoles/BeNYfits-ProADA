@@ -54,6 +54,22 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
     update_val_gen_prompt = """Attempt no. {attempt_no}\n\nCode:\n{code}\n\nError message:\n{error_message}.\n\nThe code above checks whether the type of the input is correct. Update the code so that all defaults pass, but nonsensical inputs of the wrong type fail. If there are no defaults in a dict.get() call, add a default value. Only check the type of the input, not the range. Do not check that all values are present. Ensure that an empty dictionary is valid. Return ONLY the code. """
     schema_error_prompt = """Attempt: {attempt_no}\nContext:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
 
+    def __init__(
+        self,
+        # chat_model_id: str,
+        # no_of_programs: str,
+        # eligibility_requirements: str,
+        # use_cache: bool,
+        # lm_logger: Optional[LmLogger] = None,
+        # code_model_id: Optional[str] = None,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.used_keys = []
+        self.key_types = {}
+        self.choices = {}
+
     def pre_conversation(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
         tf = local_scope["tf"]
@@ -105,11 +121,12 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     pass
 
             assert clean_checker_output
-
-            self.used_keys = re.findall(r"hh\[\"(.*?)\"\]", clean_checker_output)
-
-            self.key_types = {}
-            for key in self.used_keys:
+            this_program_used_keys = re.findall(
+                r"hh\[\"(.*?)\"\]", clean_checker_output
+            )
+            self.used_keys.extend(this_program_used_keys)
+            this_program_key_types = {}
+            for key in this_program_used_keys:
                 key_type_prompt = [
                     {
                         "role": "user",
@@ -120,17 +137,20 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                         ),
                     },
                 ]
-                self.key_types[key] = self.lm_api.forward(
+                this_program_key_types[key] = self.lm_api.forward(
                     key_type_prompt,
                     chat_model_id=local_scope["args"].code_model_id,
                     use_cache=local_scope["args"].use_cache,
                     logging_role="type_gen",
-                    constraints=["int", "float", "bool", "choice"],
+                    constraints=["int", "float", "choice"],
                     constraint_type="choice",
                 ).strip()
-            self.choices = {k: {} for k, v in self.key_types.items() if v == "choice"}
-            for c in self.choices:
-                self.choices[c] = ast.literal_eval(
+            # self.choices = {k: {} for k, v in self.key_types.items() if v == "choice"}
+            # self.choices.update(
+            new_choices = {k: {} for k, v in this_program_key_types.items() if v == "choice"}
+            # )
+            for c in new_choices:
+                new_choices[c] = ast.literal_eval(
                     self.lm_api.forward(
                         [
                             {
@@ -149,6 +169,9 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                         constraint_type="regex",
                     ).strip()
                 )
+
+            self.key_types.update(this_program_key_types)
+            self.choices.update(new_choices)
             print
 
         with open("datamodels/template.py", "r") as template_file:
@@ -238,7 +261,8 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
 
                 # if there is a key error, ask a question to get the value
                 if type(e) == KeyError:
-                    key = e.args[0]
+                    error_var = e
+                    key = error_var.args[0]
                     cq = self.forward_generic(
                         prompt=self.key_error_prompt.format(
                             eligibility_requirements=relevant_program,
