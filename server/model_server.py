@@ -5,10 +5,11 @@ import openai
 import os
 from fastapi import FastAPI, HTTPException
 from joblib import Memory
-from typing import Union, Optional
+from typing import Union, Optional, Any
 import outlines
 import ast
 import traceback
+from openai import OpenAI
 
 """
 run with:
@@ -26,8 +27,10 @@ class ForwardRequest(BaseModel):
     name_of_model: str
     history: list[dict]
     use_cache: bool
-    constraints: Optional[Union[list[str], str]]
+    constraints: Optional[Union[BaseModel, list[str], str]]
+    # constraints: Optional[Union[list[str], str]]
     constraint_type: Optional[str]
+    response_format: Any
 
 
 current_name_of_model = None
@@ -123,21 +126,6 @@ def forward_hf(request: ForwardRequest):
             status_code=500,
             detail=f"Error generating text: {e} in line {traceback.format_exc()}",
         )
-
-
-@memory.cache
-def forward_gpt(request: ForwardRequest):
-    try:
-        response = openai.ChatCompletion.create(
-            model=request.name_of_model,
-            messages=request.history,
-            max_tokens=50,
-            temperature=0.7,
-        )
-        generated_text = response.choices[0].message["content"].strip()
-        return {"generated_text": generated_text}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/forward")

@@ -2,6 +2,12 @@ from server.model_server import ForwardRequest
 import requests
 from enum import Enum
 from typing import Union, Optional
+from openai import OpenAI, NotGiven
+from joblib import Memory
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+memory = Memory(".joblib_cache", verbose=0)
 
 
 class ModelAPIClient:
@@ -16,7 +22,8 @@ class ModelAPIClient:
         use_cache: bool,
         logging_role: str,
         constraint_type: str = "none",
-        constraints: Optional[Union[list[str], list[type]]] = [],
+        constraints: Optional[Union[list[str], list[type], BaseModel]] = [],
+        openai_response_format=None,
     ):
         assert constraint_type in ["types", "choice", "regex", "none"]
         assert not (constraint_type == "none" and constraints)
@@ -34,13 +41,46 @@ class ModelAPIClient:
             use_cache=use_cache,
             constraints=constraints,
             constraint_type=constraint_type,
+            response_format=openai_response_format,
         )
-        response = requests.post(f"{self.api_url}/forward", json=vars(fr))
-
-        if response.status_code == 200:
-            return response.json()["generated_text"]
+        if fr.name_of_model.startswith("gpt"):
+            response = self.forward_gpt(fr)["generated_text"]
+            return response
         else:
-            raise Exception(f"Prediction error: {response.json()['detail']}")
+            response = requests.post(f"{self.api_url}/forward", json=vars(fr))
+
+            if response.status_code == 200:
+                return response.json()["generated_text"]
+            else:
+                raise Exception(f"Prediction error: {response.json()['detail']}")
+
+    @memory.cache
+    def forward_gpt(request: ForwardRequest):
+        client = OpenAI()
+        # try:
+        # if request.constraints is not None and request.constraint_type=="openai":
+        #     # if request.constraint_type == "options":
+        #     response_format = request.constraints
+        # else:
+        #     response_format = None
+        if request.response_format is None:
+        # completion = client.beta.chat.completions.parse(
+            completion = client.chat.completions.create(
+                model=request.name_of_model,
+                messages=request.history,
+                temperature=0.7,
+            )
+        else:
+            completion = client.beta.chat.completions.parse(
+                model=request.name_of_model,
+                messages=request.history,
+                temperature=0.7,
+                response_format=request.response_format,
+            )
+        generated_text = completion.choices[0].message.content.strip()
+        return {"generated_text": generated_text}
+        # except Exception as e:
+        #     raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

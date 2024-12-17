@@ -10,6 +10,12 @@ from utils import hist_to_str, remove_raise_statements
 from datamodels.template import SchemaError
 import black
 from enum import Enum
+from pydantic import BaseModel
+import json
+
+
+class Options(BaseModel):
+    options: list[str]
 
 
 class ConstraintType:
@@ -147,11 +153,15 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                 ).strip()
             # self.choices = {k: {} for k, v in self.key_types.items() if v == "choice"}
             # self.choices.update(
-            new_choices = {k: {} for k, v in this_program_key_types.items() if v == "choice"}
+            new_choices = {
+                k: {} for k, v in this_program_key_types.items() if v == "choice"
+            }
             # )
             for c in new_choices:
-                new_choices[c] = ast.literal_eval(
-                    self.lm_api.forward(
+                if local_scope["args"].code_model_id.startswith("gpt"):
+
+                    openai_response_format = Options
+                    response = self.lm_api.forward(
                         [
                             {
                                 "role": "user",
@@ -165,10 +175,32 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                         chat_model_id=local_scope["args"].code_model_id,
                         use_cache=local_scope["args"].use_cache,
                         logging_role="choice_gen",
-                        constraints=r'(\["[^"]+"(?:\s*,\s*"[^"]+")+\])',
+                        openai_response_format=openai_response_format,
+                    ).strip()
+
+                    response_dict = json.loads(response)
+                    choices = response_dict.get("options")
+                else:
+                    constraints = r'(\["[^"]+"(?:\s*,\s*"[^"]+")+\])'
+                    choices = self.lm_api.forward(
+                        [
+                            {
+                                "role": "user",
+                                "content": self.get_choices_prompt.format(
+                                    eligibility_requirements=desc,
+                                    code=clean_checker_output,
+                                    key=c,
+                                ),
+                            }
+                        ],
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
+                        logging_role="choice_gen",
+                        constraints=constraints,
                         constraint_type="regex",
                     ).strip()
-                )
+                    choices = ast.literal_eval(choices)
+                new_choices[c] = choices
 
             self.key_types.update(this_program_key_types)
             self.choices.update(new_choices)
