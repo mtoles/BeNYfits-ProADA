@@ -133,7 +133,8 @@ def forward(request: ForwardRequest):
     try:
         print("at /forward")
         if request.name_of_model.startswith("gpt"):
-            output = forward_gpt(request)
+            raise NotImplementedError # gpt moved to client side
+            # output = forward_gpt(request)
         else:
             output = forward_hf(request)
         return output

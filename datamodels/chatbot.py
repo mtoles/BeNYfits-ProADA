@@ -66,6 +66,7 @@ class ChatBot:
         self.use_cache = use_cache
         self.lm_api = ModelAPIClient(
             "http://localhost:8000",
+            lm_logger=lm_logger,
         )
         self.num_programs = no_of_programs
 

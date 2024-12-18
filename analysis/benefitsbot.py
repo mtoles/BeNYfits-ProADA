@@ -257,6 +257,11 @@ for index, row in tqdm(df.iterrows()):
         # lm_logger.log_predictions(per_turn_all_predictions)
 
         code_passed = True
+        predictions_log_entry = {}
+        for k, v in generated_code_results[-1].items():
+            predictions_log_entry[k] = 1 if v["eligibility"] else 0
+        lm_logger.log_predictions([predictions_log_entry])
+
     # continue
     if not code_run_mode or not code_passed:
 
@@ -349,32 +354,29 @@ for index, row in tqdm(df.iterrows()):
 
 lm_logger.save()
 
-
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 # convert dict of dicts to separate dfs
-eligibility_li = []
-completed_li = []
-for i, d in enumerate(generated_code_results):
-    eligibility_line = {}
-    completed_line = {}
-    for pn, dd in d.items():
-        eligibility_line[pn] = dd["eligibility"]
-        completed_line[pn] = dd["completed"]
-    eligibility_li.append(eligibility_line)
-    completed_li.append(completed_line)
+if code_run_mode:
+    eligibility_li = []
+    completed_li = []
+    for i, d in enumerate(generated_code_results):
+        eligibility_line = {}
+        completed_line = {}
+        for pn, dd in d.items():
+            eligibility_line[pn] = dd["eligibility"]
+            completed_line[pn] = dd["completed"]
+        eligibility_li.append(eligibility_line)
+        completed_li.append(completed_line)
 
-predictions_df = pd.DataFrame(
-    [
+    eligibility_li_int = [
         {k: (1 if v is True else 0 if v is False else v) for k, v in d.items()}
         for d in eligibility_li
     ]
-)
-completed_df = pd.DataFrame(completed_li)
+    predictions_df = pd.DataFrame(eligibility_li_int)
+    completed_df = pd.DataFrame(completed_li)
 
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-
-# call one final time
-if code_run_mode:
+    # call one final time
     plot_code_mode_results(
         predictions_df,
         df[args.programs].reset_index(),

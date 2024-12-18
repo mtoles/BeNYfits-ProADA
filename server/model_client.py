@@ -11,9 +11,9 @@ memory = Memory(".joblib_cache", verbose=0)
 
 
 class ModelAPIClient:
-    def __init__(self, api_url, logger=None):
+    def __init__(self, api_url, lm_logger=None):
         self.api_url = api_url
-        self.logger = logger
+        self.lm_logger = lm_logger
 
     def forward(
         self,
@@ -44,15 +44,23 @@ class ModelAPIClient:
             response_format=openai_response_format,
         )
         if fr.name_of_model.startswith("gpt"):
-            response = self.forward_gpt(fr)["generated_text"]
-            return response
+            response = self.forward_gpt(fr)
+            # self.lm_logger.log_io(
+            #     lm_input=history, lm_output=response, role=logging_role
+            # )
+            # return response
         else:
-            response = requests.post(f"{self.api_url}/forward", json=vars(fr))
-
-            if response.status_code == 200:
-                return response.json()["generated_text"]
-            else:
+            response_package = requests.post(f"{self.api_url}/forward", json=vars(fr))
+            status_code = response_package.status_code
+            response = response_package.json()
+            if status_code != 200:
                 raise Exception(f"Prediction error: {response.json()['detail']}")
+
+        generated_text = response["generated_text"]
+        self.lm_logger.log_io(
+            lm_input=history, lm_output=generated_text, role=logging_role
+        )
+        return generated_text
 
     @memory.cache
     def forward_gpt(request: ForwardRequest):
@@ -64,7 +72,7 @@ class ModelAPIClient:
         # else:
         #     response_format = None
         if request.response_format is None:
-        # completion = client.beta.chat.completions.parse(
+            # completion = client.beta.chat.completions.parse(
             completion = client.chat.completions.create(
                 model=request.name_of_model,
                 messages=request.history,
