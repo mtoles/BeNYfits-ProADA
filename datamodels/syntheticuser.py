@@ -14,7 +14,7 @@ class SyntheticUser:
         chat_model_id: str,
         use_cache: bool,
         lm_logger: LmLogger,
-        top_k: int = 5,
+        top_k: int = 25,
     ):
         """
         The ground truth information about the user
@@ -82,8 +82,10 @@ class SyntheticUser:
             },
             {
                 "role": "user",
-                "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, explain why you cannot answer the question. Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n"
-                + f"Question: {cq}",
+                # "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, explain why you cannot answer the question. Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n"
+                # + 
+                # f"Question: {cq}",
+                "content": cq,
             },
         ]
         lm_output = self.lm_api.forward(

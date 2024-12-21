@@ -90,7 +90,16 @@ def forward_hf(request: ForwardRequest):
             torch.cuda.empty_cache()
         try:
             tk = AutoTokenizer.from_pretrained(name_of_model)
-            model = outlines.models.transformers(name_of_model, device="cuda:0")
+            print("CUDA devices available:")
+            for i in range(torch.cuda.device_count()):
+                print(f"- {torch.cuda.get_device_name(i)}")
+            # model = outlines.models.transformers(name_of_model, device="cuda", kwargs={"torch_dtype": torch.bfloat16})
+            raw_model = AutoModelForCausalLM.from_pretrained(
+                name_of_model, torch_dtype=torch.bfloat16
+            ).to("cuda")
+            # if torch.cuda.device_count() > 1:
+            # raw_model = torch.nn.DataParallel(raw_model)
+            model = outlines.models.Transformers(raw_model, tk)
             current_name_of_model = name_of_model
         except Exception as e:
             print(traceback.format_exc())
@@ -133,7 +142,7 @@ def forward(request: ForwardRequest):
     try:
         print("at /forward")
         if request.name_of_model.startswith("gpt"):
-            raise NotImplementedError # gpt moved to client side
+            raise NotImplementedError  # gpt moved to client side
             # output = forward_gpt(request)
         else:
             output = forward_hf(request)

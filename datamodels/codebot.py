@@ -13,6 +13,8 @@ from enum import Enum
 from pydantic import BaseModel
 import json
 
+list_regex = r'(\["[^"]+"(?:\s*,\s*"[^"]+")+\])'
+
 
 class Options(BaseModel):
     options: list[str]
@@ -60,6 +62,16 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
     update_val_gen_prompt = """Attempt no. {attempt_no}\n\nCode:\n{code}\n\nError message:\n{error_message}.\n\nThe code above checks whether the type of the input is correct. Update the code so that all defaults pass, but nonsensical inputs of the wrong type fail. If there are no defaults in a dict.get() call, add a default value. Only check the type of the input, not the range. Do not check that all values are present. Ensure that an empty dictionary is valid. Return ONLY the code. """
     schema_error_prompt = """Attempt: {attempt_no}\nContext:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
 
+    generate_edge_cases_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the edge cases that will fail the code? Return ONLY the edge cases as a JSON in the form ["The first case", "The second case", ...]"""
+    make_unit_tests_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what is the test case that will fail the code? Return ONLY the test case as JSON in the form:
+{
+    "hh": {
+        "key": "value"
+    },
+    "expected": "value"
+}
+    """
+
     def __init__(
         self,
         # chat_model_id: str,
@@ -77,6 +89,28 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
         self.choices = {}
 
     def pre_conversation(self, local_scope: dict):
+        code = self.make_program(local_scope)
+        edge_case_prompt = [
+            {
+                "role": "user",
+                "content": self.generate_edge_cases_prompt.format(
+                    eligibility_requirements=local_scope["eligibility_requirements"],
+                    code=code,
+                ),
+            }
+        ]
+        # edge_cases_str = self.lm_api.forward(
+        #     edge_case_prompt,
+        #     chat_model_id=local_scope["args"].code_model_id,
+        #     use_cache=local_scope["args"].use_cache,
+        #     logging_role="code_gen",
+        #     constraint_type="regex",
+        #     constraints=list_regex,
+        # )
+        # print
+        # generate unit tests
+
+    def make_program(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
         tf = local_scope["tf"]
         ### Write checker code
@@ -181,7 +215,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     response_dict = json.loads(response)
                     choices = response_dict.get("options")
                 else:
-                    constraints = r'(\["[^"]+"(?:\s*,\s*"[^"]+")+\])'
+                    constraints = list_regex
                     choices = self.lm_api.forward(
                         [
                             {
@@ -232,6 +266,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
         tf.close()
 
         sys.path.append(tf.name)
+        return program
 
     def run_generated_code(self, locals):
         program_outputs = {}
