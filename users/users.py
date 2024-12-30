@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
 from users.user_features import PersonAttributeMeta
+
 np.random.seed(0)
+
 
 ### CLASSES ###
 class Person:
@@ -131,7 +133,9 @@ class Household:
     def from_dict(cls, hh_dict: dict):
         # create household from dictionary
         members = [
-            Person.from_dict(member["features"]) for member in hh_dict["members"]
+            # Person.from_dict(member["features"]) for member in hh_dict["members"]
+            Person.from_dict(member["features"])
+            for member in hh_dict["features"]["members"]
         ]
         hh = cls(members)
         hh.validate()
@@ -156,7 +160,7 @@ class Household:
                     if member["relation"] == "self":
                         raise SchemaError("Household cannot have more than one `self`")
             return True
-        
+
         for member in self.members:
             member.validate()
         assert _one_self(self)
@@ -229,7 +233,9 @@ class Household:
             "coop",
         }
         if htype not in valid_types:
-            raise ValueError(f"Invalid housing type: {htype}. Must be one of {valid_types}.")
+            raise ValueError(
+                f"Invalid housing type: {htype}. Must be one of {valid_types}."
+            )
         self.features["housing_type"] = htype
 
     def get_housing_type(self) -> str:
@@ -250,7 +256,7 @@ class Household:
         """
         owners = self.property_owners()
         return sum(o["work_income"] + o["investment_income"] for o in owners)
-    
+
     def nl_household_profile(self) -> str:
         user = self.members[0]
         user_name = user["name"]
@@ -274,7 +280,7 @@ class Household:
                 f"There are {num_members} members in your household, of which {num_children} are children."
             ]
         ).strip()
- 
+
 
 if __name__ == "__main__":
     #

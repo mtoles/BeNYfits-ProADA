@@ -29,7 +29,6 @@ class DatasetConstructor:
 
         return executed_lines
     
-<<<<<<< HEAD
     def fuzz(limit=20, trials=10**3):
         
         # Number of lines in the source code of the function
@@ -83,7 +82,3 @@ class DatasetConstructor:
 
         # Return the output list
         return output
-=======
-    def fuzz(func):
-        pass
->>>>>>> mt.remote
