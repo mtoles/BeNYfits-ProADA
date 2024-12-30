@@ -218,21 +218,29 @@ class TestSeniorCitizenHomeownersExemption(unittest.TestCase):
         owner1 = MagicMock()
         owner2 = MagicMock()
 
-        owner1.get.side_effect = lambda k, d=None: {
+        owner1_data = {
             "age": 70,
             "relation": "spouse",
             "primary_residence": True,
             "months_owned_property": 10,   # < 12 months
             "had_previous_sche": False
-        }.get(k, d)
+        }
 
-        owner2.get.side_effect = lambda k, d=None: {
+        owner2_data = {
             "age": 66,
             "relation": "spouse",
             "primary_residence": True,
             "months_owned_property": 24,
             "had_previous_sche": False
-        }.get(k, d)
+        }
+
+        # Mocking .get(...)
+        owner1.get.side_effect = lambda k, d=None: owner1_data.get(k, d)
+        owner2.get.side_effect = lambda k, d=None: owner2_data.get(k, d)
+
+        # Mocking .__getitem__(...)
+        owner1.__getitem__.side_effect = lambda k: owner1_data[k]
+        owner2.__getitem__.side_effect = lambda k: owner2_data[k]
 
         hh_mock.property_owners.return_value = [owner1, owner2]
         hh_mock.owners_total_income.return_value = 40000

@@ -901,6 +901,7 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
 
         # 5. Ownership duration (>=12 months) or previously had SCHE
         for o in owners:
+            print(o["months_owned_property"])
             if not o["had_previous_sche"] and o["months_owned_property"] < 12:
                 return False
 
