@@ -1,6 +1,7 @@
 from analysis.dataset_constructor import DatasetConstructor
 from users.benefits_programs import ChildAndDependentCareTaxCredit, EarlyHeadStartPrograms, InfantToddlerPrograms, ComprehensiveAfterSchool, InfantToddlerPrograms, ChildTaxCredit, DisabilityRentIncreaseExemption, EarnedIncomeTaxCredit, HeadStart
 import json
+from tqdm import tqdm
 
 
 households = [hh for hh in DatasetConstructor.fuzz()]
@@ -8,7 +9,7 @@ households_members = [eval(str(hh)) for hh in households]
 
 with open("edge_case_dataset.jsonl", "w") as fout:
 
-    for hh, members in zip(households, households_members):
+    for hh, members in tqdm(zip(households, households_members)):
         household_dict = {"hh": {"features": {"members": []}}}
 
         for member in members:

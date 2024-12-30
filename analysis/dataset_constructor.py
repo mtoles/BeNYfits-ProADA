@@ -3,6 +3,7 @@ import inspect
 from scipy.spatial.distance import cityblock
 from collections import defaultdict
 from users.benefits_programs import ChildAndDependentCareTaxCredit, EarlyHeadStartPrograms, InfantToddlerPrograms, ComprehensiveAfterSchool, InfantToddlerPrograms, ChildTaxCredit, DisabilityRentIncreaseExemption, EarnedIncomeTaxCredit, HeadStart, get_random_household_input
+from tqdm import tqdm
 
 class DatasetConstructor:
     def _trace_execution(func, *args, **kwargs):
@@ -41,7 +42,7 @@ class DatasetConstructor:
         # Variable to track the number of iterations
         iteration_count = 0
 
-        for _ in range(limit):
+        for _ in tqdm(range(limit)):
             max_distance = -1
             max_new_vector = None
             max_hh = None

@@ -829,7 +829,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test the eligibility programs")
     parser.add_argument(
         "--dataset_path",
-        default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
+        # default="dataset/procedural_hh_dataset_0.1.8_annotated_50.jsonl",
+        default="dataset/edge_case_dataset.jsonl",
         help="Path to the chat history or benefits description",
     )
     parser.add_argument(
