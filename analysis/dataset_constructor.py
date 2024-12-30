@@ -2,9 +2,20 @@ import trace
 import inspect
 from scipy.spatial.distance import cityblock
 from collections import defaultdict
-from users.benefits_programs import ChildAndDependentCareTaxCredit, EarlyHeadStartPrograms, InfantToddlerPrograms, ComprehensiveAfterSchool, InfantToddlerPrograms, ChildTaxCredit, DisabilityRentIncreaseExemption, EarnedIncomeTaxCredit, HeadStart, get_random_household_input
+from users.benefits_programs import (
+    ChildAndDependentCareTaxCredit,
+    EarlyHeadStartPrograms,
+    InfantToddlerPrograms,
+    ComprehensiveAfterSchool,
+    InfantToddlerPrograms,
+    ChildTaxCredit,
+    DisabilityRentIncreaseExemption,
+    EarnedIncomeTaxCredit,
+    HeadStart,
+    get_random_household_input,
+)
 from tqdm import tqdm
-from collections import defaultdict
+
 
 class DatasetConstructor:
     def _trace_execution(func, *args, **kwargs):
@@ -22,15 +33,17 @@ class DatasetConstructor:
 
         # Extract executed lines by file and line number
         executed_lines = defaultdict(list)
-        
+
         for (filename, line_number), count in results.counts.items():
-            if count > 0 and filename.endswith(function_filename):  # Only include lines that were executed
+            if count > 0 and filename.endswith(
+                function_filename
+            ):  # Only include lines that were executed
                 executed_lines[filename].append(line_number)
 
         return executed_lines
-    
+
     def fuzz(limit=20, trials=10**3):
-        
+
         # Number of lines in the source code of the function
         n_source_lines = 1000
 
@@ -56,8 +69,22 @@ class DatasetConstructor:
                 hh = get_random_household_input()
 
                 # Loop through all the classes to compute new_vector
-                for class_name in [ChildAndDependentCareTaxCredit, EarlyHeadStartPrograms, InfantToddlerPrograms, ComprehensiveAfterSchool, InfantToddlerPrograms, ChildTaxCredit, DisabilityRentIncreaseExemption, EarnedIncomeTaxCredit, HeadStart]:
-                    source_lines = list(DatasetConstructor._trace_execution(class_name.__call__, hh).values())[0]
+                for class_name in [
+                    ChildAndDependentCareTaxCredit,
+                    EarlyHeadStartPrograms,
+                    InfantToddlerPrograms,
+                    ComprehensiveAfterSchool,
+                    InfantToddlerPrograms,
+                    ChildTaxCredit,
+                    DisabilityRentIncreaseExemption,
+                    EarnedIncomeTaxCredit,
+                    HeadStart,
+                ]:
+                    source_lines = list(
+                        DatasetConstructor._trace_execution(
+                            class_name.__call__, hh
+                        ).values()
+                    )[0]
 
                     for line in source_lines:
                         new_vector[int(line)] = 1
@@ -75,7 +102,11 @@ class DatasetConstructor:
             iteration_count += 1
 
             # Update the vector using an incremental average to maintain linear complexity
-            vector = [(vector[i] * (iteration_count - 1) + max_new_vector[i]) / iteration_count for i in range(n_source_lines)]
+            vector = [
+                (vector[i] * (iteration_count - 1) + max_new_vector[i])
+                / iteration_count
+                for i in range(n_source_lines)
+            ]
 
             # Append the maximally distant household input to the output list
             output.append(max_hh)

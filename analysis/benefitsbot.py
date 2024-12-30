@@ -15,6 +15,7 @@ from users.users import Household
 from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
+from users.benefits_programs import BenefitsProgramMeta
 
 start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
@@ -77,7 +78,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--programs",
-    default=None,
+    default=BenefitsProgramMeta.registry.keys(),
     # type=str,
     help="Number of programs in the dataset",
     nargs="+",
@@ -285,72 +286,72 @@ for index, row in tqdm(df.iterrows()):
         cur_iter_count = 0
         decision = None
 
-        try:
-            # save the chat history no matter what
-            while True:
-                if cur_iter_count != 0:
-                    per_turn_predictions.append(
-                        chatbot.predict_benefits_eligibility(history, args.programs)
-                    )
-                else:
-                    # default to all zero prediction on 0th round
-                    default_predictions = dict([(x, 0) for x in args.programs])
-                    per_turn_predictions.append(default_predictions)
-                ### break if out of dialog turns ###
-                if cur_iter_count >= args.max_dialog_turns:
-                    print(f"Max dialog turns ({args.max_dialog_turns}) reached")
-                    print("==" * 20)
-                    last_turn_iteration.append(cur_iter_count)
-                    decision = per_turn_predictions[-1]
-                    print(f"Decision:  {decision}")
-                    print(f"label:     {labels.to_dict()}")
-                    print("==" * 20)
-                    break
-                ### break if benefits eligibility is ready ###
-                if (
-                    cur_iter_count > 0
-                    and str(chatbot.predict_benefits_ready(history)) == "True"
-                ):
-                    print(
-                        f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
-                    )
-                    decision = per_turn_predictions[-1]
-                    print(f"Decision:  {decision}")
-                    print(f"label:     {labels.to_dict()}")
-                    print("==" * 20)
-                    # fill the remaining turns with None
-                    per_turn_predictions.extend(
-                        [decision] * (args.max_dialog_turns - cur_iter_count)
-                    )
-                    last_turn_iteration.append(cur_iter_count)
-                    break
-                ### otherwise, ask a question ###
-                cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
-                history.append({"role": "assistant", "content": cq})
-                cq_answer = synthetic_user.answer_cq(cq)
-                history.append({"role": "user", "content": cq_answer})
-
-                print(f"Turn Number:         {cur_iter_count}")
-                print(f"Clarifying Question: {cq}")
-                print(f"Answer:              {cq_answer}")
-                chatbot.post_answer(history)  # optional
+        # try:
+        # save the chat history no matter what
+        while True:
+            if cur_iter_count != 0:
+                per_turn_predictions.append(
+                    chatbot.predict_benefits_eligibility(history, args.programs)
+                )
+            else:
+                # default to all zero prediction on 0th round
+                default_predictions = dict([(x, 0) for x in args.programs])
+                per_turn_predictions.append(default_predictions)
+            ### break if out of dialog turns ###
+            if cur_iter_count >= args.max_dialog_turns:
+                print(f"Max dialog turns ({args.max_dialog_turns}) reached")
                 print("==" * 20)
-                cur_iter_count += 1
-                # chatbot.append_chat_question_and_answer(cq, cq_answer)
-            per_turn_all_predictions.append(per_turn_predictions)
-            lm_logger.log_predictions(per_turn_predictions)
-            lm_logger.log_hh_diff(row["hh"])
-        except Exception as e:
-            # write the exception and the last attempted lm call to a log file
-            with open(f"{output_dir}/exceptions.log", "a") as f:
-                f.write(f"Index: {index}\n")
-                f.write(f"Exception: {e}\n")
-                f.write(f"LM Call: {lm_logger.latest_input}\n")
-                f.write("\n\n==========\n\n")
-                print(e)
-        finally:
-            # delete the tempfile
-            lm_logger.save()
+                last_turn_iteration.append(cur_iter_count)
+                decision = per_turn_predictions[-1]
+                print(f"Decision:  {decision}")
+                print(f"label:     {labels.to_dict()}")
+                print("==" * 20)
+                break
+            ### break if benefits eligibility is ready ###
+            if (
+                cur_iter_count > 0
+                and str(chatbot.predict_benefits_ready(history)) == "True"
+            ):
+                print(
+                    f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
+                )
+                decision = per_turn_predictions[-1]
+                print(f"Decision:  {decision}")
+                print(f"label:     {labels.to_dict()}")
+                print("==" * 20)
+                # fill the remaining turns with None
+                per_turn_predictions.extend(
+                    [decision] * (args.max_dialog_turns - cur_iter_count)
+                )
+                last_turn_iteration.append(cur_iter_count)
+                break
+            ### otherwise, ask a question ###
+            cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
+            history.append({"role": "assistant", "content": cq})
+            cq_answer = synthetic_user.answer_cq(cq)
+            history.append({"role": "user", "content": cq_answer})
+
+            print(f"Turn Number:         {cur_iter_count}")
+            print(f"Clarifying Question: {cq}")
+            print(f"Answer:              {cq_answer}")
+            chatbot.post_answer(history)  # optional
+            print("==" * 20)
+            cur_iter_count += 1
+            # chatbot.append_chat_question_and_answer(cq, cq_answer)
+        per_turn_all_predictions.append(per_turn_predictions)
+        lm_logger.log_predictions(per_turn_predictions)
+        lm_logger.log_hh_diff(row["hh"])
+        # except Exception as e:
+        #     # write the exception and the last attempted lm call to a log file
+        #     with open(f"{output_dir}/exceptions.log", "a") as f:
+        #         f.write(f"Index: {index}\n")
+        #         f.write(f"Exception: {e}\n")
+        #         f.write(f"LM Call: {lm_logger.latest_input}\n")
+        #         f.write("\n\n==========\n\n")
+        #         print(e)
+        # finally:
+        #     # delete the tempfile
+        #     lm_logger.save()
     non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
 
 lm_logger.save()
