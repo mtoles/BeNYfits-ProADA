@@ -1,63 +1,127 @@
+from server.model_server import ForwardRequest
 import requests
-from lmwrapper.structs import LmPrompt
-from lmwrapper.batch_config import CompletionWindow
-import json
-from lmwrapper.openai_wrapper import OpenAiModelNames
+from enum import Enum
+from typing import Union, Optional
+from openai import OpenAI, NotGiven
+from joblib import Memory
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+memory = Memory(".joblib_cache", verbose=0)
+
 
 class ModelAPIClient:
-    def __init__(self, api_url):
+    def __init__(self, api_url, lm_logger=None):
         self.api_url = api_url
+        self.lm_logger = lm_logger
 
-    def load_model(self, family, hf_name):
-        payload = {"family": family, "hf_name": hf_name}
-        print(f"Payload to /load_model: {payload}")  # Debugging step
+    def forward(
+        self,
+        history: str,
+        chat_model_id: str,
+        use_cache: bool,
+        logging_role: str,
+        constraint_type: str = "none",
+        constraints: Optional[Union[list[str], list[type], BaseModel]] = [],
+        openai_response_format=None,
+    ):
+        assert constraint_type in ["types", "choice", "regex", "none"]
+        assert not (constraint_type == "none" and constraints)
+        # if constraints:
+        #     assert "int" not in constraints  # probably an error
+        #     assert "float" not in constraints  # probably an error
+        #     assert type(constraints) == list
 
-        response = requests.post(f"{self.api_url}/load_model", json=payload)
-        if response.status_code == 200:
-            return response.json()["model"]
-        else:
-            raise Exception(f"Error loading model: {response.json()['detail']}")
+        if constraint_type == "types":
+            constraints = [(x).__name__ for x in constraints]
 
-    def predict_many(self, id_of_model, prompts: list[LmPrompt]):
-        prompts_data = [
-            {
-                "text": p.text,
-                "cache": p.cache,
-                "logprobs": p.logprobs,
-                "max_tokens": p.max_tokens,
-            }
-            for p in prompts
-        ]
-
-        # print(json.dumps(prompts_data, indent=2))
-
-        response = requests.post(
-            f"{self.api_url}/predict_many",
-            json={
-                "id_of_model": id_of_model,
-                "prompts": prompts_data,
-            },
+        fr = ForwardRequest(
+            name_of_model=chat_model_id,
+            history=history,
+            use_cache=use_cache,
+            constraints=constraints,
+            constraint_type=constraint_type,
+            response_format=openai_response_format,
         )
-
-        if response.status_code == 200:
-            return response.json()["responses"]
+        if fr.name_of_model.startswith("gpt"):
+            response = self.forward_gpt(fr)
+            # self.lm_logger.log_io(
+            #     lm_input=history, lm_output=response, role=logging_role
+            # )
+            # return response
         else:
-            raise Exception(f"Prediction error: {response.json()['detail']}")
+            response_package = requests.post(
+                f"{self.api_url}/forward", json=vars(fr)
+            )
+            status_code = response_package.status_code
+            response = response_package.json()
+            if status_code != 200:
+                raise Exception(f"Prediction error: {response.json()['detail']}")
 
-# Usage
-client = ModelAPIClient("http://localhost:8000")
-# model_info = client.load_model("llama", "meta-llama/Meta-Llama-3-8B-Instruct")
+        generated_text = response["generated_text"]
+        self.lm_logger.log_io(
+            lm_input=history, lm_output=generated_text, role=logging_role
+        )
+        return generated_text
 
-model_info = client.load_model("gpt", OpenAiModelNames.gpt_4o_mini_2024_07_18)
+    @memory.cache
+    def forward_gpt(request: ForwardRequest):
+        client = OpenAI()
+        # try:
+        # if request.constraints is not None and request.constraint_type=="openai":
+        #     # if request.constraint_type == "options":
+        #     response_format = request.constraints
+        # else:
+        #     response_format = None
+        if request.response_format is None:
+            # completion = client.beta.chat.completions.parse(
+            completion = client.chat.completions.create(
+                model=request.name_of_model,
+                messages=request.history,
+                temperature=0.7,
+            )
+        else:
+            completion = client.beta.chat.completions.parse(
+                model=request.name_of_model,
+                messages=request.history,
+                temperature=0.7,
+                response_format=request.response_format,
+            )
+        generated_text = completion.choices[0].message.content.strip()
+        return {"generated_text": generated_text}
+        # except Exception as e:
+        #     raise HTTPException(status_code=500, detail=str(e))
 
-print(f"Model Info: {model_info}")
 
-# Create prompts
-prompts = [
-    LmPrompt("Hello, how are you?", cache=True, logprobs=0, max_tokens=50),
-    LmPrompt("What's the weather today?", cache=False, logprobs=0, max_tokens=100),
-]
+if __name__ == "__main__":
+    ModelAPIClient = ModelAPIClient("http://coffee.cs.columbia.edu:55244")
+    # ModelAPIClient = ModelAPIClient("http://localhost:55244")
+    # ModelAPIClient = ModelAPIClient("http://localhost:8000")
 
-response = client.predict_many(model_info, prompts)
+    # request = ForwardRequest(
+    #     name_of_model="Qwen/Qwen2.5-Coder-7B-Instruct",
+    #     history=[
+    #         {
+    #             "role": "user",
+    #             "content": "How many words are in the sentence 'Hello World'?",
+    #         },
+    #     ],
+    #     use_cache=False,
+    #     constraints="int",
+    # )
+    history = [
+        {
+            "role": "user",
+            "content": "How many words are in the sentence 'Hello World'?",
+        }
+    ]
 
-print(response)
+    output = ModelAPIClient.forward(
+        history,
+        use_cache=True,
+        logging_role="test",
+        chat_model_id="Qwen/Qwen2.5-Coder-7B-Instruct",
+    )
+
+    print(output)
+    print

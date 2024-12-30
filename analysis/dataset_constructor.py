@@ -4,6 +4,7 @@ from scipy.spatial.distance import cityblock
 from collections import defaultdict
 from users.benefits_programs import ChildAndDependentCareTaxCredit, EarlyHeadStartPrograms, InfantToddlerPrograms, ComprehensiveAfterSchool, InfantToddlerPrograms, ChildTaxCredit, DisabilityRentIncreaseExemption, EarnedIncomeTaxCredit, HeadStart, get_random_household_input
 from tqdm import tqdm
+from collections import defaultdict
 
 class DatasetConstructor:
     def _trace_execution(func, *args, **kwargs):
@@ -28,6 +29,7 @@ class DatasetConstructor:
 
         return executed_lines
     
+<<<<<<< HEAD
     def fuzz(limit=20, trials=10**3):
         
         # Number of lines in the source code of the function
@@ -81,3 +83,7 @@ class DatasetConstructor:
 
         # Return the output list
         return output
+=======
+    def fuzz(func):
+        pass
+>>>>>>> mt.remote

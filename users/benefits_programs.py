@@ -801,3 +801,110 @@ class HeadStart(BaseBenefitsProgram):
         
         return False
 
+    @staticmethod
+    def __call__(hh) -> bool:
+        income_limits = {
+            1: 54350,
+            2: 62150,
+            3: 69900,
+            4: 77650,
+            5: 83850,
+            6: 90050,
+            7: 96300,
+            8: 102500,
+        }
+
+        hh_size = hh.num_members()
+        total_income = hh.hh_total_income()
+
+        # Determine income limit for the household size
+        if hh_size in income_limits:
+            income_limit = income_limits[hh_size]
+        else:
+            # For households larger than 8, extrapolate the income limit
+            extra_members = hh_size - 8
+            additional_limit = extra_members * (income_limits[8] - income_limits[7])
+            income_limit = income_limits[8] + additional_limit
+
+        # Check if the household's total income is within the limit
+        return total_income <= income_limit
+
+class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
+    """
+    Senior Citizen Homeowners’ Exemption (SCHE)
+
+    Eligibility Requirements (simplified):
+      1. The property must be a one-, two-, or three-family home, condo, or coop apartment.
+      2. All owners of the property must be 65 or older. 
+         Exception: If the property is owned by spouses or siblings only, then at least one must be 65+.
+      3. All owners must live on the property as their primary residence.
+      4. The combined income for all owners must be less than or equal to $58,399.
+      5. The owners must have owned the property for at least 12 consecutive months before filing 
+         (unless they already received SCHE on a previously owned property).
+    """
+
+    @staticmethod
+    def __call__(hh) -> bool:
+        # 1. Check housing type using the new Household getter
+        valid_housing_types = {
+            "one_family_home",
+            "two_family_home",
+            "three_family_home",
+            "condo",
+            "coop",
+        }
+        housing_type = hh.get_housing_type()  # e.g., "one_family_home", "condo", etc.
+        if housing_type not in valid_housing_types:
+            return False
+
+        # 2. Identify the property owners using the new Household helper
+        owners = hh.property_owners()  # Returns all members where "is_property_owner" = True
+        if not owners:
+            # If there are no identified owners, the exemption cannot apply
+            return False
+
+        # Helper function to determine if two people are spouses or siblings
+        def are_spouses_or_siblings(p1, p2):
+            rel1, rel2 = p1.get("relation", ""), p2.get("relation", "")
+            # Basic logic: If either reports "spouse" or "sibling", treat them accordingly
+            return ("spouse" in [rel1, rel2]) or ("sibling" in [rel1, rel2])
+
+        # 2A. Check the age requirement
+        if len(owners) == 1:
+            # If there is only one owner, that owner must be at least 65
+            if owners[0].get("age", 0) < 65:
+                return False
+
+        elif len(owners) == 2:
+            # If there are exactly two owners, check if they are spouses or siblings
+            if are_spouses_or_siblings(owners[0], owners[1]):
+                # Only one must be 65+
+                if not any(o.get("age", 0) >= 65 for o in owners):
+                    return False
+            else:
+                # Otherwise, both must be 65+
+                if not all(o.get("age", 0) >= 65 for o in owners):
+                    return False
+
+        else:
+            # If more than two owners, all must be 65+
+            if not all(o.get("age", 0) >= 65 for o in owners):
+                return False
+
+        # 3. Primary residence requirement (all owners must live in the property they own)
+        for o in owners:
+            if not o["primary_residence"]:
+                return False
+
+        # 4. Check combined income using new Household helper
+        combined_income = hh.owners_total_income()  # Sums work + investment incomes of owners
+        if combined_income > 58399:
+            return False
+
+        # 5. Ownership duration (>=12 months) or previously had SCHE
+        for o in owners:
+            print(o["months_owned_property"])
+            if not o["had_previous_sche"] and o["months_owned_property"] < 12:
+                return False
+
+        return True

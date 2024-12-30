@@ -214,6 +214,43 @@ class Household:
     def num_members(self):
         return len(self.members)
 
+    def set_housing_type(self, htype: str):
+        """
+        Set the type of housing for the household property.
+        Valid options might include:
+        'one_family_home', 'two_family_home', 'three_family_home', 'condo', 'coop'
+        Adjust or expand as needed.
+        """
+        valid_types = {
+            "one_family_home",
+            "two_family_home",
+            "three_family_home",
+            "condo",
+            "coop",
+        }
+        if htype not in valid_types:
+            raise ValueError(f"Invalid housing type: {htype}. Must be one of {valid_types}.")
+        self.features["housing_type"] = htype
+
+    def get_housing_type(self) -> str:
+        """
+        Retrieve the household's housing type.
+        """
+        return self.features.get("housing_type", None)
+
+    def property_owners(self):
+        """
+        Return a list of all members who are property owners.
+        """
+        return [m for m in self.members if m.get("is_property_owner", False)]
+
+    def owners_total_income(self):
+        """
+        Return the sum of the (work + investment) income of all property owners.
+        """
+        owners = self.property_owners()
+        return sum(o["work_income"] + o["investment_income"] for o in owners)
+    
     def nl_household_profile(self) -> str:
         user = self.members[0]
         user_name = user["name"]

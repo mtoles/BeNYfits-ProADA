@@ -553,6 +553,36 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
         else f"{n} is not receiving treatment for substance abuse."
     )
 
+class is_property_owner(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is a property owner." if x else f"{n} is not a property owner."
+    )
+
+class primary_residence(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = True
+    nl_fn = lambda n, x: (
+        f"{n}'s home is their primary residence." if x else f"{n}'s home is not their primary residence."
+    )
+
+class months_owned_property(BasePersonAttr):
+    schema = And(int, lambda v: v >= 0)
+    random = lambda: np.random.randint(0, 240)  # e.g., up to 20 years
+    default = 0
+    nl_fn = lambda n, x: f"{n} has owned the property for {x} months."
+
+class had_previous_sche(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} previously received SCHE on another property." 
+        if x else f"{n} has not previously received SCHE on another property."
+    )
 
 # person_features = [
 #     #| Field Name | Schema | Random | Default | NL Function |
