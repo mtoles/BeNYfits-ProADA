@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
 from users.user_features import PersonAttributeMeta
-from users.benefits_programs import BenefitsProgramMeta
+
 np.random.seed(0)
+
 
 ### CLASSES ###
 class Person:
@@ -43,7 +44,7 @@ class Person:
         for attr, value in self.features.items():
             assert Schema(schemas[attr]).is_valid(
                 value
-            ), f"Invalid value `{value}` for attribute `{attr}` under schema `{schemas[attr]}`"
+            ), f"Invalid value `{value}` (of type {type(value)}) for attribute `{attr}` under schema `{schemas[attr]}`"
 
     @staticmethod
     def default_unemployed(random_name=True, is_self=False):
@@ -92,6 +93,16 @@ class Person:
         child["dependent"] = True
         return child
 
+    @staticmethod
+    def default_adult_dependent(random_name=True):
+        child = Person.default_unemployed(random_name=random_name)
+        child["relation"] = "dependent"
+        child["provides_over_half_of_own_financial_support"] = False
+        child["can_care_for_self"] = False
+        child["age"] = 78
+        child["dependent"] = True
+        return child
+
     def nl_person_profile(self) -> str:
         name = self.features["name"]
         sentences = []
@@ -125,7 +136,9 @@ class Household:
     def from_dict(cls, hh_dict: dict):
         # create household from dictionary
         members = [
-            Person.from_dict(member["features"]) for member in hh_dict["members"]
+            # Person.from_dict(member["features"]) for member in hh_dict["members"]
+            Person.from_dict(member["features"])
+            for member in hh_dict["features"]["members"]
         ]
         hh = cls(members)
         hh.validate()
@@ -150,7 +163,7 @@ class Household:
                     if member["relation"] == "self":
                         raise SchemaError("Household cannot have more than one `self`")
             return True
-        
+
         for member in self.members:
             member.validate()
         assert _one_self(self)
@@ -208,6 +221,45 @@ class Household:
     def num_members(self):
         return len(self.members)
 
+    def set_housing_type(self, htype: str):
+        """
+        Set the type of housing for the household property.
+        Valid options might include:
+        'one_family_home', 'two_family_home', 'three_family_home', 'condo', 'coop'
+        Adjust or expand as needed.
+        """
+        valid_types = {
+            "one_family_home",
+            "two_family_home",
+            "three_family_home",
+            "condo",
+            "coop",
+        }
+        if htype not in valid_types:
+            raise ValueError(
+                f"Invalid housing type: {htype}. Must be one of {valid_types}."
+            )
+        self.features["housing_type"] = htype
+
+    def get_housing_type(self) -> str:
+        """
+        Retrieve the household's housing type.
+        """
+        return self.features.get("housing_type", None)
+
+    def property_owners(self):
+        """
+        Return a list of all members who are property owners.
+        """
+        return [m for m in self.members if m.get("is_property_owner", False)]
+
+    def owners_total_income(self):
+        """
+        Return the sum of the (work + investment) income of all property owners.
+        """
+        owners = self.property_owners()
+        return sum(o["work_income"] + o["investment_income"] for o in owners)
+
     def nl_household_profile(self) -> str:
         user = self.members[0]
         user_name = user["name"]
@@ -231,7 +283,7 @@ class Household:
                 f"There are {num_members} members in your household, of which {num_children} are children."
             ]
         ).strip()
- 
+
 
 if __name__ == "__main__":
     #
