@@ -28,7 +28,7 @@ class SyntheticUser:
         # self.lm_backbone = LmBackboneModel(
         #     id_of_model, self.use_cache, lm_logger=lm_logger
         # )
-        self.lm_api = ModelAPIClient("http://localhost:8000", lm_logger)
+        self.lm_api = ModelAPIClient("http://localhost:55244", lm_logger)
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
         self.sentence_encoder = SentenceTransformer("all-MiniLM-L6-v2")

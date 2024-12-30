@@ -50,7 +50,9 @@ class ModelAPIClient:
             # )
             # return response
         else:
-            response_package = requests.post(f"{self.api_url}/forward", json=vars(fr))
+            response_package = requests.post(
+                f"{self.api_url}/forward", json=vars(fr)
+            )
             status_code = response_package.status_code
             response = response_package.json()
             if status_code != 200:
@@ -92,7 +94,9 @@ class ModelAPIClient:
 
 
 if __name__ == "__main__":
-    ModelAPIClient = ModelAPIClient("http://localhost:8000")
+    ModelAPIClient = ModelAPIClient("http://coffee.cs.columbia.edu:55244")
+    # ModelAPIClient = ModelAPIClient("http://localhost:55244")
+    # ModelAPIClient = ModelAPIClient("http://localhost:8000")
 
     # request = ForwardRequest(
     #     name_of_model="Qwen/Qwen2.5-Coder-7B-Instruct",
