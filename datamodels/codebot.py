@@ -147,7 +147,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     )
                     # replace all hh.get(...) with hh["..."]
                     clean_checker_output = re.sub(
-                        r'hh\.get\((["\'])(.*?)\1\)', r'hh["\2"]', clean_checker_output
+                        r'hh\.get\(f?(["\'])(.*?)\1\)', r'hh["\2"]', clean_checker_output
                     )
                     clean_checker_output = black.format_str(
                         remove_raise_statements(clean_checker_output),

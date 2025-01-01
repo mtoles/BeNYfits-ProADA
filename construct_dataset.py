@@ -18,6 +18,10 @@ with open("edge_case_dataset.jsonl", "w") as fout:
             household_dict["hh"]["features"]["members"].append({"features": member})
 
         household_dict["hh_nl_desc"] = hh.nl_household_profile()
+        # household_dict["hh_nl_desc_always_include"] = hh.nl_household_profile_always_include()
+        household_dict["hh_nl_desc_always_include"] = hh.members[
+            0
+        ].nl_person_profile_always_include()
         household_dict["note"] = ""
 
         for program in [
@@ -35,4 +39,3 @@ with open("edge_case_dataset.jsonl", "w") as fout:
             household_dict[program.__name__] = program.__call__(hh)
 
         fout.write(json.dumps(household_dict) + "\n")
-

@@ -110,6 +110,15 @@ class Person:
             sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
             # sentences.append(fn(name, person[field]))
         return "\n".join(sentences).strip()
+    
+    def nl_person_profile_always_include(self) -> str:
+        name = self.features["name"]
+        sentences = [f"You are {name}"]
+        for f, v in self.features.items():
+            if not PersonAttributeMeta.registry[f].always_include:
+                sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
+            # sentences.append(fn(name, person[field]))
+        return "\n".join(sentences).strip()
 
 
 class Household:

@@ -218,9 +218,12 @@ os.makedirs("generated_code", exist_ok=True)
 generated_code_results = []
 for index, row in tqdm(df.iterrows()):
     chatbot = get_chatbot(args.chatbot_strategy)
-    hh_nl_desc = row["hh_nl_desc"]
+    # hh_nl_desc = row["hh_nl_desc"]
+    # hh_nl_always_include = row["hh_nl_desc_always_include"]
     synthetic_user = SyntheticUser(
-        hh_nl_desc,
+        row,
+        # hh_nl_desc,
+        # hh_nl_always_include,
         args.synthetic_user_model_name,
         use_cache=args.use_cache,
         lm_logger=lm_logger,

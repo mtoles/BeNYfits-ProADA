@@ -10,7 +10,9 @@ from server.model_client import ModelAPIClient
 class SyntheticUser:
     def __init__(
         self,
-        hh_nl_desc: str,
+        # hh_nl_desc: str,
+        # hh_nl_always_incldue: str,
+        su_json: dict,
         chat_model_id: str,
         use_cache: bool,
         lm_logger: LmLogger,
@@ -20,7 +22,10 @@ class SyntheticUser:
         The ground truth information about the user
         """
         # self.lm_wrapper = lm_wrapper
-        self.nl_profile = hh_nl_desc
+        # self.nl_profile = hh_nl_desc
+        self.nl_profile = su_json["hh_nl_desc"]
+        self.always_included = su_json["hh_nl_desc_always_include"]
+        self.user_name = su_json["hh"].members[0]["name"]
         self.chat_model_id = chat_model_id
         self.use_cache = use_cache
         # Model to answer clarifying question
@@ -49,7 +54,7 @@ class SyntheticUser:
         sim_scores = np.argsort(similarity_scores)[-cur_top_k:]
         top_k_indices = torch.flip(sim_scores, dims=[0])
         relevant_sentences = [self.profile_sentences[idx] for idx in top_k_indices]
-        return "\n".join(relevant_sentences)
+        return self.always_included + "\n" + "\n".join(relevant_sentences)
 
     def answer_cq(self, cq: str):
         """
@@ -82,10 +87,10 @@ class SyntheticUser:
             },
             {
                 "role": "user",
-                # "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, explain why you cannot answer the question. Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n"
-                # + 
-                # f"Question: {cq}",
-                "content": cq,
+                "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, explain why you cannot answer the question. Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n"
+                + 
+                f"Question: {cq}",
+                # "content": cq,
             },
         ]
         lm_output = self.lm_api.forward(

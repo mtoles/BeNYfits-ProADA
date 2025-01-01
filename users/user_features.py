@@ -48,6 +48,9 @@ class PersonAttributeMeta(type):
 
 
 class BasePersonAttr(metaclass=PersonAttributeMeta):
+    # always include this attribute in the synthetic user profile even if not 
+    # retreived with RAG
+    always_include = False 
     pass
 
 
@@ -56,6 +59,7 @@ class name(BasePersonAttr):
     random = lambda: get_full_name()
     default = "DefaultName"
     nl_fn = lambda n, x: f"Name: {n}"
+    always_include = True
 
 
 ### DEMOGRAPHICS ###
@@ -98,6 +102,8 @@ class relation(BasePersonAttr):
     )
     default = "self"
     nl_fn = lambda n, x: f"You are {n}" if x == "self" else f"{n} is your {x}"
+
+    always_include = True
 
 
 class disabled(BasePersonAttr):
