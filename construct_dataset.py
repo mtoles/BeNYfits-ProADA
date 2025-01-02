@@ -6,7 +6,7 @@ import json
 from tqdm import tqdm
 
 
-households = [hh for hh in DatasetConstructor.fuzz(2, 100)]
+households = [hh for hh in DatasetConstructor.fuzz()]
 households_members = [eval(str(hh)) for hh in households]
 
 with open("edge_case_dataset.jsonl", "w") as fout:
