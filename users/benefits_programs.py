@@ -218,18 +218,20 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
                     qualifying_family_lived_with_hh.append(m)
             
             if filing_jointly:
-                if self_works:
-                    return True
-                if spouse_works:
-                    return True
-                if qualifying_family_lived_with_hh:
-                    return True
+                if not self_works:
+                    return False
+                if not spouse_works:
+                    return False
+                if not qualifying_family_lived_with_hh:
+                    return False
 
-                return False
+                return True
             else:
-                if self_works and qualifying_family_lived_with_hh:
-                    return True
-                return False
+                if not self_works:
+                    return False
+                if not qualifying_family_lived_with_hh:
+                    return False
+                return True
 
         def _r3(hh) -> bool:
             if hh.marriage_work_income() > 0:
@@ -850,18 +852,6 @@ class HeadStart(BaseBenefitsProgram):
         
         return False
 
-    @staticmethod
-    def __call__(hh) -> bool:
-        income_limits = {
-            1: 54350,
-            2: 62150,
-            3: 69900,
-            4: 77650,
-            5: 83850,
-            6: 90050,
-            7: 96300,
-            8: 102500,
-        }
 
 # def ComprehensiveAfterSchool(hh) -> bool:
 class ComprehensiveAfterSchool(BaseBenefitsProgram):
