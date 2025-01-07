@@ -10,6 +10,7 @@ import outlines
 import ast
 import traceback
 from openai import OpenAI
+import uvicorn
 
 """
 run with:
@@ -154,39 +155,4 @@ def forward(request: ForwardRequest):
 
 
 if __name__ == "__main__":
-    # if False:
-    # name_of_model = "Qwen/Qwen2.5-Coder-7B-Instruct"
-    name_of_model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-
-    history = [
-        {
-            "role": "system",
-            "content": "You are a chatbot. Respond to the question:",
-        },
-        {
-            "role": "user",
-            "content": "How many words are in the sentence 'Hello World'?",
-        },
-    ]
-
-    output = forward(
-        ForwardRequest(
-            name_of_model=name_of_model,
-            history=history,
-            use_cache=False,
-            constraints=None,
-        )
-    )
-
-    print(output)
-
-    output = forward(
-        ForwardRequest(
-            name_of_model=name_of_model,
-            history=history,
-            use_cache=False,
-            constraints=["1", "2", "3"],
-        )
-    )
-    print(output)
-    print
+    uvicorn.run(app, host="0.0.0.0", port=55244)

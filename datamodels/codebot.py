@@ -13,7 +13,7 @@ from enum import Enum
 from pydantic import BaseModel
 import json
 
-list_regex = r'(\["[^"]+"(?:\s*,\s*"[^"]+")+\])'
+list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
 
 
 class Options(BaseModel):
@@ -343,13 +343,19 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     ca = synthetic_user.answer_cq(cq)
                     print(ca)
                     history.append({"role": "user", "content": ca})
-                    key_type = self.key_types[key]
+                    if key in self.key_types:
+                        key_type = self.key_types[key]
+                    else:
+                        key_type = "any"
                     if key_type == ConstraintType.choice:
                         constraint_type = ConstraintType.choice
                         constraint = self.choices[key]
                     elif key_type in ["int", "float"]:
                         constraint_type = ConstraintType.types
                         constraint = [eval(key_type)]
+                    elif key_type == "any":
+                        constraint_type = ConstraintType.none
+                        constraint = None
                     else:
                         # not sure if anything else matters
                         raise NotImplementedError
@@ -372,6 +378,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     locals["hh"][key] = new_hh_value
                     continue
                 elif type(e) == ValueError:
+                    error=e
                     raise NotImplementedError
                     # key_options = set(locals["hh"].keys()).intersection(
                     #     set(relevant_val_dict.keys())
