@@ -48,7 +48,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--eligibility_requirements",
-    default="./dataset/benefits_short.jsonl",
+    default="./dataset/benefits_clean.html",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
