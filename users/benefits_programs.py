@@ -1143,3 +1143,84 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
                 return False
 
         return True
+
+class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
+    """
+    Senior Citizen Rent Increase Exemption (SCRIE)
+    
+    To be eligible, a person must answer "yes" to ALL:
+      1. Age >= 62
+      2. Name on lease (or share certificate if in Mitchell-Lama)
+      3. Combined household income <= $50,000
+      4. Monthly rent > 1/3 of monthly income
+      5. Lives in NYC in one of:
+         - rent stabilized apt
+         - rent controlled apt
+         - rent regulated hotel
+         - single room occupancy (SRO)
+         - Mitchell-Lama dev
+         - limited dividend dev
+         - redevelopment company dev
+         - HDFC dev
+    """
+
+    @staticmethod
+    def __call__(hh) -> bool:
+        user = hh.user()  # Typically the 'self' member (the main applicant)
+
+        # 1. Are you 62 or older?
+        if user.get("age", 0) < 62:
+            return False
+
+        # 2. Is your name on the lease (or share certificate if in Mitchell-Lama)?
+        #    We'll check either user["name_is_on_lease"] or if they live in Mitchell-Lama => also check "name_is_on_lease".
+        #    If not in Mitchell-Lama, we just check "name_is_on_lease" = True.
+        
+        in_mitchell_lama = user.get("lives_in_mitchell_lama", False)
+        if not user.get("name_is_on_lease", False):
+            # If you're in Mitchell-Lama, you might also require share certificate logic if it's different, 
+            # but for simplicity, let's just rely on name_is_on_lease here.
+            return False
+
+        # 3. Is your combined household income <= 50,000?
+        if hh.hh_total_income() > 50000:
+            return False
+
+        # 4. Do you spend more than one-third of your monthly income on rent?
+        monthly_income = hh.hh_total_income() / 12.0
+        monthly_rent = hh.hh_monthly_rent_spending()
+        # If monthly_rent > (1/3 of monthly_income), condition is satisfied.
+        if monthly_rent <= (monthly_income / 3.0):
+            return False
+
+        # 5. Must live in NYC in one of:
+        #    - rent stabilized apt
+        #    - rent controlled apt
+        #    - rent regulated hotel
+        #    - single room occupancy
+        #    - Mitchell-Lama dev
+        #    - limited dividend dev
+        #    - redevelopment company dev
+        #    - HDFC dev
+        # Also confirm place_of_residence = "NYC" if you need that check.
+        
+        # By default, let's assume "place_of_residence" is stored in the user or members:
+        if user.get("place_of_residence", "") != "NYC":
+            return False
+
+        # Check that at least one of these booleans is True
+        # The user could have multiple set to True, or only one. 
+        # In practice, you might only have one set to True.
+        if not (
+            user["lives_in_rent_stabilized_apartment"]
+            or user["lives_in_rent_controlled_apartment"]
+            or user["lives_in_rent_regulated_hotel"]
+            or user["lives_in_rent_regulated_single"]
+            or user["lives_in_mitchell_lama"]
+            or user["lives_in_limited_dividend_development"]
+            or user["lives_in_redevelopment_company_development"]
+            or user["lives_in_hdfc_development"]
+        ):
+            return False
+
+        return True
