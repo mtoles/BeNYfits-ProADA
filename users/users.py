@@ -5,6 +5,7 @@ import pandas as pd
 from typing import List, Dict, Union, Callable
 from users.user_features import PersonAttributeMeta
 
+
 np.random.seed(0)
 
 
@@ -106,6 +107,9 @@ class Person:
     def nl_person_profile(self) -> str:
         name = self.features["name"]
         sentences = []
+
+        
+
         for f, v in self.features.items():
             sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
             # sentences.append(fn(name, person[field]))
