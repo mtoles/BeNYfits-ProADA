@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
 from users.user_features import PersonAttributeMeta
+
+
 np.random.seed(0)
+
 
 ### CLASSES ###
 class Person:
@@ -104,8 +107,20 @@ class Person:
     def nl_person_profile(self) -> str:
         name = self.features["name"]
         sentences = []
+
+        
+
         for f, v in self.features.items():
             sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
+            # sentences.append(fn(name, person[field]))
+        return "\n".join(sentences).strip()
+    
+    def nl_person_profile_always_include(self) -> str:
+        name = self.features["name"]
+        sentences = [f"You are {name}"]
+        for f, v in self.features.items():
+            if not PersonAttributeMeta.registry[f].always_include:
+                sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
             # sentences.append(fn(name, person[field]))
         return "\n".join(sentences).strip()
 
@@ -115,15 +130,18 @@ class Household:
     A data class to represent a household
     """
 
-    def __init__(self, members: list[Person] = []):
+    def __init__(self, members: list[Person] = [], co_owners: list[Person] = []):
         # create household from list of Persons
-        for member in members:
+        for member in members + co_owners:
             assert isinstance(member, Person)
         # self.members = members
 
         self.members = members
+        self.co_owners = co_owners
+
         self.features = {
-            "members": self.members
+            "members": self.members,
+            "co_owners": self.co_owners,
         }  # TODO: remove after integrating Nikhil's programs
         self.validate()
 
@@ -131,7 +149,9 @@ class Household:
     def from_dict(cls, hh_dict: dict):
         # create household from dictionary
         members = [
-            Person.from_dict(member["features"]) for member in hh_dict["members"]
+            # Person.from_dict(member["features"]) for member in hh_dict["members"]
+            Person.from_dict(member["features"])
+            for member in hh_dict["features"]["members"]
         ]
         hh = cls(members)
         hh.validate()
@@ -156,7 +176,7 @@ class Household:
                     if member["relation"] == "self":
                         raise SchemaError("Household cannot have more than one `self`")
             return True
-        
+
         for member in self.members:
             member.validate()
         assert _one_self(self)
@@ -247,7 +267,9 @@ class Household:
             "coop",
         }
         if htype not in valid_types:
-            raise ValueError(f"Invalid housing type: {htype}. Must be one of {valid_types}.")
+            raise ValueError(
+                f"Invalid housing type: {htype}. Must be one of {valid_types}."
+            )
         self.features["housing_type"] = htype
 
     def get_housing_type(self) -> str:
@@ -268,7 +290,7 @@ class Household:
         """
         owners = self.property_owners()
         return sum(o["work_income"] + o["investment_income"] for o in owners)
-    
+
     def nl_household_profile(self) -> str:
         user = self.members[0]
         user_name = user["name"]
@@ -292,7 +314,7 @@ class Household:
                 f"There are {num_members} members in your household, of which {num_children} are children."
             ]
         ).strip()
- 
+
 
 if __name__ == "__main__":
     #

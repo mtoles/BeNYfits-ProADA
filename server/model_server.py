@@ -1,217 +1,158 @@
-from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
-from lmwrapper.huggingface_wrapper import get_huggingface_lm
-from lmwrapper.openai_wrapper import get_open_ai_lm
-from lmwrapper.structs import LmPrompt
-from lmwrapper.batch_config import CompletionWindow
-from fastapi.encoders import jsonable_encoder
-from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import openai
+import os
+from fastapi import FastAPI, HTTPException
+from joblib import Memory
+from typing import Union, Optional, Any
+import outlines
+import ast
 import traceback
-from transformers import GPT2TokenizerFast
-import threading
-import time
-from datetime import datetime
+from openai import OpenAI
+import uvicorn
 
-MAX_NEW_TOKENS = 4096
+"""
+run with:
+uvicorn server.model_server:app --reload
+"""
 
-
-class PromptInput(BaseModel):
-    text: str
-    cache: bool = True
-    logprobs: int = 0
-    max_tokens: int = 50
-
-class PredictManyRequest(BaseModel):
-    prompts: List[PromptInput]
-    id_of_model: str
+memory = Memory(".joblib_cache", verbose=0)
 
 app = FastAPI()
 
-class ModelUnwrapped:
-    def __init__(self, model_name):
-        self.model_name = model_name
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            trust_remote_code=True,
-        )
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            model_name, trust_remote_code=True
-        )
-        self.model._tokenizer.pad_token_id = self.model._tokenizer.eos_token_id
-        self.model._tokenizer.padding_side = "left"
-
-    def predict_many(self, lm_prompts: list[LmPrompt], completion_window):
-        print(lm_prompts)
-        messages = [{"role": "user", "content": prompt.text} for prompt in lm_prompts]
-
-        input = self._tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt"
-        ).to(self.model.device)
-
-        output = self.model.generate(
-            input, do_sample=False, max_new_tokens=MAX_NEW_TOKENS
-        )
-
-        result = self._tokenizer.decode(
-            output[0][len(input[0]) :], skip_special_tokens=True
-        )
-        return [result]
-
-class ModelEntry:
-    def __init__(self, model):
-        self.model = model
-        self.last_access_time = datetime.now()
-
-# Model container
-class ModelServer:
-    def __init__(self):
-        self.models = {}
-        self.lock = threading.Lock()
-        self.unload_interval = 12 * 60 * 60  # 12 hours in seconds
-        self.cleanup_thread = threading.Thread(target=self.unload_old_models, daemon=True)
-        self.cleanup_thread.start()
-
-    def unload_old_models(self):
-        while True:
-            time.sleep(3600)  # Sleep for 1 hour
-            print(f"Background thread to unload model")
-            with self.lock:
-                current_time = datetime.now()
-                models_to_unload = []
-                for model_id, model_entry in list(self.models.items()):
-                    elapsed_time = (current_time - model_entry.last_access_time).total_seconds()
-                    if elapsed_time > self.unload_interval:
-                        models_to_unload.append(model_id)
-                for model_id in models_to_unload:
-                    del self.models[model_id]
-                    print(f"Model {model_id} has been unloaded due to inactivity.")
-
-    def load_model(self, family, hf_name, wrapped=True):
-        with self.lock:
-            if wrapped:
-                if hf_name not in self.models:
-                    if family not in ["gpt"]:
-                        model = get_huggingface_lm(hf_name)
-                        model._tokenizer.pad_token_id = model._tokenizer.eos_token_id
-                        model._tokenizer.padding_side = "left"
-                    else:
-                        model = get_open_ai_lm(hf_name)
-                        model._tokenizer = GPT2TokenizerFast.from_pretrained("Xenova/gpt-3.5-turbo")
-                    self.models[hf_name] = ModelEntry(model)
-                    print(f"Model Pipeline Instantiated: {family} {hf_name}")
-            else:
-                if hf_name not in self.models:
-                    print("loading unwrapped model")
-                    self.models[hf_name] = ModelEntry(ModelUnwrapped(hf_name))
-        return hf_name
-
-    def get_model(self, model_id):
-        with self.lock:
-            if model_id in self.models:
-                model_entry = self.models[model_id]
-                model_entry.last_access_time = datetime.now()  # Reset the timer
-                return model_entry.model
-            else:
-                raise ValueError(f"Model with ID '{model_id}' not found!")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-model_server = ModelServer()
-
-
-class LoadModelRequest(BaseModel):
-    family: str
-    hf_name: str
-    wrapped: bool = True
-
-@app.post("/load_model")
-def load_model(request: LoadModelRequest):
-    print(f"Received request: {request}")  # Debugging step
-    try:
-        result = model_server.load_model(
-            request.family, request.hf_name, request.wrapped
-        )
-
-        print(f"Model loaded successfully: {result}")
-
-        return {"message": "Model loaded successfully!", "model": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/predict_many")
-def predict_many(request: PredictManyRequest):
-    print(f"Request Received: {request}")
-
-    try:
-        model = model_server.get_model(request.id_of_model)
-        lm_prompts = [
-            LmPrompt(
-                prompt.text,
-                cache=prompt.cache,
-                logprobs=prompt.logprobs,
-                max_tokens=prompt.max_tokens,
-            )
-            for prompt in request.prompts
-        ]
-        sequences = list(
-            model.predict_many(lm_prompts, completion_window=CompletionWindow.ASAP)
-        )
-        print(sequences)
-        sequence = sequences[0]
-        if type(sequence) != str:
-            output = sequence.completion_text
-        else:
-            output = sequence
-
-        print(f"Results of Predict Many: {output}")
-
-        # Convert results to JSON-compatible format if needed
-        # responses = [
-        #     jsonable_encoder(result) for result in results
-        # ]
-        return {"id_of_model": request.id_of_model, "responses": output}
-    except ValueError as ve:
-        raise HTTPException(status_code=404, detail=str(ve))
-    except Exception as e:
-        print(traceback.format_exc())  # Print the entire stack trace
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-class ChatHistoryInput(BaseModel):
+class ForwardRequest(BaseModel):
+    name_of_model: str
     history: list[dict]
-    id_of_model: str
+    use_cache: bool
+    constraints: Optional[Union[BaseModel, list[str], str]]
+    # constraints: Optional[Union[list[str], str]]
+    constraint_type: Optional[str]
+    response_format: Any
 
 
-@app.post("/apply_chat_template")
-def apply_chat_template(request: ChatHistoryInput):
-    print(f"Request Received: {request}")
+current_name_of_model = None
+model = None
+tk = None
 
-    try:
-        model = model_server.get_model(request.id_of_model)
 
-        history = request.history
+def _str_to_type(s):
+    if s == "int":
+        return int
+    elif s == "float":
+        return float
+    else:
+        raise NotImplementedError
 
-        # convert the first n-1 dictionaries in the history to a single string
-        if len(history) > 1:
-            history_str = "\n".join(
-                [f"{turn['role']}:{turn['content']}" for turn in history[:-1]]
+
+@memory.cache
+def forward_hf(request: ForwardRequest):
+    global current_name_of_model, model, tk
+    name_of_model = request.name_of_model
+    history = request.history
+    print(f"hf Received: {history}")
+
+    # constraint = None
+    # if request.constraints == "int":
+    #     constraint = int
+    # elif request.constraints == "float":
+    #     constraint = float
+    # elif type(request.constraints) == list:
+    #     constraint = request.constraints
+    # elif request.constraints is None:
+    #     constraint = None
+    # else:
+    # #     constraint = ast.literal_eval(request.constraints)  # list of options
+    #     raise NotImplementedError
+    #     # assert type(constraint) == list
+    #     # assert set([type(x) == str for x in constraint]) == set([str])
+
+    if request.constraint_type == "types":
+        constraints = [_str_to_type(x) for x in request.constraints]
+    elif request.constraint_type == "choice":
+        constraints = request.constraints
+    elif request.constraint_type == "regex":
+        constraints = request.constraints
+    elif request.constraint_type == "none":
+        constraints = None
+    else:
+        raise NotImplementedError
+    print(f"constraints (input): {request.constraints}")
+    print(f"constraint_type: {request.constraint_type}")
+    print(f"constraints: {constraints}")
+
+    if name_of_model != current_name_of_model:
+        if model is not None:
+            del model
+            del tk
+            torch.cuda.empty_cache()
+        try:
+            tk = AutoTokenizer.from_pretrained(name_of_model)
+            print("CUDA devices available:")
+            for i in range(torch.cuda.device_count()):
+                print(f"- {torch.cuda.get_device_name(i)}")
+            # model = outlines.models.transformers(name_of_model, device="cuda", kwargs={"torch_dtype": torch.bfloat16})
+            raw_model = AutoModelForCausalLM.from_pretrained(
+                name_of_model, torch_dtype=torch.bfloat16
+            ).to("cuda")
+            # if torch.cuda.device_count() > 1:
+            # raw_model = torch.nn.DataParallel(raw_model)
+            model = outlines.models.Transformers(raw_model, tk)
+            current_name_of_model = name_of_model
+        except Exception as e:
+            print(traceback.format_exc())
+            print(e)
+            raise HTTPException(
+                status_code=500, detail=f"Error loading model '{name_of_model}': {e}"
             )
-            history = [
-                {"role": "system", "content": history_str},
-                history[-1],
-            ]
-        history[-1]["role"] = "user"
-
-        output = model._tokenizer.apply_chat_template(
-            history, tokenize=False, add_generation_prompt=True
+    try:
+        prompt = tk.apply_chat_template(
+            history,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        if request.constraint_type == "none":
+            generator = outlines.generate.text(model)
+        elif request.constraint_type == "choice":
+            generator = outlines.generate.choice(model, request.constraints)
+        elif request.constraint_type == "types":
+            assert len(constraints) == 1
+            generator = outlines.generate.format(model, constraints[0])
+        elif request.constraint_type == "regex":
+            generator = outlines.generate.regex(model, request.constraints)
+        else:
+            print(f"Unknown constraints: {request.constraints}")
+            raise NotImplementedError
+        generated_text = str(generator(prompt)).strip()
+        print(f"hf Generated: {generated_text}")
+        return {"generated_text": generated_text}
+    except Exception as e:
+        print(traceback.format_exc())
+        print(e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating text: {e} in line {traceback.format_exc()}",
         )
 
-        print(f"Chat Template Applied: {output}")
 
-        return {"formatted_chat": output}
+@app.post("/forward")
+def forward(request: ForwardRequest):
+    try:
+        print("at /forward")
+        if request.name_of_model.startswith("gpt"):
+            raise NotImplementedError  # gpt moved to client side
+            # output = forward_gpt(request)
+        else:
+            output = forward_hf(request)
+        return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500, detail=f"traceback:\n{traceback.format_exc()}"
+        )
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=55244)

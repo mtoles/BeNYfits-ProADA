@@ -1,6 +1,5 @@
 from .chatbot import *
 from tqdm import tqdm
-from tempfile import NamedTemporaryFile
 import re
 import sys
 import importlib.util
@@ -9,158 +8,248 @@ import traceback
 import inspect
 from utils import hist_to_str, remove_raise_statements
 from datamodels.template import SchemaError
+import black
+from enum import Enum
+from pydantic import BaseModel
+import json
+
+list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
+
+
+class Options(BaseModel):
+    options: list[str]
+
+
+class ConstraintType:
+    choice = "choice"
+    regex = "regex"
+    types = "types"
+    none = "none"
+
+
+class ImaginaryData(dict):
+    def get(self, key, default=None):
+        raise KeyError
 
 
 class CodeBot(ChatBot):
-    gen_checker_prompt = """Eligibility Requirements:\n{eligibility_requirement}\n\nWrite a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information in string form and determines user eligibility. `check_eligibility` returns a bool. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Here is an example:
+    gen_checker_prompt = """{attempt_no}\nEligibility Requirements:\n{eligibility_requirement}\n\nWrite a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information and determines user eligibility. All keys and values of `hh` are strings. `check_eligibility` returns a bool. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. Here is an example:
 
 def dummy_eligibility_program(hh: dict) -> bool:
     def _helper(hh):
-        if hh["has_id"]:
+        if hh["has_id"]=="yes":
             return True
-    if hh["age"] < 18 and _helper(hh):
-        return True
+        else:
+            return False
+    if hh["has_dependents"]=="yes":
+        if int(hh["dependent_age"]) < 18 and _helper(hh):
+            return True
     return False
 
 DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhere. Do not use default values. Do not raise any exceptions. Do not provide anything besides code in your response."""
 
-    gen_validator_prompt = """Eligibility Requirements:\n{eligibility_requirement}\n\ncode:\n{code}\n\nWrite a python function called `validate_{name}` that takes a dictionary `hh` containing relevant information and outputs whether all values in `hh` are of correct type. A value is of correct type if it will cause no errors in the code above, EVEN IF the code above would return `False`. Keys and values of `hh` are strings. For each key that appears in the code, raise a ValueError exception if the value is not valid. If all checks pass, return None. For example:
-
-def eligibility_program(hh: dict) -> bool:
-    if hh["age"] =< 18 and hh["filing_status"] == "single":
-        return True
-    return False
-
-def validate_user_data(hh: dict):
-    # note that we DO NOT check whether all keys are present
-    try: 
-        _ = int(hh.get("age", 0)) # note that we DO NOT check the range of age
-    except ValueError:
-        raise ValueError("Age must be an integer.")
-    try:
-        hh.get("filing_status", "single") in ["single", "married"]:
-    except:
-        raise ValueError("Filing status must be 'single' or 'married'.")
-    return None
-
-Always use `dict.get()` to access values in `hh`. Make sure the default value of `.get()` is valid. Do not check that all values are present. Ensure that an empty dictionary is valid. Do not provide anything besides code in your response."""
+    get_type_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what do you expect {key} to be an integer, a float, or one choice from a set of strings? Return ONLY int, float, or choice."""
+    get_choices_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible choices of {key}? Return ONLY the list of possible values."""
+    get_values_prompt = """Context:{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible values of {key}? Return ONLY the list of possible values in a list of strings. For example, return `["a", "b", "c"]`."""
 
     extract_value_from_ans_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to extract the value of {key} from the following dialog:\n\nQuestion: {cq}\n\nAnswer:\n{answer}\n\nWhat should we set as the value of {key}? Return ONLY the value."""
     key_error_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to determine what value of {key} should be stored in the `hh` dictionary. Ask a question to the user that would get this value. Return ONLY the question."""
+
     type_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, cannot be cast to type {target_type}. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
-    value_error_find_key_prompt = """Code:\n{code}\n\nLine:\n{line}\n\nTraceback: {traceback}\n\nWhat key is responsible for the error in the traceback? Return ONLY the key."""
+    str_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, is not one of {target_options}. Which option of {target_options} is most similar to {value}? Return ONLY the value."""  # same as above but for when the target is a list of strings
+
+    value_error_find_key_prompt = """Attempt: {attempt_no}\nCode:\n{code}\n\nLine:\n{line}\n\nTraceback: {traceback}\n\nWhat key is responsible for the error in the traceback? The possible keys are {key_options}. Return ONLY the key."""
     update_val_gen_prompt = """Attempt no. {attempt_no}\n\nCode:\n{code}\n\nError message:\n{error_message}.\n\nThe code above checks whether the type of the input is correct. Update the code so that all defaults pass, but nonsensical inputs of the wrong type fail. If there are no defaults in a dict.get() call, add a default value. Only check the type of the input, not the range. Do not check that all values are present. Ensure that an empty dictionary is valid. Return ONLY the code. """
+    schema_error_prompt = """Attempt: {attempt_no}\nContext:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
+
+    generate_edge_cases_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the edge cases that will fail the code? Return ONLY the edge cases as a JSON in the form ["The first case", "The second case", ...]"""
+    make_unit_tests_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what is the test case that will fail the code? Return ONLY the test case as JSON in the form:
+{
+    "hh": {
+        "key": "value"
+    },
+    "expected": "value"
+}
+    """
+
+    def __init__(
+        self,
+        # chat_model_id: str,
+        # no_of_programs: str,
+        # eligibility_requirements: str,
+        # use_cache: bool,
+        # lm_logger: Optional[LmLogger] = None,
+        # code_model_id: Optional[str] = None,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.used_keys = []
+        self.key_types = {}
+        self.choices = {}
 
     def pre_conversation(self, local_scope: dict):
+        code = self.make_program(local_scope)
+        edge_case_prompt = [
+            {
+                "role": "user",
+                "content": self.generate_edge_cases_prompt.format(
+                    eligibility_requirements=local_scope["eligibility_requirements"],
+                    code=code,
+                ),
+            }
+        ]
+        # edge_cases_str = self.lm_api.forward(
+        #     edge_case_prompt,
+        #     chat_model_id=local_scope["args"].code_model_id,
+        #     use_cache=local_scope["args"].use_cache,
+        #     logging_role="code_gen",
+        #     constraint_type="regex",
+        #     constraints=list_regex,
+        # )
+        # print
+        # generate unit tests
+
+    def make_program(self, local_scope: dict):
         eligibility_requirements = local_scope["eligibility_requirements"]
         tf = local_scope["tf"]
         ### Write checker code
         generated_checker_text = {}
         generated_val_text = {}
         for name, desc in tqdm(eligibility_requirements.items()):
-            checker_gen_prompt = [
-                {
-                    "role": "system",
-                    "content": self.gen_checker_prompt.format(
-                        eligibility_requirement=desc
-                    ),
-                }
-            ]
-            dirty_checker_output = self.lm_backbone.forward(
-                checker_gen_prompt,
-                logging_role="code_gen",
-            ).strip()
-            clean_checker_output = extract_function_definitions(dirty_checker_output)[
-                "check_eligibility"
-            ]
-            clean_checker_output = clean_checker_output.replace(
-                "def check_eligibility", f"def {name}"
-            )
-            # replace all hh.get(...) with hh["..."]
-            clean_checker_output = re.sub(
-                r'hh\.get\((["\'])(.*?)\1\)', r'hh["\2"]', clean_checker_output
-            )
-            clean_checker_output = remove_raise_statements(clean_checker_output)
-            # check if the code is a valid python function
-            try:
-                exec(clean_checker_output)
-                generated_checker_text[name] = clean_checker_output
-            except SyntaxError:
-                raise ValueError(
-                    f"Generated code is not a valid python function: {clean_checker_output[0]}"
-                )
-            error_var = None
-            attempt_no = 0
+            checker_attempt_no = -1
             while True:
-                # generate the validator
+                checker_attempt_no += 1
+                print(f"attempting to generate checker, attempt {checker_attempt_no}")
+                checker_gen_prompt = [
+                    {
+                        "role": "user",
+                        "content": self.gen_checker_prompt.format(
+                            attempt_no=checker_attempt_no, eligibility_requirement=desc
+                        ),
+                    }
+                ]
+
+                dirty_checker_output = self.lm_api.forward(
+                    checker_gen_prompt,
+                    chat_model_id=local_scope["args"].code_model_id,
+                    use_cache=local_scope["args"].use_cache,
+                    logging_role="code_gen",
+                    # constraints=r"(?!.*\.get\().*", # prevent dict.get()
+                    # constraint_type="regex",
+                ).strip("`")
                 try:
-                    if error_var is None:
-                        val_gen_prompt = [
-                            {
-                                "role": "system",
-                                "content": self.gen_validator_prompt.format(
-                                    eligibility_requirement=desc,
-                                    code=clean_checker_output,
-                                    name=name,
-                                ),
-                            }
-                        ]
-                    else:
-                        val_gen_prompt = [
-                            {
-                                "role": "system",
-                                "content": self.update_val_gen_prompt.format(
-                                    attempt_no=attempt_no,
-                                    code=dirty_val_output,
-                                    error_message=error_var.args[0],
-                                ),
-                            }
-                        ]
-                    dirty_val_output = self.lm_backbone.forward(
-                        val_gen_prompt,
-                        logging_role="val_gen",
-                    ).strip()
-                    clean_val_output = extract_function_definitions(dirty_val_output)[
-                        f"validate_{name}"
-                    ]
-                    # clean_val_output = clean_val_output.replace(
-                    #     "def validate_{name}", f"def validate_{name}"
-                    # )
-                    clean_val_output = clean_val_output.replace(
-                        "raise ValueError", "raise SchemaError"
+                    clean_checker_output = extract_function_definitions(
+                        dirty_checker_output
+                    )["check_eligibility"]
+                    clean_checker_output = clean_checker_output.replace(
+                        "def check_eligibility", f"def {name}"
                     )
-                    exec(clean_val_output)  # define the val_{name} fn
-                    val_fn = eval(f"validate_{name}")
-
-                    # check if the validator passes on empty input
-                    attempt_no += 1
-                    if val_fn({}) is None:
-                        break
-                    # clean_val_output = remove_raise_statements(clean_val_output)
-
+                    # replace all hh.get(...) with hh["..."]
+                    clean_checker_output = re.sub(
+                        r'hh\.get\(f?(["\'])(.*?)\1\)', r'hh["\2"]', clean_checker_output
+                    )
+                    clean_checker_output = black.format_str(
+                        remove_raise_statements(clean_checker_output),
+                        mode=black.FileMode(),
+                    )
+                    # check if the code is a valid python function
+                    exec(clean_checker_output)
+                    generated_checker_text[name] = clean_checker_output
+                    break
                 except Exception as e:
-                    error_var = e
-                    print(f"{type(e).__name__} generating validator: {e}")
-                    
-                # if we succeeded, add the validator
-            generated_val_text[name] = clean_val_output
-        ### run the validator on empty input and rebuild it if empty input errors out ###
+                    pass
 
-        # copy the template into a string
+            assert clean_checker_output
+            this_program_used_keys = re.findall(
+                r"hh\[\"(.*?)\"\]", clean_checker_output
+            )
+            self.used_keys.extend(this_program_used_keys)
+            this_program_key_types = {}
+            for key in this_program_used_keys:
+                key_type_prompt = [
+                    {
+                        "role": "user",
+                        "content": self.get_type_prompt.format(
+                            eligibility_requirements=desc,
+                            code=clean_checker_output,
+                            key=key,
+                        ),
+                    },
+                ]
+                this_program_key_types[key] = self.lm_api.forward(
+                    key_type_prompt,
+                    chat_model_id=local_scope["args"].code_model_id,
+                    use_cache=local_scope["args"].use_cache,
+                    logging_role="type_gen",
+                    constraints=["int", "float", "choice"],
+                    constraint_type="choice",
+                ).strip()
+            # self.choices = {k: {} for k, v in self.key_types.items() if v == "choice"}
+            # self.choices.update(
+            new_choices = {
+                k: {} for k, v in this_program_key_types.items() if v == "choice"
+            }
+            # )
+            for c in new_choices:
+                if local_scope["args"].code_model_id.startswith("gpt"):
+
+                    openai_response_format = Options
+                    response = self.lm_api.forward(
+                        [
+                            {
+                                "role": "user",
+                                "content": self.get_choices_prompt.format(
+                                    eligibility_requirements=desc,
+                                    code=clean_checker_output,
+                                    key=c,
+                                ),
+                            }
+                        ],
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
+                        logging_role="choice_gen",
+                        openai_response_format=openai_response_format,
+                    ).strip()
+
+                    response_dict = json.loads(response)
+                    choices = response_dict.get("options")
+                else:
+                    constraints = list_regex
+                    choices = self.lm_api.forward(
+                        [
+                            {
+                                "role": "user",
+                                "content": self.get_choices_prompt.format(
+                                    eligibility_requirements=desc,
+                                    code=clean_checker_output,
+                                    key=c,
+                                ),
+                            }
+                        ],
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
+                        logging_role="choice_gen",
+                        constraints=constraints,
+                        constraint_type="regex",
+                    ).strip()
+                    choices = ast.literal_eval(choices)
+                new_choices[c] = choices
+
+            self.key_types.update(this_program_key_types)
+            self.choices.update(new_choices)
+            print
+
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
 
-        # replace the template with the generated code
-        # program_texts = []
-        # program_dict_text = []
-        # for name, code in generated_fns_text.items():
         eligibility_definition_block = "\n\n".join(generated_checker_text.values())
         eligibility_call_block = ",".join(
             [f"'{k}':{k}" for k in generated_checker_text.keys()]
         )
         val_definition_block = "\n\n".join(generated_val_text.values())
         val_call_block = ",".join(
-            [f"'{k}':validate_{k}" for k in generated_val_text.keys()]
+            [f"'{k}':get_{k}_type_dict" for k in generated_val_text.keys()]
         )
 
         program = template.replace(
@@ -177,8 +266,20 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
         tf.close()
 
         sys.path.append(tf.name)
+        return program
 
     def run_generated_code(self, locals):
+        program_outputs = {}
+        for program_name in locals["program_names"]:
+            spo = self.run_single_program(program_name, locals)  # single program output
+            # drop history and hh
+            del spo["history"]
+            del spo["hh"]
+            program_outputs[spo["program_name"]] = spo
+
+        return program_outputs
+
+    def run_single_program(self, program_name, locals):
         gen_code_path = locals["tf"].name
         synthetic_user = locals["synthetic_user"]
         # import the generated code from the temp file
@@ -187,46 +288,48 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
         spec.loader.exec_module(generated_code)
 
         history = []
-        locals["hh"] = dict()
+        locals["hh"] = ImaginaryData()
         # run the generated code until we get a valid output
+        attempt_no = 0
+        prev_hh = None
         while True:
-            ### validate all inputs ##
-            generated_validators = generated_code.vals
-            for name, val in generated_validators.items():
-                try:
-                    val(locals["hh"])
-                except SchemaError as e:
-                    # get the stack trace
-                    line = "\n".join(
-                        traceback.format_exc().split("\n")[-3:-2]
-                    )  # TODO: check accuracy
-                    fn_name = traceback.extract_tb(e.__traceback__)[-1].name
-                    fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
-                    relevant_program = locals["eligibility_requirements"][
-                        fn_name.lstrip("validate_")
-                    ]
+            if locals["hh"] == prev_hh:
+                print("returning None eligibility due to no change in locals")
+                return {
+                    "program_name": program_name,
+                    "hh": locals["hh"],
+                    "history": history,
+                    "eligibility": None,
+                    "completed": False,
+                }
 
             ### Run the actual generated code ###
             try:
-                eligibility = generated_code.run(local_scope=locals)
+                p_fn = generated_code.calls[program_name]
+                # eligibility = generated_code.calls[program_name](local_scope=locals)
+                eligibility = p_fn(hh=locals["hh"])
                 break
             except Exception as e:
+                error_var = e
                 # get the stack trace
                 line = "\n".join(
                     traceback.format_exc().split("\n")[-3:-2]
                 )  # TODO: check accuracy
-                fn_name = traceback.extract_tb(e.__traceback__)[
-                    2
-                ].name  # TODO: get without hard coding index
+                fn_name = program_name
+                # fn_name = traceback.extract_tb(e.__traceback__)[
+                #     1
+                # ].name  # TODO: get without hard coding index
                 assert fn_name in list(locals["eligibility_requirements"].keys())
                 fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
                 relevant_program = locals["eligibility_requirements"][
                     fn_name.lstrip("validate_")
                 ]
+                # relevant_val_dict = generated_code.vals[program_name]()
 
                 # if there is a key error, ask a question to get the value
                 if type(e) == KeyError:
-                    key = e.args[0]
+                    error_var = e
+                    key = error_var.args[0]
                     cq = self.forward_generic(
                         prompt=self.key_error_prompt.format(
                             eligibility_requirements=relevant_program,
@@ -240,6 +343,24 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
                     ca = synthetic_user.answer_cq(cq)
                     print(ca)
                     history.append({"role": "user", "content": ca})
+                    if key in self.key_types:
+                        key_type = self.key_types[key]
+                    else:
+                        key_type = "any"
+                    if key_type == ConstraintType.choice:
+                        constraint_type = ConstraintType.choice
+                        constraint = self.choices[key]
+                    elif key_type in ["int", "float"]:
+                        constraint_type = ConstraintType.types
+                        constraint = [eval(key_type)]
+                    elif key_type == "any":
+                        constraint_type = ConstraintType.none
+                        constraint = None
+                    else:
+                        # not sure if anything else matters
+                        raise NotImplementedError
+                    # elif constraint_type == ConstraintType.types:
+                    # constraint = [x.__name__ for x in constraint]
                     new_hh_value = self.forward_generic(
                         prompt=self.extract_value_from_ans_prompt.format(
                             eligibility_requirements=relevant_program,
@@ -248,73 +369,99 @@ Always use `dict.get()` to access values in `hh`. Make sure the default value of
                             cq=cq,
                             answer=ca,
                         ),
+                        constraint_type=constraint_type,
+                        constraints=constraint,
                         logging_role="extract_value_from_ans",
                     )
                     history.append({"role": "assistant", "content": new_hh_value})
+                    prev_hh = deepcopy(locals["hh"])
                     locals["hh"][key] = new_hh_value
                     continue
-                if type(e) == ValueError:
-                    key = self.forward_generic(
-                        prompt=self.value_error_find_key_prompt.format(
-                            code=fn_code,
-                            line=line,
-                            traceback=str(e),
-                        ),
-                        logging_role="value_error_find_key",
-                    ).strip("'\"` \n")
-                    # target_type = e.args[0]
-                    print(e)
-                    match = re.search(
-                        r"invalid literal for (.*)\(\) with base 10: \'(.*)\'", str(e)
-                    ) or re.search(
-                        r"could not convert string to (.*): \'(.*)\'", str(e)
+                elif type(e) == ValueError:
+                    error=e
+                    raise NotImplementedError
+                    # key_options = set(locals["hh"].keys()).intersection(
+                    #     set(relevant_val_dict.keys())
+                    # )
+                    # key = None
+                    # attempt_no = 0
+                    # while key not in relevant_val_dict.keys():
+                    #     raw_key = self.forward_generic(
+                    #         prompt=self.value_error_find_key_prompt.format(
+                    #             attempt_no=attempt_no,
+                    #             code=fn_code,
+                    #             line=line,
+                    #             traceback=str(e),
+                    #             key_options=str(key_options),
+                    #         ),
+                    #         logging_role="value_error_find_key",
+                    #     )
+                    #     key = raw_key.strip("'\"` \n.")
+                    #     attempt_no += 1
+                    # # target_type = e.args[0]
+                    # # print(e)
+                    # target_type = relevant_val_dict[key]
+                    # original_value = locals["hh"][key]
+                    # # original_value = str(e)[str(e).find('"') + 1 :].strip('"')
+                    # if type(target_type) == type:
+                    #     prompt = self.type_error_prompt.format(
+                    #         eligibility_requirements=relevant_program,
+                    #         line=line,
+                    #         value=original_value,
+                    #         target_type=[target_type],
+                    #         dialog=hist_to_str(history),
+                    #     )
+                    # else:  # type(target_type) == list[str]
+                    #     prompt = self.str_error_prompt.format(
+                    #         eligibility_requirements=relevant_program,
+                    #         line=line,
+                    #         value=original_value,
+                    #         target_options=target_type,
+                    #         dialog=hist_to_str(history),
+                    #     )
+                    # retyped_val = self.forward_generic(
+                    #     prompt=prompt,
+                    #     logging_role="type_error",
+                    # )
+                    # prev_hh = deepcopy(locals["hh"])
+                    # locals["hh"][key] = retyped_val
+                    # continue
+                else:
+                    print(
+                        f"returning None because of error in generated code. Error: {error_var}"
                     )
-                    target_type = match.group(1)
-                    original_value = match.group(2)
-                    # original_value = str(e)[str(e).find('"') + 1 :].strip('"')
-                    retyped_val = self.forward_generic(
-                        self.type_error_prompt.format(
-                            eligibility_requirements=relevant_program,
-                            line=line,
-                            value=original_value,
-                            target_type=target_type,
-                            dialog=hist_to_str(history),
-                        ),
-                        logging_role="type_error",
-                    )
-                    try:
-                        _ = eval(target_type)(retyped_val)
-                        final_val = retyped_val
-                    except ValueError:
-                        final_val = {
-                            "str": "None",
-                            "int": "0",
-                            "float": "0.0",
-                            "bool": "False",
-                        }[target_type]
-                        print(
-                            f"type_error retyping failed, setting val {original_value} to {final_val}"
-                        )
-                    # history.append({"role": "assistant", "content": retyped_val})
-                    locals["hh"][key] = final_val
-                    continue
+                    return {
+                        "program_name": program_name,
+                        "hh": locals["hh"],
+                        "history": history,
+                        "eligibility": None,
+                        "completed": False,
+                    }
+        return {
+            "program_name": program_name,
+            "hh": locals["hh"],
+            "history": history,
+            "eligibility": eligibility,
+            "completed": True,
+        }
 
-                # check if the dialog can be used to update hh
-
-                # code =
-                # if we don't get a valid output, check the dialog to see if we can update hh
-                # if not, ask another question
-                continue
-        return eligibility
-
-    def forward_generic(self, prompt: str, logging_role: str):
+    def forward_generic(
+        self, prompt: str, logging_role: str, constraints=None, constraint_type="none"
+    ):
         prompt = [
             {
                 "role": "system",
                 "content": prompt,
             }
         ]
-        lm_output = self.lm_backbone.forward(prompt, logging_role=logging_role)
+        lm_output = self.lm_api.forward(
+            prompt,
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
+            constraint_type=constraint_type,
+            constraints=constraints,
+            logging_role=logging_role,
+        )
         # if lm_output starts and ends with '"`, remove them
         for c in ["'", '"', "`"]:
             if lm_output.startswith(c) and lm_output.endswith(c):

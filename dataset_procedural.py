@@ -152,11 +152,11 @@ def show_household(hh):
         result.append(f"Relation: {member['relation']}")
         result.append(f"Age: {member['age']}")
         if member["relation"] == "self":
-            result.append(show_abnormal(member, default_unemployed(random_name=False)))
+            result.append(show_abnormal(member, Person.default_employed(random_name=False)))
         elif member["relation"] == "spouse":
-            result.append(show_abnormal(member, default_unemployed(random_name=False)))
+            result.append(show_abnormal(member, Person.default_unemployed(random_name=False)))
         elif member["relation"] == "child":
-            result.append(show_abnormal(member, default_child(random_name=False)))
+            result.append(show_abnormal(member, Person.default_child(random_name=False)))
         result.append("")  # for spacing between members
     return "\n".join(result).strip()
 
@@ -167,11 +167,11 @@ def show_household2(hh):
         result.append(f"Relation: {member['relation']}")
         result.append(f"Age: {member['age']}")
         if member["relation"] == "self":
-            result.append(show_abnormal(member, default_unemployed(random_name=False)))
+            result.append(show_abnormal(member, Person.default_unemployed(random_name=False)))
         elif member["relation"] == "spouse":
-            result.append(show_abnormal(member, default_unemployed(random_name=False)))
+            result.append(show_abnormal(member, Person.default_unemployed(random_name=False)))
         elif member["relation"] == "child":
-            result.append(show_abnormal(member, default_child(random_name=False)))
+            result.append(show_abnormal(member, Person.default_child(random_name=False)))
         result.append("")  # for spacing between members
     return "\n".join(result).strip()
 
@@ -182,11 +182,11 @@ def show_household2(hh):
         result.append(f"Relation: {member['features']['relation']}")
         result.append(f"Age: {member['features']['age']}")
         if member["features"]["relation"] == "self":
-            result.append(show_abnormal2(member, default_unemployed(random_name=False)))
+            result.append(show_abnormal2(member, Person.default_unemployed(random_name=False)))
         elif member["features"]["relation"] == "spouse":
-            result.append(show_abnormal2(member, default_unemployed(random_name=False)))
+            result.append(show_abnormal2(member, Person.default_unemployed(random_name=False)))
         elif member["features"]["relation"] == "child":
-            result.append(show_abnormal2(member, default_child(random_name=False)))
+            result.append(show_abnormal2(member, Person.default_child(random_name=False)))
         result.append("")  # for spacing between members
     return "\n".join(result).strip()
 

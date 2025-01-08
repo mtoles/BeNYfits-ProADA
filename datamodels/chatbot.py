@@ -1,4 +1,4 @@
-from models.model_utils import LanguageModelWrapper
+# from models.model_utils import LanguageModelWrapper
 from models.lm_backbone import LmBackboneModel
 from typing import List, Optional
 from copy import deepcopy
@@ -8,6 +8,7 @@ import numpy as np
 import re
 from models.lm_logging import LmLogger
 from inspect import currentframe
+from server.model_client import ModelAPIClient
 
 np.random.seed(42)
 
@@ -23,6 +24,7 @@ def example_array(n):
 
 ### Backbone Prompts ###
 predict_cq_prompt_loose = "Ask a clarifying question that will help you determine the eligibility of user for benefits for benefits asking about one requirement at a time. Start from first program and move to last program and ask about all requirement of one benefit before moving to the next. Only ask about one fact at a time."
+
 
 def get_last_bool_in_str(s: str) -> str:
     """Get the last True or False mentioned in a string. Additionally, return True if yes or Yes are in the input, and false if no or No are in the input"""
@@ -43,15 +45,17 @@ class ChatBot:
 
     def __init__(
         self,
-        lm_wrapper: LanguageModelWrapper,
+        chat_model_id: str,
         no_of_programs: str,
         eligibility_requirements: str,
         use_cache: bool,
         lm_logger: Optional[LmLogger] = None,
+        code_model_id: Optional[str] = None,
     ):
         """
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
+        self.chat_model_id = chat_model_id
         self.benefits_ready_prompt = {
             "role": "system",
             "content": "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False.",
@@ -60,15 +64,21 @@ class ChatBot:
         self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
         # self.lm_wrapper = lm_wrapper
         self.use_cache = use_cache
-        self.lm_backbone = LmBackboneModel(lm_wrapper, use_cache, lm_logger=lm_logger)
+        self.lm_api = ModelAPIClient(
+            # "http://localhost:8000",
+            "http://localhost:55244",
+            lm_logger=lm_logger,
+        )
         self.num_programs = no_of_programs
-    
+
     def predict_benefits_ready(self, history) -> bool:
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
-        raw_lm_output = self.lm_backbone.forward(
+        raw_lm_output = self.lm_api.forward(
             history + [self.benefits_ready_prompt],
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
             logging_role="predict_benefits_ready",
         )
         lm_output = get_last_bool_in_str(str(raw_lm_output))
@@ -86,14 +96,17 @@ class ChatBot:
                 example_array=example_array(self.num_programs),
             ),
         }
-        lm_output = self.lm_backbone.forward(
-            history + [prompt], logging_role="predict_benefits_eligibility"
+        lm_output = self.lm_api.forward(
+            history + [prompt],
+            logging_role="predict_benefits_eligibility",
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
         )
         # TODO - Ensure output is a list of boolean
         lm_output = self.extract_prediction(lm_output, programs)
         return lm_output
 
-    def predict_cq(self, history, cur_iter_count: int) -> str:
+    def predict_cq(self, history, chat_model_id) -> str:
         """
         Function to generate clarifying question.
         """
@@ -101,9 +114,14 @@ class ChatBot:
             "role": "system",
             "content": self.predict_cq_prompt,
         }
-        cq = self.lm_backbone.forward(history + [prompt], logging_role="predict_cq")
+        cq = self.lm_api.forward(
+            history + [prompt],
+            chat_model_id=chat_model_id,
+            use_cache=self.use_cache,
+            logging_role="predict_cq",
+        )
         return cq
-    
+
     def post_answer(self, history):
         """
         Function called after an answer is provided to the chatbot.
@@ -119,6 +137,8 @@ class ChatBot:
         # Find the last list-like match in the string
         matches = re.findall(pattern, prediction)
         match = matches[-1] if matches else None
+
+        # TODO: constraint decoding
         if match:
             # Extract the matched portion and safely evaluate it
             extracted_list_str = match
@@ -144,12 +164,12 @@ class ChatBot:
         if output is None:
             # default to all fails
             print(
-                "*** WARNING: Could not extract prediction from model output. Defaulting to all fails. ***"
+                "*** WARNING: Could not extract prediction from model output. Defaulting to all Nones. ***"
             )
-            output = ["fail"] * len(programs)
+            output = [None] * len(programs)
         output = [1 if x == "pass" else 0 for x in output]
         # convert to dict
-        output = {programs[i]: output[i] for i in range(len(programs))}
+        output = {list(programs)[i]: output[i] for i in range(len(programs))}
         return output
 
     def pre_conversation(self, eligibility_requirements: str = None):
@@ -162,13 +182,13 @@ class CotChatBot(ChatBot):
 
     def __init__(
         self,
-        lm_wrapper: LanguageModelWrapper,
+        chat_model_id: str,
         no_of_programs: str,
         eligibility_requirements: str,
         lm_logger: Optional[LmLogger] = None,
     ):
         super().__init__(
-            lm_wrapper, no_of_programs, eligibility_requirements, lm_logger
+            chat_model_id, no_of_programs, eligibility_requirements, lm_logger
         )
         self.benefits_ready_prompt = {
             "role": "system",
@@ -178,14 +198,12 @@ class CotChatBot(ChatBot):
         self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
 
 
-
-
 class CodeRefChatBot(ChatBot):
     """ "Base class for chatbots. Serves as the simple backbone model."""
 
     def __init__(
         self,
-        lm_wrapper: LanguageModelWrapper,
+        chat_model_id: str,
         no_of_programs: str,
         eligibility_requirements: str,
         use_cache: bool,
@@ -195,7 +213,7 @@ class CodeRefChatBot(ChatBot):
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
         super().__init__(
-            lm_wrapper, no_of_programs, eligibility_requirements, lm_logger
+            chat_model_id, no_of_programs, eligibility_requirements, lm_logger
         )
 
         # same as super class
@@ -219,7 +237,7 @@ class CodeRefChatBot(ChatBot):
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
-        raw_lm_output = self.lm_backbone.forward(
+        raw_lm_output = self.lm_api.forward(
             [self.code_notebook_turn] + history + [self.benefits_ready_prompt],
             logging_role="predict_benefits_ready",
         )
@@ -238,7 +256,7 @@ class CodeRefChatBot(ChatBot):
                 example_array=example_array(self.num_programs),
             ),
         }
-        lm_output = self.lm_backbone.forward(
+        lm_output = self.lm_api.forward(
             [self.code_notebook_turn] + history + [prompt],
             logging_role="predict_benefits_eligibility",
         )
@@ -255,7 +273,7 @@ class CodeRefChatBot(ChatBot):
             "role": "system",
             "content": self.predict_cq_prompt,
         }
-        cq = self.lm_backbone.forward(
+        cq = self.lm_api.forward(
             [self.code_notebook_turn] + history + [prompt], logging_role="predict_cq"
         )
         return cq
@@ -281,10 +299,12 @@ class CodeRefChatBot(ChatBot):
         }
         self.code_notebook_turn = {
             "role": "system",
-            "content": self.lm_backbone.forward(
+            "content": self.lm_api.forward(
                 [prompt], logging_role="initialize_notebook"
             ),
         }
+
+
 class ChatBotBackboneFixed(ChatBot):
     def get_next_question(self, cur_iter_count: int) -> str:
         counter_question_map = {
@@ -316,18 +336,19 @@ class ChatBotBackboneFixed(ChatBot):
             25: "Do you have investment income of less than $11,000?",
             26: "Do you have a child aged 3-4, and are you eligible based on your income, or are you receiving HRA Cash Assistance, SSI, or SNAP?",
             27: "Is your family income below the threshold for Head Start? Household size and yearly income: 2 - $20,440, 3 - $25,820, 4 - $31,200, etc.",
-            28: "Are you enrolling a child in a Comprehensive After School System (COMPASS) program, and are they in grades K-12?"
+            28: "Are you enrolling a child in a Comprehensive After School System (COMPASS) program, and are they in grades K-12?",
         }
 
         return counter_question_map[cur_iter_count]
-    
+
     def predict_cq(self, history, cur_iter_count: int) -> str:
         """
         Function to generate clarifying question.
         """
         cq = self.get_next_question(cur_iter_count)
         return cq
-    
+
+
 class ChatBotPredictCQPromptLoose(ChatBot):
     def predict_cq(self, history, cur_iter_count: int) -> str:
         """
@@ -337,5 +358,5 @@ class ChatBotPredictCQPromptLoose(ChatBot):
             "role": "system",
             "content": predict_cq_prompt_loose,
         }
-        cq = self.lm_backbone.forward(history + [prompt])
+        cq = self.lm_api.forward(history + [prompt])
         return cq
