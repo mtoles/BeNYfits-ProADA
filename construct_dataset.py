@@ -6,7 +6,14 @@ import json
 from tqdm import tqdm
 
 
-households = [hh for hh in DatasetConstructor.fuzz()]
+import argparse
+
+parser = argparse.ArgumentParser(description="Construct an edge case dataset")
+parser.add_argument("-l", "--limit", type=int, default=20, help="The number of households to generate")
+parser.add_argument("-t", "--trials", type=int, default=1000, help="The number of times to attempt to generate a valid household")
+args = parser.parse_args()
+
+households = [hh for hh in DatasetConstructor.fuzz(limit=args.limit, trials=args.trials)]
 households_members = [eval(str(hh)) for hh in households]
 
 with open("edge_case_dataset.jsonl", "w") as fout:
@@ -39,3 +46,4 @@ with open("edge_case_dataset.jsonl", "w") as fout:
             household_dict[program.__name__] = program.__call__(hh)
 
         fout.write(json.dumps(household_dict) + "\n")
+

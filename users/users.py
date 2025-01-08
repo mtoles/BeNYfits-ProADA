@@ -47,25 +47,35 @@ class Person:
                 value
             ), f"Invalid value `{value}` (of type {type(value)}) for attribute `{attr}` under schema `{schemas[attr]}`"
 
-    @staticmethod
-    def default_unemployed(random_name=True, is_self=False):
-        attr_names = PersonAttributeMeta.registry.keys()
-        defaults = [attr.default for attr in PersonAttributeMeta.registry.values()]
-        person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
-        person = Person.from_dict(person_dict)
-        if not is_self:
-            person["relation"] = "other_family"
-        return person
+    # @staticmethod
+    # def default_unemployed(random_name=True, is_self=False):
+    #     attr_names = PersonAttributeMeta.registry.keys()
+    #     defaults = [attr.default for attr in PersonAttributeMeta.registry.values()]
+    #     person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
+    #     person = Person.from_dict(person_dict)
+    #     if not is_self:
+    #         person["relation"] = "other_family"
+    #     return person
+
+    # @staticmethod
+    # def default_employed(random_name=True, is_self=False):
+    #     attr_names = PersonAttributeMeta.registry.keys()
+    #     defaults = [attr.default for attr in PersonAttributeMeta.registry.values()]
+    #     person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
+    #     person = Person.from_dict(person_dict)
+    #     person["works_outside_home"] = True
+    #     person["work_income"] = 50000
+    #     person["work_hours_per_week"] = 40
+    #     if not is_self:
+    #         person["relation"] = "other_family"
+    #     return person
 
     @staticmethod
-    def default_employed(random_name=True, is_self=False):
+    def default_person(random_name=False, is_self=True):
         attr_names = PersonAttributeMeta.registry.keys()
         defaults = [attr.default for attr in PersonAttributeMeta.registry.values()]
         person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
         person = Person.from_dict(person_dict)
-        person["works_outside_home"] = True
-        person["work_income"] = 50000
-        person["work_hours_per_week"] = 40
         if not is_self:
             person["relation"] = "other_family"
         return person
@@ -82,27 +92,28 @@ class Person:
             person["relation"] = "self"
         return person
 
-    @staticmethod
-    def default_child(random_name=True):
-        child = Person.default_unemployed(random_name=random_name)
-        child["relation"] = "child"
-        child["provides_over_half_of_own_financial_support"] = False
-        child["can_care_for_self"] = False
-        child["age"] = 4
-        child["student"] = True
-        child["current_school_level"] = "pk"
-        child["dependent"] = True
-        return child
 
-    @staticmethod
-    def default_adult_dependent(random_name=True):
-        child = Person.default_unemployed(random_name=random_name)
-        child["relation"] = "dependent"
-        child["provides_over_half_of_own_financial_support"] = False
-        child["can_care_for_self"] = False
-        child["age"] = 78
-        child["dependent"] = True
-        return child
+    # @staticmethod
+    # def default_child(random_name=True):
+    #     child = Person.default_unemployed(random_name=random_name)
+    #     child["relation"] = "child"
+    #     child["provides_over_half_of_own_financial_support"] = False
+    #     child["can_care_for_self"] = False
+    #     child["age"] = 4
+    #     child["student"] = True
+    #     child["current_school_level"] = "pk"
+    #     child["dependent"] = True
+    #     return child
+
+    # @staticmethod
+    # def default_adult_dependent(random_name=True):
+    #     child = Person.default_unemployed(random_name=random_name)
+    #     child["relation"] = "dependent"
+    #     child["provides_over_half_of_own_financial_support"] = False
+    #     child["can_care_for_self"] = False
+    #     child["age"] = 78
+    #     child["dependent"] = True
+    #     return child
 
     def nl_person_profile(self) -> str:
         name = self.features["name"]

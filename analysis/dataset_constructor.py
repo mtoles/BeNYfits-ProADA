@@ -42,7 +42,7 @@ class DatasetConstructor:
 
         return executed_lines
 
-    def fuzz(limit=20, trials=10**3):
+    def fuzz(limit, trials):
 
         # Number of lines in the source code of the function
         n_source_lines = 1000

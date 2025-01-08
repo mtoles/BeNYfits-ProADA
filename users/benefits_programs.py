@@ -2,6 +2,8 @@ import random
 from names import get_full_name
 from users.users import Household, Person
 from users import user_features
+from users.user_features import HousingType
+
 
 # from users.users import Household, Person # don't import this to avoid circular logic
 class BenefitsProgramMeta(type):
@@ -25,6 +27,35 @@ def get_random_household_input():
     """
     members = []
 
+    has_spouse = random.choice([True, False])
+    num_children = random.randint(0, 2)
+    num_adults = random.randint(0, 1)
+
+    ### user
+    user = Person.random_person(is_self=True)
+
+    members.append(user)
+    hh = Household(members)
+    for attr in user_features.BasePersonAttr.registry.keys():
+        cls = user_features.BasePersonAttr.registry[attr]
+        hh.members[0][attr] = cls.conform(cls, hh, 0, hh.members[0][attr])
+    return
+    ### spouse
+    if has_spouse:
+        spouse = Person.random_person(random_name=True, is_self=False)
+        spouse["relation"] = "spouse"
+        members.append(spouse)
+
+    ### children
+    for _ in range(num_children):
+        child = Person.random_person(random_name=True, is_self=False)
+        members.append(child)
+
+    ### adults
+    for _ in range(num_adults):
+        adult = Person.random_person(random_name=True, is_self=False)
+        members.append(adult)
+
     self_is_employed = random.choice([True, False])
 
     if self_is_employed:
@@ -34,41 +65,68 @@ def get_random_household_input():
         primary["work_hours_per_week"] = user_features.work_hours_per_week.random()
     else:
         primary = Person.default_unemployed()
-    
+
     if not primary["works_outside_home"]:
         primary["looking_for_work"] = user_features.looking_for_work.random()
-    
+
     primary["name"] = get_full_name()
     primary["relation"] = "self"
     primary["lives_in_temp_housing"] = user_features.lives_in_temp_housing.random()
     primary["receives_hra"] = user_features.receives_hra.random()
     primary["receives_ssi"] = user_features.receives_ssi.random()
     primary["student"] = user_features.student.random()
-    primary["enrolled_in_educational_training"] = user_features.enrolled_in_educational_training.random()
-    primary["enrolled_in_vocational_training"] = user_features.enrolled_in_vocational_training.random()
-    primary["attending_service_for_domestic_violence"] = user_features.attending_service_for_domestic_violence.random()
-    primary["receiving_treatment_for_substance_abuse"] = user_features.receiving_treatment_for_substance_abuse.random()
+    primary["enrolled_in_educational_training"] = (
+        user_features.enrolled_in_educational_training.random()
+    )
+    primary["enrolled_in_vocational_training"] = (
+        user_features.enrolled_in_vocational_training.random()
+    )
+    primary["attending_service_for_domestic_violence"] = (
+        user_features.attending_service_for_domestic_violence.random()
+    )
+    primary["receiving_treatment_for_substance_abuse"] = (
+        user_features.receiving_treatment_for_substance_abuse.random()
+    )
     primary["has_ssn"] = user_features.has_ssn.random()
     primary["has_itin"] = user_features.has_itin.random()
     primary["name_is_on_lease"] = user_features.name_is_on_lease.random()
     primary["monthly_rent_spending"] = user_features.monthly_rent_spending.random()
     primary["place_of_residence"] = user_features.place_of_residence.random()
-    primary["lives_in_rent_stabilized_apartment"] = user_features.lives_in_rent_stabilized_apartment.random()
-    primary["lives_in_rent_controlled_apartment"] = user_features.lives_in_rent_controlled_apartment.random()
+    primary["lives_in_rent_stabilized_apartment"] = (
+        user_features.lives_in_rent_stabilized_apartment.random()
+    )
+    primary["lives_in_rent_controlled_apartment"] = (
+        user_features.lives_in_rent_controlled_apartment.random()
+    )
     primary["lives_in_mitchell-lama"] = user_features.lives_in_mitchell_lama.random()
-    primary["lives_in_limited_dividend_development"] = user_features.lives_in_limited_dividend_development.random()
-    primary["lives_in_redevelopment_company_development"] = user_features.lives_in_redevelopment_company_development.random()
-    primary["lives_in_hdfc_development"] = user_features.lives_in_hdfc_development.random()
-    primary["lives_in_section_213_coop"] = user_features.lives_in_section_213_coop.random()
-    primary["lives_in_rent_regulated_hotel"] = user_features.lives_in_rent_regulated_hotel.random()
-    primary["lives_in_rent_regulated_single"] = user_features.lives_in_rent_regulated_single.random()
+    primary["lives_in_limited_dividend_development"] = (
+        user_features.lives_in_limited_dividend_development.random()
+    )
+    primary["lives_in_redevelopment_company_development"] = (
+        user_features.lives_in_redevelopment_company_development.random()
+    )
+    primary["lives_in_hdfc_development"] = (
+        user_features.lives_in_hdfc_development.random()
+    )
+    primary["lives_in_section_213_coop"] = (
+        user_features.lives_in_section_213_coop.random()
+    )
+    primary["lives_in_rent_regulated_hotel"] = (
+        user_features.lives_in_rent_regulated_hotel.random()
+    )
+    primary["lives_in_rent_regulated_single"] = (
+        user_features.lives_in_rent_regulated_single.random()
+    )
     primary["receives_ssi"] = user_features.receives_ssi.random()
     primary["receives_snap"] = user_features.receives_snap.random()
     primary["receives_ssdi"] = user_features.receives_ssdi.random()
     primary["receives_va_disability"] = user_features.receives_va_disability.random()
-    primary["receives_disability_medicaid"] = user_features.receives_disability_medicaid.random()
-    primary["has_received_ssi_or_ssdi"] = user_features.has_received_ssi_or_ssdi.random()
-
+    primary["receives_disability_medicaid"] = (
+        user_features.receives_disability_medicaid.random()
+    )
+    primary["has_received_ssi_or_ssdi"] = (
+        user_features.has_received_ssi_or_ssdi.random()
+    )
 
     members.append(primary)
 
@@ -84,7 +142,7 @@ def get_random_household_input():
             spouse["work_hours_per_week"] = user_features.work_hours_per_week.random()
         else:
             spouse = Person.default_unemployed()
-        
+
         if not spouse["works_outside_home"]:
             spouse["looking_for_work"] = user_features.looking_for_work.random()
 
@@ -95,10 +153,18 @@ def get_random_household_input():
         spouse["receives_ssi"] = user_features.receives_ssi.random()
         spouse["receives_snap"] = user_features.receives_snap.random()
         spouse["student"] = user_features.student.random()
-        spouse["enrolled_in_educational_training"] = user_features.enrolled_in_educational_training.random()
-        spouse["enrolled_in_vocational_training"] = user_features.enrolled_in_vocational_training.random()
-        spouse["attending_service_for_domestic_violence"] = user_features.attending_service_for_domestic_violence.random()
-        spouse["receiving_treatment_for_substance_abuse"] = user_features.receiving_treatment_for_substance_abuse.random()
+        spouse["enrolled_in_educational_training"] = (
+            user_features.enrolled_in_educational_training.random()
+        )
+        spouse["enrolled_in_vocational_training"] = (
+            user_features.enrolled_in_vocational_training.random()
+        )
+        spouse["attending_service_for_domestic_violence"] = (
+            user_features.attending_service_for_domestic_violence.random()
+        )
+        spouse["receiving_treatment_for_substance_abuse"] = (
+            user_features.receiving_treatment_for_substance_abuse.random()
+        )
         spouse["has_ssn"] = user_features.has_ssn.random()
         spouse["has_itin"] = user_features.has_itin.random()
 
@@ -120,11 +186,15 @@ def get_random_household_input():
         child["in_foster_care"] = user_features.in_foster_care.random()
         child["age"] = random.randint(1, 17)
         child["has_paid_caregiver"] = user_features.has_paid_caregiver.random()
-        child["duration_more_than_half_prev_year"] = user_features.duration_more_than_half_prev_year.random()
-        child["provides_over_half_of_own_financial_support"] = user_features.provides_over_half_of_own_financial_support.random()
+        child["duration_more_than_half_prev_year"] = (
+            user_features.duration_more_than_half_prev_year.random()
+        )
+        child["provides_over_half_of_own_financial_support"] = (
+            user_features.provides_over_half_of_own_financial_support.random()
+        )
 
         raw_school_level = child["age"] - 5 + random.choice([-1, 0, 1])
-        
+
         if raw_school_level == 0:
             child["current_school_level"] = "k"
         elif raw_school_level == -1:
@@ -145,12 +215,17 @@ def get_random_household_input():
 
         adult_dependent["relation"] = "other_family"
         adult_dependent["age"] = random.randint(50, 95)
-        adult_dependent["has_paid_caregiver"] = user_features.has_paid_caregiver.random()
-        adult_dependent["duration_more_than_half_prev_year"] = user_features.duration_more_than_half_prev_year.random()
+        adult_dependent["has_paid_caregiver"] = (
+            user_features.has_paid_caregiver.random()
+        )
+        adult_dependent["duration_more_than_half_prev_year"] = (
+            user_features.duration_more_than_half_prev_year.random()
+        )
 
         members.append(adult_dependent)
 
     return Household(members)
+
 
 class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
     """ "
@@ -170,7 +245,7 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
 
             if hh.user()["works_outside_home"]:
                 self_works = True
-            
+
             elif hh.user()["looking_for_work"]:
                 self_works = True
 
@@ -178,13 +253,13 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
 
             if hh.spouse() is None:
                 spouse_works = True
-            
+
             elif hh.spouse()["works_outside_home"]:
                 spouse_works = True
-            
+
             elif hh.spouse()["looking_for_work"]:
                 spouse_works = True
-            
+
             filing_jointly = False
 
             if hh.user()["filing_jointly"]:
@@ -195,7 +270,7 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
             for m in hh.members:
                 if m["has_paid_caregiver"]:
                     members_with_paid_caregiver.append(m)
-            
+
             qualifying_children = []
 
             for m in members_with_paid_caregiver:
@@ -210,13 +285,13 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
 
             qualifying_family = qualifying_children + qualify_adults
             # drop family members who did not live with the household for more than half of the year
-            
+
             qualifying_family_lived_with_hh = []
 
             for m in qualifying_family:
                 if m["duration_more_than_half_prev_year"]:
                     qualifying_family_lived_with_hh.append(m)
-            
+
             if filing_jointly:
                 if self_works:
                     return True
@@ -261,16 +336,16 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
 
             if user_not_at_home and spouse_not_at_home:
                 return True
-            
+
             return False
-        
+
         if not _r1_and_r2(hh):
             return False
         elif not _r3(hh):
             return False
         elif not _r4(hh):
             return False
-        
+
         return True
 
 
@@ -307,6 +382,7 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
     8 - $50,560
     For each additional person, add $5,140.
     """
+
     @staticmethod
     def __call__(hh) -> bool:
 
@@ -328,7 +404,7 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
             if hh_income <= 9440 + 5140 * hh_size:
                 return True
             return False
-        
+
         secondary_conditions = False
 
         if temp_housing:
@@ -439,7 +515,7 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
         user_qualifies = _qualifies(hh.user())
         spouse_qualifies = _qualifies(hh.spouse())
         hh_income_qualifies = _income_eligible(hh.hh_total_income(), hh.num_members())
-        
+
         if not has_toddler:
             return False
         if hh_income_qualifies:
@@ -448,7 +524,7 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
             return False
         if not spouse_qualifies:
             return False
-        
+
         return True
 
 
@@ -460,6 +536,7 @@ class ChildTaxCredit(BaseBenefitsProgram):
     2. You're claiming a child on your tax return who is 16 or younger. The child must have a Social Security Number (SSN) or Adoption Tax Identification Number (ATIN). The filer may use an SSN or Individual Taxpayer Identification Number (ITIN). Qualifying children must be your child, stepchild, grandchild, eligible foster child, adopted child, sibling, niece, or nephew.
     3. Your child or dependent lived with you for over half of the year in the U.S. and you are claiming them as a dependent on your tax return. Your child cannot provide more than half of their own financial support.
     """
+
     @staticmethod
     def __call__(hh):
         def _r1(hh) -> bool:
@@ -513,9 +590,9 @@ class ChildTaxCredit(BaseBenefitsProgram):
                     return False
                 elif m["provides_over_half_of_own_financial_support"]:
                     return False
-                
+
                 return True
-            
+
             r3_children = []
 
             for m in eligible_children:
@@ -533,7 +610,7 @@ class ChildTaxCredit(BaseBenefitsProgram):
             return False
         elif not bool(r3_children):
             return False
-        
+
         return True
 
 
@@ -548,6 +625,7 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
     5. Do you live in NYC in one of these types of housing: a rent stabilized apartment, a rent controlled apartment, a Mitchell-Lama development, a Limited Dividend development, a redevelopment company development, a Housing Development Fund Company (HDFC) Cooperative development, a Section 213 Cooperative unit, or a rent regulated hotel or single room occupancy unit?
     6. Do you have income from the following benefits: Supplemental Security Income (SSI), Federal Social Security Disability Insurance (SSDI), U.S. Department of Veterans Affairs (VA) disability pension or compensation, or disability-related Medicaid if you received either SSI or SSDI in the past?
     """
+
     @staticmethod
     def __call__(hh):
         def _r1(hh) -> bool:
@@ -573,28 +651,42 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
             return False
 
         def _r5(hh) -> bool:
-
             if not hh.user()["place_of_residence"] == "NYC":
                 return False
-            elif hh.user()["lives_in_rent_stabilized_apartment"]:
+            elif (
+                hh.user()["housing_type"] == HousingType.RENT_STABILIZED_APARTMENT.value
+            ):
                 return True
-            elif hh.user()["lives_in_rent_controlled_apartment"]:
+            elif (
+                hh.user()["housing_type"] == HousingType.RENT_CONTROLLED_APARTMENT.value
+            ):
                 return True
-            elif hh.user()["lives_in_mitchell-lama"]:
+            elif (
+                hh.user()["housing_type"] == HousingType.MITCHELL_LAMA_DEVELOPMENT.value
+            ):
                 return True
-            elif hh.user()["lives_in_limited_dividend_development"]:
+            elif (
+                hh.user()["housing_type"]
+                == HousingType.LIMITED_DIVIDEND_DEVELOPMENT.value
+            ):
                 return True
-            elif hh.user()["lives_in_redevelopment_company_development"]:
+            elif (
+                hh.user()["housing_type"]
+                == HousingType.REDEVELOPMENT_COMPANY_DEVELOPMENT.value
+            ):
                 return True
-            elif hh.user()["lives_in_hdfc_development"]:
+            elif hh.user()["housing_type"] == HousingType.HDFC_DEVELOPMENT.value:
                 return True
-            elif hh.user()["lives_in_section_213_coop"]:
+            elif hh.user()["housing_type"] == HousingType.SECTION_213_COOP.value:
                 return True
-            elif hh.user()["lives_in_rent_regulated_hotel"]:
+            elif hh.user()["housing_type"] == HousingType.RENT_REGULATED_HOTEL.value:
                 return True
-            elif hh.user()["lives_in_rent_regulated_single"]:
+            elif (
+                hh.user()["housing_type"]
+                == HousingType.RENT_REGULATED_SINGLE_ROOM_OCCUPANCY.value
+            ):
                 return True
-            
+
             return False
 
         def _r6(hh) -> bool:
@@ -607,7 +699,7 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
             elif hh.user()["receives_disability_medicaid"]:
                 if hh.user()["has_received_ssi_or_ssdi"]:
                     return True
-            
+
             return False
 
         if not _r1(hh):
@@ -622,7 +714,7 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
             return False
         elif not _r6(hh):
             return False
-        
+
         return True
 
 
@@ -637,6 +729,7 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
     5. Married Filing Separate: A spouse who is not filing a joint return may claim the EITC if you had a qualifying child who lived with you for more than half of the year.
     6. You had investment income of less than $11,000 in 2023.
     """
+
     @staticmethod
     def __call__(hh):
 
@@ -649,11 +742,16 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
             qualifying_children = []
 
             for m in hh.members:
-                if m["relation"] in ["child", "stepchild", "foster_child", "grandchild"]:
+                if m["relation"] in [
+                    "child",
+                    "stepchild",
+                    "foster_child",
+                    "grandchild",
+                ]:
                     qualifying_children.append(m)
-            
+
             qualifying_children = bool(qualifying_children)
-            
+
             if hh.user()["filing_jointly"]:
                 if qualifying_children:
                     if hh.marriage_total_income() <= 63398:
@@ -678,9 +776,14 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
             qualifying_children = []
 
             for m in hh.members:
-                if m["relation"] in ["child", "stepchild", "foster_child", "grandchild"]:
+                if m["relation"] in [
+                    "child",
+                    "stepchild",
+                    "foster_child",
+                    "grandchild",
+                ]:
                     qualifying_children.append(m)
-            
+
             qualifying_children = bool(qualifying_children)
 
             if not qualifying_children:
@@ -719,7 +822,7 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
             return False
         elif not _r6(hh):
             return False
-        
+
         return True
 
 
@@ -793,6 +896,7 @@ class HeadStart(BaseBenefitsProgram):
     For each additional person, add $5,380.
     The best way to find out if your family is eligible for Head Start is to contact a program directly.
     """
+
     @staticmethod
     def __call__(hh):
         def _r0(hh) -> bool:
@@ -847,7 +951,7 @@ class HeadStart(BaseBenefitsProgram):
             return True
         elif _r6(hh):
             return True
-        
+
         return False
 
     @staticmethod
@@ -863,6 +967,7 @@ class HeadStart(BaseBenefitsProgram):
             8: 102500,
         }
 
+
 # def ComprehensiveAfterSchool(hh) -> bool:
 class ComprehensiveAfterSchool(BaseBenefitsProgram):
     @staticmethod
@@ -874,6 +979,7 @@ class ComprehensiveAfterSchool(BaseBenefitsProgram):
             if m["current_school_level"] in list(range(1, 13)) + ["k"]:
                 return True
         return False
+
 
 # TODO - RATTAN
 # Cash Assistance --- Very vague --- No clear requirements
@@ -951,10 +1057,14 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
             if all(owner["age"] >= 65 for owner in owners):
                 return True
             elif len(owners) == 2:
-                if hh.user().get("filing_jointly") and any(owner["age"] >= 65 for owner in owners):
+                if hh.user().get("filing_jointly") and any(
+                    owner["age"] >= 65 for owner in owners
+                ):
                     # Jointly owned by a married couple
                     return True
-                elif all(owner["relation"] == "sibling" for owner in owners) and any(owner["age"] >= 65 for owner in owners):
+                elif all(owner["relation"] == "sibling" for owner in owners) and any(
+                    owner["age"] >= 65 for owner in owners
+                ):
                     # Jointly owned by siblings
                     return True
             return False
@@ -981,7 +1091,9 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
                     spouse = hh.spouse() if owner["relation"] == "self" else None
                     if spouse and spouse.get("primary_residence", False):
                         resident_spouses.append(spouse)
-            total_income = sum(owner.total_income() for owner in owners + resident_spouses)
+            total_income = sum(
+                owner.total_income() for owner in owners + resident_spouses
+            )
             return total_income <= 98700
 
         # Check eligibility for Basic STAR
@@ -1042,13 +1154,8 @@ class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
             return hh.hh_total_income() <= income_limit
 
         return _income_eligible(hh)
-    
 
-
-
-
-
-# ChatGPT Link - https://chatgpt.com/c/6748084a-bf98-8002-83e0-cc8e4d80c137
+        # ChatGPT Link - https://chatgpt.com/c/6748084a-bf98-8002-83e0-cc8e4d80c137
         hh_size = hh.num_members()
         total_income = hh.hh_total_income()
 
@@ -1064,17 +1171,18 @@ class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
         # Check if the household's total income is within the limit
         return total_income <= income_limit
 
+
 class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
     """
     Senior Citizen Homeowners’ Exemption (SCHE)
 
     Eligibility Requirements (simplified):
       1. The property must be a one-, two-, or three-family home, condo, or coop apartment.
-      2. All owners of the property must be 65 or older. 
+      2. All owners of the property must be 65 or older.
          Exception: If the property is owned by spouses or siblings only, then at least one must be 65+.
       3. All owners must live on the property as their primary residence.
       4. The combined income for all owners must be less than or equal to $58,399.
-      5. The owners must have owned the property for at least 12 consecutive months before filing 
+      5. The owners must have owned the property for at least 12 consecutive months before filing
          (unless they already received SCHE on a previously owned property).
     """
 
@@ -1093,7 +1201,9 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
             return False
 
         # 2. Identify the property owners using the new Household helper
-        owners = hh.property_owners()  # Returns all members where "is_property_owner" = True
+        owners = (
+            hh.property_owners()
+        )  # Returns all members where "is_property_owner" = True
         if not owners:
             # If there are no identified owners, the exemption cannot apply
             return False
@@ -1132,7 +1242,9 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
                 return False
 
         # 4. Check combined income using new Household helper
-        combined_income = hh.owners_total_income()  # Sums work + investment incomes of owners
+        combined_income = (
+            hh.owners_total_income()
+        )  # Sums work + investment incomes of owners
         if combined_income > 58399:
             return False
 
