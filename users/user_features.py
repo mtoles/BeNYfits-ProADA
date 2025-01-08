@@ -3,7 +3,59 @@ from names import get_full_name
 from schema import And
 
 from user_features2 import *
-# from user_features3 import *
+
+
+GRADE_DICT = {
+    "pk": "preschool",
+    "k": "kindergarten",
+    1: "1st grade",
+    2: "2nd grade",
+    3: "3rd grade",
+    4: "4th grade",
+    5: "5th grade",
+    6: "6th grade",
+    7: "7th grade",
+    8: "8th grade",
+    9: "9th grade",
+    10: "10th grade",
+    11: "11th grade",
+    12: "12th grade",
+    "college": "college",
+}
+
+
+class PersonAttributeMeta(type):
+    """
+    Metaclass for attributes that persons can have
+    TODO: also used as a persons factory
+    """
+
+    registry = {}
+
+    def __new__(cls, name, bases, attrs):
+        name = (
+            "lives_in_mitchell-lama" if name == "lives_in_mitchell_lama" else name
+        )  # underscore problem in precomputed data. TODO: Fix
+        attrs["name"] = name.lower()
+        new_p_attr = super().__new__(cls, name, bases, attrs)
+        if name != "BasePersonAttr":
+            # check for duplicates
+            assert name not in cls.registry, f"Person attribute {name} already exists"
+            # class atributes
+            # assert type(attrs["name"]) == str
+            assert type(attrs["schema"]) == And
+            assert callable(attrs["random"])
+            assert callable(attrs["nl_fn"])
+            # add to registry
+            cls.registry[name] = new_p_attr
+        return new_p_attr
+
+
+class BasePersonAttr(metaclass=PersonAttributeMeta):
+    # always include this attribute in the synthetic user profile even if not
+    # retreived with RAG
+    always_include = False
+    pass
 
 
 class name(BasePersonAttr):
@@ -511,31 +563,38 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
         else f"{n} is not receiving treatment for substance abuse."
     )
 
+
 class housing_type(BasePersonAttr):
-    schema = And(str, lambda x: x in [
-        "house",
-        "condo",
-        "cooperative apartment",
-        "manufactured home",
-        "farmhouse",
-        "mixed use property",
-        "homeless",
-        "DHS shelter",
-        "HRA shelter"
-    ])
-    random = lambda: np.random.choice([
-        "house",
-        "condo",
-        "cooperative apartment",
-        "manufactured home",
-        "farmhouse",
-        "mixed use property",
-        "homeless"
-        "DHS shelter"
-        "HRA shelter"
-    ])
+    schema = And(
+        str,
+        lambda x: x
+        in [
+            "house",
+            "condo",
+            "cooperative apartment",
+            "manufactured home",
+            "farmhouse",
+            "mixed use property",
+            "homeless",
+            "DHS shelter",
+            "HRA shelter",
+        ],
+    )
+    random = lambda: np.random.choice(
+        [
+            "house",
+            "condo",
+            "cooperative apartment",
+            "manufactured home",
+            "farmhouse",
+            "mixed use property",
+            "homeless" "DHS shelter" "HRA shelter",
+        ]
+    )
     default = "house"
     nl_fn = lambda n, x: f"{n} owns a {x}."
+
+
 class is_property_owner(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
@@ -544,13 +603,17 @@ class is_property_owner(BasePersonAttr):
         f"{n} is a property owner." if x else f"{n} is not a property owner."
     )
 
+
 class primary_residence(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = True
     nl_fn = lambda n, x: (
-        f"{n}'s home is their primary residence." if x else f"{n}'s home is not their primary residence."
+        f"{n}'s home is their primary residence."
+        if x
+        else f"{n}'s home is not their primary residence."
     )
+
 
 class months_owned_property(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
@@ -558,19 +621,23 @@ class months_owned_property(BasePersonAttr):
     default = 0
     nl_fn = lambda n, x: f"{n} has owned the property for {x} months."
 
+
 class had_previous_sche(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} previously received SCHE on another property." 
-        if x else f"{n} has not previously received SCHE on another property."
+        f"{n} previously received SCHE on another property."
+        if x
+        else f"{n} has not previously received SCHE on another property."
     )
 
-### Rattandeep should have some unpushed work between 
+
+### Rattandeep should have some unpushed work between
 # here
-# and 
+# and
 # senior citizen rent increase exemption
+
 
 ### New vars for Pre-K for all
 class toilet_trained(BasePersonAttr):
@@ -578,12 +645,13 @@ class toilet_trained(BasePersonAttr):
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} is toilet trained." 
-        if x else f"{n} is not toilet trained."
+        f"{n} is toilet trained." if x else f"{n} is not toilet trained."
     )
+
 
 ### New vars for Disabled Homeowners' Exemption
 # I think these were already covered above
+
 
 ### New Vars for Veterans' Property Tax Exemption
 class propery_owner_widow(BasePersonAttr):
@@ -591,67 +659,79 @@ class propery_owner_widow(BasePersonAttr):
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} is a widow of the property owner." 
-        if x else f"{n} is not a widow of the property owner."
+        f"{n} is a widow of the property owner."
+        if x
+        else f"{n} is not a widow of the property owner."
     )
+
 
 class conflict_veteran(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} served in the US armed forces in the Vietnam War." 
-        if x else f"{n} is not a conflict veteran."
+        f"{n} served in the US armed forces in the Vietnam War."
+        if x
+        else f"{n} is not a conflict veteran."
     )
 
+
 ### HEAP
+
 
 class heat_shut_off(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} heating system is shut off or in danger of being shut off." 
-        if x else f"{n} heating system is not shut off or in danger of being shut off."
+        f"{n} heating system is shut off or in danger of being shut off."
+        if x
+        else f"{n} heating system is not shut off or in danger of being shut off."
     )
+
 
 class out_of_fuel(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
-    nl_fn = lambda n, x: (
-        f"{n} is out of fuel." 
-        if x else f"{n} is not out of fuel."
-    )
+    nl_fn = lambda n, x: (f"{n} is out of fuel." if x else f"{n} is not out of fuel.")
+
 
 class heating_bill_in_name(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} has a heating bill in their name." 
-        if x else f"{n} does not have a heating bill in their name."
+        f"{n} has a heating bill in their name."
+        if x
+        else f"{n} does not have a heating bill in their name."
     )
+
 
 class receives_temporary_assistance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} receives New York OTDA Temporary Assistance." 
-        if x else f"{n} does not receive New York OTDA Temporary Assistance."
+        f"{n} receives New York OTDA Temporary Assistance."
+        if x
+        else f"{n} does not receive New York OTDA Temporary Assistance."
     )
 
+
 ### NYS Unemployment Insurance
+
 
 class lost_job(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} lost their last job through no fault of their own." 
-        if x else f"{n} did not lose their last job through no fault of their own."
+        f"{n} lost their last job through no fault of their own."
+        if x
+        else f"{n} did not lose their last job through no fault of their own."
     )
+
 
 class months_since_worked(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
@@ -659,107 +739,125 @@ class months_since_worked(BasePersonAttr):
     default = 0
     nl_fn = lambda n, x: f"{n} has been unemployed for {x} months."
 
+
 class can_work_immediately(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} can work immediately." 
-        if x else f"{n} cannot work immediately."
+        f"{n} can work immediately." if x else f"{n} cannot work immediately."
     )
+
 
 class authorized_to_work_in_us(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} is authorized to work in the US." 
-        if x else f"{n} is not authorized to work in the US."
+        f"{n} is authorized to work in the US."
+        if x
+        else f"{n} is not authorized to work in the US."
     )
+
 
 class was_authorized_to_work_when_job_lost(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} was authorized to work in the US when they lost their last job." 
-        if x else f"{n} was not authorized to work in the US when they lost their last job.")
-    
-### Special Supplemental Nutrition Program for Women, Infants, and Children	
+        f"{n} was authorized to work in the US when they lost their last job."
+        if x
+        else f"{n} was not authorized to work in the US when they lost their last job."
+    )
+
+
+### Special Supplemental Nutrition Program for Women, Infants, and Children
+
 
 class months_pregnant(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
     random = lambda: np.random.randint(0, 9)
     default = 0
-    nl_fn = lambda n, x: f"{n} is {x} months pregnant." if x else f"{n} is not pregnant."
+    nl_fn = lambda n, x: (
+        f"{n} is {x} months pregnant." if x else f"{n} is not pregnant."
+    )
+
 
 class breastfeeding(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} breastfeeds a baby." 
-        if x else f"{n} is not breastfeeding a baby."
+        f"{n} breastfeeds a baby." if x else f"{n} is not breastfeeding a baby."
     )
 
-### NYCHA Resident Economic Empowerment and Sustainability	
+
+### NYCHA Resident Economic Empowerment and Sustainability
+
 
 class nycha_resident(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} is a NYCHA resident." 
-        if x else f"{n} is not a NYCHA resident."
+        f"{n} is a NYCHA resident." if x else f"{n} is not a NYCHA resident."
     )
 
-### Learn & Earn	
+
+### Learn & Earn
 class selective_service(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} is registered for selective service." 
-        if x else f"{n} is not registered for selective service."
+        f"{n} is registered for selective service."
+        if x
+        else f"{n} is not registered for selective service."
     )
+
 
 class is_eligible_for_selective_service(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} is eligible for selective service." 
-        if x else f"{n} is not eligible for selective service."
+        f"{n} is eligible for selective service."
+        if x
+        else f"{n} is not eligible for selective service."
     )
+
 
 class receives_cash_assistance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} qualifies for and receives cash assistance." 
-        if x else f"{n} does not qualify for and receive cash assistance."
+        f"{n} qualifies for and receives cash assistance."
+        if x
+        else f"{n} does not qualify for and receive cash assistance."
     )
+
 
 class is_runaway(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
-    nl_fn = lambda n, x: (
-        f"{n} is a runaway." 
-        if x else f"{n} is not a runaway."
-    )
+    nl_fn = lambda n, x: (f"{n} is a runaway." if x else f"{n} is not a runaway.")
+
 
 class foster_age_out(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} has aged out of foster care." 
-        if x else f"{n} has not aged out of foster care or was never in it."
+        f"{n} has aged out of foster care."
+        if x
+        else f"{n} has not aged out of foster care or was never in it."
     )
 
-### Family Planning Benefit Program	
+
+### Family Planning Benefit Program
+
 
 class citizenship(BasePersonAttr):
     schema = And(
@@ -780,4 +878,732 @@ class citizenship(BasePersonAttr):
     default = "self"
     nl_fn = lambda n, x: f"{n} is a {x}."
 
-### continued in user_features2
+
+class responsible_for_day_to_day(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is responsible all their children's day-to-day life."
+        if x
+        else f"{n} is not responsible all their children's day-to-day life."
+    )
+
+
+### Adult Protective Services
+
+
+class hiv_aids(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has been diagnosed with HIV or AIDS."
+        if x
+        else f"{n} has not been diagnosed with HIV or AIDS."
+    )
+
+
+class can_manage_self(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} can manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others."
+        if x
+        else f"{n} cannot manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others."
+    )
+
+
+class has_family_to_help(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has people to help them manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others. "
+        if x
+        else f"{n} does not have people to help them manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others."
+    )
+
+
+### Access-A-Ride Paratransit Service
+
+
+class can_access_subway_or_bus(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} can use accessible buses or subways for some or all of their trips."
+        if x
+        else f"{n} cannot use accessible buses or subways for some or all of their trips."
+    )
+
+
+class recovering_from_surgery(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is recovering from surgery."
+        if x
+        else f"{n} is not recovering from surgery."
+    )
+    # "long term condition" is covered by disabled
+
+
+### CUNY Fatherhood Academy
+
+
+class sex(BasePersonAttr):
+    schema = And(lambda x: x in ("male", "female"))
+    random = lambda: np.random.choice(["male", "female"])
+    default = "male"
+    nl_fn = lambda n, x: f"{n} is {x}."
+
+
+class high_school_equivalent(BasePersonAttr):
+    schema = And(
+        lambda x: x
+        in (
+            "high school diploma",
+            "HSE diploma",
+            "GED",
+            "no high school diploma equivalent",
+        )
+    )
+    random = lambda: np.random.choice(
+        [
+            "high school diploma",
+            "HSE diploma",
+            "GED",
+            "no high school diploma equivalent",
+        ]
+    )
+    default = "diploma"
+    nl_fn = lambda n, x: f"{n}'s education level is: {x}."
+
+
+class college(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (f"{n} is in college." if x else f"{n} is not in college.")
+
+
+### Newborn Home Visiting Program
+
+
+class acs(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} gets help from Administration for Children's Services (ACS)."
+        if x
+        else f"{n} does not get help from Administration for Children's Services (ACS)."
+    )
+
+
+### Children and Youth with Special Health Care Needs
+
+
+class chronic_health_condition(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a chronic health condition."
+        if x
+        else f"{n} does not have a chronic health condition."
+    )
+
+
+class developmental_condition(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a serious developmental condition that interferes with social functions."
+        if x
+        else f"{n} does not have a developmental condition."
+    )
+
+
+class emotional_behavioral_condition(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has an serious emotional or behavioral condition that interferes with social functions."
+        if x
+        else f"{n} does not have an emotional or behavioral condition."
+    )
+    # for "need extra health care assitance" use can_care_for_self
+
+
+### Outpatient Treatment Services
+class mental_health_condition(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a serious mental health condition that interferes with social functions."
+        if x
+        else f"{n} does not have a mental health condition."
+    )
+
+
+class difficulty_in_regular_classroom(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has serious difficulty in a regular classroom."
+        if x
+        else f"{n} does not have difficulty in a regular classroom."
+    )
+
+
+### Child Health Plus and Children's Medicaid
+
+
+class health_insurance(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has health insurance" if x else f"{n} does not have health insurance."
+    )
+
+
+### Family Assessment Program
+
+
+class struggles_to_relate(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} struggles to relate to their family."
+        if x
+        else f"{n} does not struggle to relate to their family."
+    )
+
+
+### NYCHA Public Housing
+
+
+class emancipated_minor(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (f"{n} is emancipated." if x else f"{n} is not emancipated.")
+    # contingent on being a minor
+
+
+### Accelerated Study in Associate Programs
+
+
+class accepted_to_cuny(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has completed admission requirements and is accepted to CUNY."
+        if x
+        else f"{n} has not completed admission requirements and is not accepted to CUNY."
+    )
+
+
+class eligible_for_instate_tuition(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is eligible for in-state tuition."
+        if x
+        else f"{n} is not eligible for in-state tuition."
+    )
+
+
+class proficient_in_math(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is proficient in math." if x else f"{n} is not proficient in math."
+    )
+
+
+class proficient_in_english_reading_and_writing(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is proficient in English reading and writing."
+        if x
+        else f"{n} is not proficient in English reading and writing."
+    )
+
+
+class college_credits(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(200)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} has {x} college credits."
+        if x
+        else f"{n} does not have any college credits."
+    )
+
+
+class gpa(BasePersonAttr):
+    schema = And(float)
+    random = lambda: np.random.uniform(0.0, 4.0)
+    default = 0.0
+    nl_fn = lambda n, x: (f"{n} has a {x} GPA." if x else f"{n} does not have a GPA.")
+
+
+### CUNY Start
+
+# use: accepted_to_cuny
+
+
+### Advance & Earn
+class work_authorization(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is authorized to work in NYC and the US."
+        if x
+        else f"{n} is not authorized to work in NYC or the US."
+    )
+
+
+class involved_in_justice_system(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is involved in the justice system."
+        if x
+        else f"{n} is not involved in the justice system."
+    )
+
+
+### NYC YouthHealth
+
+# None
+
+### NYC Ladders for Leaders
+
+
+class work_or_volunteer_experience(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has work or volunteer experience."
+        if x
+        else f"{n} does not have work or volunteer experience."
+    )
+    # contingent on beign employed
+
+
+### Jobs Plus
+
+
+class lives_in_jobs_plus_neighborhood(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} lives in a Jobs Plus neighborhood."
+        if x
+        else f"{n} does not live in a Jobs Plus neighborhood."
+    )
+    # should match for all hh members
+
+
+### Career and Technical Education
+# None
+
+### Veterans Affairs Supported Housing
+
+
+class va_healthcare(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is eligible for VA healthcare."
+        if x
+        else f"{n} is not eligible for VA healthcare."
+    )
+
+
+### Cooling Assistance Benefit
+
+
+class heat_exacerbated_condition(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a heat-exacerbated condition."
+        if x
+        else f"{n} does not have a heat-exacerbated condition."
+    )
+
+
+class ac(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has an air conditioning unit."
+        if x
+        else f"{n} does not have an air conditioning unit."
+    )
+    # same for all members
+
+
+class got_heap_ac(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(10)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} received a HEAP air conditioning unit {x} years ago."
+        if x
+        else f"{n} did not receive a HEAP air conditioning unit."
+    )
+
+
+class heat_included_in_rent(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has heat included in their rent."
+        if x
+        else f"{n} does not have heat included in their rent."
+    )
+    # same for all members
+
+
+### NYC Care
+
+
+class qualify_for_health_insurance(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} qualifies for a health care plan available in New York State"
+        if x
+        else f"{n} does not qualify for a health care plan available in New York State."
+    )
+
+
+### We Speak NYC
+
+
+class english_language_learner(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is an English language learner."
+        if x
+        else f"{n} is not an English language learner."
+    )
+
+
+### Homebase
+
+
+class at_risk_of_homelessness(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is at risk of homelessness."
+        if x
+        else f"{n} is not at risk of homelessness."
+    )
+    # contingent on not being homeless
+
+
+class transitional_job(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n}'s job is from a transitional jobs program."
+        if x
+        else f"{n}'s job is not from a transitional jobs program."
+    )
+    # contingent on having a job
+
+
+class federal_work_study(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n}'s job is from a federal work study job"
+        if x
+        else f"{n}'s job is not a federal work study job."
+    )
+    # contingent on having a job
+
+
+class scholarship(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is compensated by a qualified scholarship program."
+        if x
+        else "is not compensated by a qualified scholarship program."
+    )
+
+
+class government_job(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} works for a government agency"
+        if x
+        else f"{n} does not work for a government agency."
+    )
+    # contingent on having a job
+
+
+class is_therapist(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is a physical therpaist licensed in New York State."
+        if x
+        else f"{n} is not a physical therapist licensed in New York State."
+    )
+
+
+class contractor(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is an independent contractor."
+        if x
+        else f"{n} is not an independent contractor."
+    )
+
+
+class wep(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is in the Work Experience Program."
+        if x
+        else f"{n} is not in the Work Experience Program."
+    )
+
+
+class collective_bargaining(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is subject to a collective bargaining agreement waiving safe and sick leave."
+        if x
+        else f"{n} is not subject to a collective bargaining agreement waiving safe and sick leave."
+    )
+
+
+### COVID-19 Funeral Assistance
+
+
+class covid_funeral_expenses(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(1000)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} incurred funeral expenses due to a covid death."
+        if x
+        else f"{n} did not incur funeral expenses due to a covid death."
+    )
+    # household head only
+
+
+### Child Care Vouchers
+
+# None
+
+### NYC Financial Empowerment Centers
+
+# None
+
+### Family Homelessness and Eviction Prevention Supplement
+
+
+class was_evicted(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(24)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} was evicted {x} months ago." if x else f"{n} has never been evicted."
+    )
+
+
+class currently_being_evicted(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(24)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} is currently being evicted."
+        if x
+        else f"{n} is not currently being evicted."
+    )
+    # contingent on not homeless
+
+
+### NYS Paid Family Leave
+
+
+class employer_opt_in(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n}'s private employer has opted in to paid family leave."
+        if x
+        else f"{n}'s employer has not opted in to paid family leave."
+    )
+
+
+class consecutive_work_weeks(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(52)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} has worked {x} consecutive weeks at their current employer."
+        if x
+        else f"{n} has not worked any consecutive weeks at their current employer."
+    )
+
+
+class nonconsecutive_work_weeks(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(52)))
+    default = 0
+    nl_fn = lambda n, x: (
+        f"{n} has worked {x} nonconsecutive weeks at their current employer."
+        if x
+        else f"{n} has not worked any nonconsecutive weeks at their current employer."
+    )
+
+
+### Family Type Homes for Adults
+
+
+class developmental_mental_day_treatment(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} attends a developmental mental day treatment program."
+        if x
+        else f"{n} does not attend a developmental mental day treatment program."
+    )
+
+
+class years_sober(BasePersonAttr):
+    schema = And(int)
+    random = lambda: np.random.choice(list(range(20)))
+    default = 10
+
+    def get_string(self, n, x):
+        if x == 0:
+            return f"{n} is not sober."
+        if x < 10:
+            return f"{n} has been sober for {x} years."
+        if x >= 10:
+            return f"{n} does not have a history of substance abuse"
+
+    nl_fn = get_string
+
+
+class medication_treatment_non_compliance(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has been non-compliant with medication and treatment."
+        if x
+        else f"{n} has always been compliant with medication and treatment."
+    )
+
+
+class arson(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a history of arson."
+        if x
+        else f"{n} does not have a history of arson."
+    )
+
+
+class verbal_abuse(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a history of verbal abuse."
+        if x
+        else f"{n} does not have a history of verbal abuse."
+    )
+
+
+class imprisonment(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has a history of imprisonment."
+        if x
+        else f"{n} does not have a history of imprisonment."
+    )
+
+
+### HomeFirst Down Payment Assistance
+
+
+class first_time_home_buyer(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is a first-time home buyer."
+        if x
+        else f"{n} is not a first-time home buyer."
+    )
+
+
+class honorable_service(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} has honorable military service and was discharged with a DD-214."
+        if x
+        else f"{n} does not have honorable military service."
+    )
