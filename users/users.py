@@ -211,6 +211,24 @@ class Household:
     def hh_total_income(self):
         return self.hh_work_income() + self.hh_investment_income()
 
+    def hh_monthly_rent_spending(self) -> int:
+        """
+        Return the monthly rent spending for the household. 
+        If only the 'self' member pays rent, you might do:
+        """
+        # By default, assume the "self" member is the first in the list
+        return self.members[0].get("monthly_rent_spending", 0)
+    
+    def any_member_has(self, attr_name: str) -> bool:
+        """
+        Return True if ANY member of the household has the given boolean attribute = True.
+        Example usage: hh.any_member_has("lives_in_mitchell_lama").
+        """
+        for m in self.members:
+            if m.get(attr_name, False) is True:
+                return True
+        return False
+        
     def num_members(self):
         return len(self.members)
 
