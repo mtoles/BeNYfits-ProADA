@@ -1205,22 +1205,27 @@ class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
         # Also confirm place_of_residence = "NYC" if you need that check.
         
         # By default, let's assume "place_of_residence" is stored in the user or members:
-        if user.get("place_of_residence", "") != "NYC":
+        if user["place_of_residence"] != "NYC":
             return False
 
         # Check that at least one of these booleans is True
         # The user could have multiple set to True, or only one. 
         # In practice, you might only have one set to True.
-        if not (
-            user["lives_in_rent_stabilized_apartment"]
-            or user["lives_in_rent_controlled_apartment"]
-            or user["lives_in_rent_regulated_hotel"]
-            or user["lives_in_rent_regulated_single"]
-            or user["lives_in_mitchell_lama"]
-            or user["lives_in_limited_dividend_development"]
-            or user["lives_in_redevelopment_company_development"]
-            or user["lives_in_hdfc_development"]
-        ):
-            return False
+        if user["lives_in_rent_stabilized_apartment"]:
+            return True
+        if user["lives_in_rent_controlled_apartment"]:
+            return True
+        if user["lives_in_rent_regulated_hotel"]:
+            return True
+        if user["lives_in_rent_regulated_single"]:
+            return True
+        if user["lives_in_mitchell_lama"]:
+            return True
+        if user["lives_in_limited_dividend_development"]:
+            return True
+        if user["lives_in_redevelopment_company_development"]:
+            return True
+        if user["lives_in_hdfc_development"]:
+            return True
 
-        return True
+        return False
