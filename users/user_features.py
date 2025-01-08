@@ -2,8 +2,6 @@ import numpy as np
 from names import get_full_name
 from schema import And
 
-from user_features2 import *
-
 
 GRADE_DICT = {
     "pk": "preschool",
