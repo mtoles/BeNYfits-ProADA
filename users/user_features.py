@@ -235,7 +235,7 @@ class work_income(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -247,7 +247,7 @@ class investment_income(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -478,7 +478,7 @@ class work_hours_per_week(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -494,7 +494,7 @@ class days_looking_for_work(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -569,7 +569,7 @@ class monthly_rent_spending(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -708,6 +708,9 @@ class filing_jointly(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["relation"] != RelationType.SPOUSE.value:
             return False
+        else:
+            # set same as user
+            hh.members[person_idx]["filing_jointly"] = hh.members[0]["filing_jointly"]
         return original_value
 
 
@@ -1044,9 +1047,9 @@ class months_pregnant(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         if hh.members[person_idx]["sex"] == Sex.MALE.value:
-            return False
+            return 0
         return original_value
 
 
@@ -1267,31 +1270,25 @@ class recovering_from_surgery(BasePersonAttr):
 
 ### CUNY Fatherhood Academy
 
+from enum import Enum
+
+
+class EducationLevel(Enum):
+    HIGH_SCHOOL_DIPLOMA = "high school diploma"
+    HSE_DIPLOMA = "HSE diploma"
+    GED = "GED"
+    NO_HIGH_SCHOOL_EQUIVALENT = "no high school diploma equivalent"
+
 
 class high_school_equivalent(BasePersonAttr):
-    schema = And(
-        lambda x: x
-        in (
-            "high school diploma",
-            "HSE diploma",
-            "GED",
-            "no high school diploma equivalent",
-        )
-    )
-    random = lambda: np.random.choice(
-        [
-            "high school diploma",
-            "HSE diploma",
-            "GED",
-            "no high school diploma equivalent",
-        ]
-    )
-    default = "diploma"
+    schema = And(lambda x: x in [e.value for e in EducationLevel])
+    random = lambda: np.random.choice([e.value for e in EducationLevel])
+    default = EducationLevel.HIGH_SCHOOL_DIPLOMA.value
     nl_fn = lambda n, x: f"{n}'s education level is: {x}."
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return EducationLevel.NO_HIGH_SCHOOL_EQUIVALENT.value
         return original_value
 
 
@@ -1491,7 +1488,7 @@ class college_credits(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -1950,9 +1947,9 @@ class consecutive_work_weeks(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["work_income"] == 0:
-            return False
+            return 0
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -1968,9 +1965,9 @@ class nonconsecutive_work_weeks(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["work_income"] == 0:
-            return False
+            return 0
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return 0
         return original_value
 
 
@@ -1990,22 +1987,22 @@ class developmental_mental_day_treatment(BasePersonAttr):
 
 class years_sober(BasePersonAttr):
     schema = And(int)
-    random = lambda: np.random.randint(0, 16)
+    random = lambda: np.random.randint(-1, 16)
     default = 10
 
     def get_string(n, x):
         if x == 0:
             return f"{n} is not sober."
-        if x < 10:
+        if x > 0:
             return f"{n} has been sober for {x} years."
-        if x >= 10:
+        if x < 0:
             return f"{n} does not have a history of substance abuse"
 
     nl_fn = get_string
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return False
+            return -1
         return original_value
 
 

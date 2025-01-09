@@ -2,7 +2,8 @@ import random
 from names import get_full_name
 from users.users import Household, Person
 from users import user_features
-from users.user_features import HousingType
+from users.user_features import HousingType, RelationType
+import numpy as np
 
 
 # from users.users import Household, Person # don't import this to avoid circular logic
@@ -33,198 +34,43 @@ def get_random_household_input():
 
     ### user
     user = Person.random_person(is_self=True)
-
-    members.append(user)
-    hh = Household(members)
-    for attr in user_features.BasePersonAttr.registry.keys():
-        cls = user_features.BasePersonAttr.registry[attr]
-        hh.members[0][attr] = cls.conform(cls, hh, 0, hh.members[0][attr])
-    return
-    ### spouse
+    members = [user]
     if has_spouse:
-        spouse = Person.random_person(random_name=True, is_self=False)
+        spouse = Person.random_person(is_self=False)
         spouse["relation"] = "spouse"
         members.append(spouse)
-
-    ### children
     for _ in range(num_children):
-        child = Person.random_person(random_name=True, is_self=False)
+        child = Person.random_person(is_self=False)
+        child["age"] = random.randint(0, 18)
+        child["relation"] = np.random.choice(
+            [
+                RelationType.CHILD.value,
+                RelationType.ADOPTED_CHILD.value,
+                RelationType.STEPCHILD.value,
+                RelationType.GRANDCHILD.value,
+                RelationType.FOSTER_CHILD.value,
+            ]
+        )
         members.append(child)
-
-    ### adults
     for _ in range(num_adults):
-        adult = Person.random_person(random_name=True, is_self=False)
+        adult = Person.random_person(is_self=False)
+        adult["age"] = random.randint(18, 100)
+        adult["relation"] = np.random.choice(
+            [
+                RelationType.SIBLING.value,
+                RelationType.OTHER_FAMILY.value,
+                RelationType.OTHER_NON_FAMILY.value,
+            ]
+        )
         members.append(adult)
 
-    self_is_employed = random.choice([True, False])
-
-    if self_is_employed:
-        primary = Person.default_employed()
-        primary["works_outside_home"] = user_features.works_outside_home.random()
-        primary["work_income"] = user_features.work_income.random()
-        primary["work_hours_per_week"] = user_features.work_hours_per_week.random()
-    else:
-        primary = Person.default_unemployed()
-
-    if not primary["works_outside_home"]:
-        primary["looking_for_work"] = user_features.looking_for_work.random()
-
-    primary["name"] = get_full_name()
-    primary["relation"] = "self"
-    primary["lives_in_temp_housing"] = user_features.lives_in_temp_housing.random()
-    primary["receives_hra"] = user_features.receives_hra.random()
-    primary["receives_ssi"] = user_features.receives_ssi.random()
-    primary["student"] = user_features.student.random()
-    primary["enrolled_in_educational_training"] = (
-        user_features.enrolled_in_educational_training.random()
-    )
-    primary["enrolled_in_vocational_training"] = (
-        user_features.enrolled_in_vocational_training.random()
-    )
-    primary["attending_service_for_domestic_violence"] = (
-        user_features.attending_service_for_domestic_violence.random()
-    )
-    primary["receiving_treatment_for_substance_abuse"] = (
-        user_features.receiving_treatment_for_substance_abuse.random()
-    )
-    primary["has_ssn"] = user_features.has_ssn.random()
-    primary["has_itin"] = user_features.has_itin.random()
-    primary["name_is_on_lease"] = user_features.name_is_on_lease.random()
-    primary["monthly_rent_spending"] = user_features.monthly_rent_spending.random()
-    primary["place_of_residence"] = user_features.place_of_residence.random()
-    primary["lives_in_rent_stabilized_apartment"] = (
-        user_features.lives_in_rent_stabilized_apartment.random()
-    )
-    primary["lives_in_rent_controlled_apartment"] = (
-        user_features.lives_in_rent_controlled_apartment.random()
-    )
-    primary["lives_in_mitchell-lama"] = user_features.lives_in_mitchell_lama.random()
-    primary["lives_in_limited_dividend_development"] = (
-        user_features.lives_in_limited_dividend_development.random()
-    )
-    primary["lives_in_redevelopment_company_development"] = (
-        user_features.lives_in_redevelopment_company_development.random()
-    )
-    primary["lives_in_hdfc_development"] = (
-        user_features.lives_in_hdfc_development.random()
-    )
-    primary["lives_in_section_213_coop"] = (
-        user_features.lives_in_section_213_coop.random()
-    )
-    primary["lives_in_rent_regulated_hotel"] = (
-        user_features.lives_in_rent_regulated_hotel.random()
-    )
-    primary["lives_in_rent_regulated_single"] = (
-        user_features.lives_in_rent_regulated_single.random()
-    )
-    primary["receives_ssi"] = user_features.receives_ssi.random()
-    primary["receives_snap"] = user_features.receives_snap.random()
-    primary["receives_ssdi"] = user_features.receives_ssdi.random()
-    primary["receives_va_disability"] = user_features.receives_va_disability.random()
-    primary["receives_disability_medicaid"] = (
-        user_features.receives_disability_medicaid.random()
-    )
-    primary["has_received_ssi_or_ssdi"] = (
-        user_features.has_received_ssi_or_ssdi.random()
-    )
-
-    members.append(primary)
-
-    spouse_exists = random.choice([True, False])
-
-    if spouse_exists:
-        spouse_is_employed = random.choice([True, False])
-
-        if spouse_is_employed:
-            spouse = Person.default_employed()
-            spouse["works_outside_home"] = user_features.works_outside_home.random()
-            spouse["work_income"] = user_features.work_income.random()
-            spouse["work_hours_per_week"] = user_features.work_hours_per_week.random()
-        else:
-            spouse = Person.default_unemployed()
-
-        if not spouse["works_outside_home"]:
-            spouse["looking_for_work"] = user_features.looking_for_work.random()
-
-        spouse["name"] = get_full_name()
-        spouse["relation"] = "spouse"
-        spouse["lives_in_temp_housing"] = user_features.lives_in_temp_housing.random()
-        spouse["receives_hra"] = user_features.receives_hra.random()
-        spouse["receives_ssi"] = user_features.receives_ssi.random()
-        spouse["receives_snap"] = user_features.receives_snap.random()
-        spouse["student"] = user_features.student.random()
-        spouse["enrolled_in_educational_training"] = (
-            user_features.enrolled_in_educational_training.random()
-        )
-        spouse["enrolled_in_vocational_training"] = (
-            user_features.enrolled_in_vocational_training.random()
-        )
-        spouse["attending_service_for_domestic_violence"] = (
-            user_features.attending_service_for_domestic_violence.random()
-        )
-        spouse["receiving_treatment_for_substance_abuse"] = (
-            user_features.receiving_treatment_for_substance_abuse.random()
-        )
-        spouse["has_ssn"] = user_features.has_ssn.random()
-        spouse["has_itin"] = user_features.has_itin.random()
-
-        members.append(spouse)
-
-        filing_jointly = user_features.filing_jointly.random()
-
-        spouse["filing_jointly"] = filing_jointly
-        primary["filing_jointly"] = filing_jointly
-
-    n_children = random.randint(0, 2)
-
-    for _ in range(n_children):
-        child = Person.default_child()
-
-        child["name"] = get_full_name()
-
-        child["relation"] = "child"
-        child["in_foster_care"] = user_features.in_foster_care.random()
-        child["age"] = random.randint(1, 17)
-        child["has_paid_caregiver"] = user_features.has_paid_caregiver.random()
-        child["duration_more_than_half_prev_year"] = (
-            user_features.duration_more_than_half_prev_year.random()
-        )
-        child["provides_over_half_of_own_financial_support"] = (
-            user_features.provides_over_half_of_own_financial_support.random()
-        )
-
-        raw_school_level = child["age"] - 5 + random.choice([-1, 0, 1])
-
-        if raw_school_level == 0:
-            child["current_school_level"] = "k"
-        elif raw_school_level == -1:
-            child["current_school_level"] = "pk"
-        elif raw_school_level > 12 or raw_school_level < -1:
-            child["current_school_level"] = None
-        else:
-            child["current_school_level"] = raw_school_level
-
-        members.append(child)
-
-    n_adult_dependents = random.randint(0, 2)
-
-    for _ in range(n_adult_dependents):
-        adult_dependent = Person.default_adult_dependent()
-
-        adult_dependent["name"] = get_full_name()
-
-        adult_dependent["relation"] = "other_family"
-        adult_dependent["age"] = random.randint(50, 95)
-        adult_dependent["has_paid_caregiver"] = (
-            user_features.has_paid_caregiver.random()
-        )
-        adult_dependent["duration_more_than_half_prev_year"] = (
-            user_features.duration_more_than_half_prev_year.random()
-        )
-
-        members.append(adult_dependent)
-
-    return Household(members)
+    hh = Household(members)
+    for i in range(len(hh.members)):
+        for attr in user_features.BasePersonAttr.registry.keys():
+            cls = user_features.BasePersonAttr.registry[attr]
+            hh.members[i][attr] = cls.conform(cls, hh, i, hh.members[i][attr])
+    hh.validate()
+    return hh
 
 
 class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
@@ -393,7 +239,8 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
                     return True
             return False
 
-        temp_housing = hh.user()["lives_in_temp_housing"]
+        # temp_housing = hh.user()["lives_in_temp_housing"]
+        temp_housing = hh.user()["housing_type"] == HousingType.TEMPORARY_HOUSING.value
         hra = hh.user()["receives_hra"]
         ssi = hh.user()["receives_ssi"]
         foster_care = bool([m for m in hh.members if m["in_foster_care"]])
@@ -476,7 +323,7 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
                 return True
             elif member["looking_for_work"]:
                 return True
-            elif member["lives_in_temp_housing"]:
+            elif member["housing_type"] == HousingType.TEMPORARY_HOUSING.value:
                 return True
             elif member["attending_service_for_domestic_violence"]:
                 return True
@@ -743,10 +590,15 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
 
             for m in hh.members:
                 if m["relation"] in [
-                    "child",
-                    "stepchild",
-                    "foster_child",
-                    "grandchild",
+                    # "child",
+                    # "stepchild",
+                    # "foster_child",
+                    # "grandchild",
+                    RelationType.CHILD,
+                    RelationType.STEPCHILD,
+                    RelationType.FOSTER_CHILD,
+                    RelationType.GRANDCHILD,
+                    RelationType.ADOPTED_CHILD,
                 ]:
                     qualifying_children.append(m)
 
@@ -777,10 +629,15 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
 
             for m in hh.members:
                 if m["relation"] in [
-                    "child",
-                    "stepchild",
-                    "foster_child",
-                    "grandchild",
+                    # "child",
+                    # "stepchild",
+                    # "foster_child",
+                    # "grandchild",
+                    RelationType.CHILD,
+                    RelationType.STEPCHILD,
+                    RelationType.FOSTER_CHILD,
+                    RelationType.GRANDCHILD,
+                    RelationType.ADOPTED_CHILD
                 ]:
                     qualifying_children.append(m)
 
@@ -856,7 +713,8 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
                     return True
             return False
 
-        temp_housing = hh.user()["lives_in_temp_housing"]
+        # temp_housing = hh.user()["lives_in_temp_housing"]
+        temp_housing = hh.user()["housing_type"] == HousingType.TEMPORARY_HOUSING.value
         hra = hh.user()["receives_hra"]
         ssi = hh.user()["receives_ssi"]
         foster_care = bool([m for m in hh.members if m["in_foster_care"]])
@@ -1026,12 +884,18 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
         def _is_eligible_homeowner(hh):
             # Check if the user owns an eligible type of housing
             eligible_housing_types = [
-                "house",
-                "condo",
-                "cooperative_apartment",
-                "manufactured_home",
-                "farmhouse",
-                "mixed_use_property",
+                # "house",
+                # "condo",
+                # "cooperative_apartment",
+                # "manufactured_home",
+                # "farmhouse",
+                # "mixed_use_property",
+                HousingType.HOUSE.value,
+                HousingType.CONDO.value,
+                HousingType.COOPERATIVE_APARTMENT.value,
+                HousingType.MANUFACTURED_HOME.value,
+                HousingType.FARMHOUSE.value,
+                HousingType.MIXED_USE_PROPERTY.value,
             ]
             return hh.user().get("housing_type") in eligible_housing_types
 
@@ -1062,7 +926,7 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
                 ):
                     # Jointly owned by a married couple
                     return True
-                elif all(owner["relation"] == "sibling" for owner in owners) and any(
+                elif all(owner["relation"] == RelationType.SIBLING.value for owner in owners) and any(
                     owner["age"] >= 65 for owner in owners
                 ):
                     # Jointly owned by siblings
@@ -1088,7 +952,7 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
             for owner in owners:
                 if owner.get("primary_residence", False):
                     # Include resident spouses or registered domestic partners
-                    spouse = hh.spouse() if owner["relation"] == "self" else None
+                    spouse = hh.spouse() if owner["relation"] == RelationType.SELF.value else None
                     if spouse and spouse.get("primary_residence", False):
                         resident_spouses.append(spouse)
             total_income = sum(
@@ -1212,7 +1076,7 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
         def are_spouses_or_siblings(p1, p2):
             rel1, rel2 = p1.get("relation", ""), p2.get("relation", "")
             # Basic logic: If either reports "spouse" or "sibling", treat them accordingly
-            return ("spouse" in [rel1, rel2]) or ("sibling" in [rel1, rel2])
+            return (RelationType.SPOUSE.value in [rel1, rel2]) or (RelationType.SIBLING.value in [rel1, rel2])
 
         # 2A. Check the age requirement
         if len(owners) == 1:

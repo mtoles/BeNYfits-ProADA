@@ -122,7 +122,9 @@ class Person:
         
 
         for f, v in self.features.items():
-            sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
+            new_sentence = PersonAttributeMeta.registry[f].nl_fn(name, v)
+            assert new_sentence is not None, f"Failed to generate sentence for {f}"
+            sentences.append(new_sentence)
             # sentences.append(fn(name, person[field]))
         return "\n".join(sentences).strip()
     
