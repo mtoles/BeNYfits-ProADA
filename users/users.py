@@ -310,6 +310,29 @@ class Household:
             ]
         ).strip()
 
+def show_abnormal(member, default_member):
+    excluded_keys = ["relation", "age", "name"]
+    result = []
+    for key in member.features.keys():
+        if key in excluded_keys:
+            continue
+        if member[key] != default_member[key]:
+            result.append(f"{key}: {member[key]}")
+    return "\n".join(result).strip()
+
+def show_household(hh):
+    result = []
+    for member in hh["members"]:
+        result.append(f"Relation: {member['relation']}")
+        result.append(f"Age: {member['age']}")
+        if member["relation"] == "self":
+            result.append(show_abnormal(member, Person.default_employed(random_name=False)))
+        elif member["relation"] == "spouse":
+            result.append(show_abnormal(member, Person.default_unemployed(random_name=False)))
+        elif member["relation"] == "child":
+            result.append(show_abnormal(member, Person.default_child(random_name=False)))
+        result.append("")  # for spacing between members
+    return "\n".join(result).strip()
 
 if __name__ == "__main__":
     #

@@ -5,7 +5,7 @@ import os
 from copy import deepcopy
 import pandas as pd
 from users.users import Household
-from dataset_procedural import show_household
+from users.users import show_household
 
 
 class LmLogger:
@@ -50,7 +50,7 @@ class LmLogger:
 
     def log_predictions(self, predictions: List[dict]):
         self.log[-1]["predictions"].extend(predictions)
-    
+
     def log_anything(self, key, value):
         self.log[-1][key] = value
 

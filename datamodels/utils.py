@@ -1,15 +1,5 @@
-from bs4 import BeautifulSoup
+import pandas as pd
 
-# Read the HTML content from a file
-with open("../dataset/benefits_clean.html", "r", encoding="utf-8") as html_file:
-    html_content = html_file.read()
-
-# Parse the HTML content using BeautifulSoup
-soup = BeautifulSoup(html_content, "html.parser")
-
-# Extract the text from the parsed HTML
-parsed_text = soup.get_text()
-
-# Write the extracted text to a text file
-with open("../dataset/benefits_clean.txt", "w", encoding="utf-8") as text_file:
-    text_file.write(parsed_text)
+df = pd.read_csv("dataset/benefits_clean.csv")
+# save to jsonl
+df.to_json("dataset/benefits_clean.jsonl", orient="records", lines=True)

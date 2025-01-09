@@ -48,7 +48,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--eligibility_requirements",
-    default="./dataset/benefits_clean.html",
+    default="./dataset/benefits_clean.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
@@ -148,9 +148,11 @@ predictions_df = read_eligibility_requirements(
 )
 if args.programs is not None:
     predictions_df = predictions_df[
-        predictions_df["program"].apply(lambda x: x in args.programs)
+        predictions_df["program_name"].apply(lambda x: x in args.programs)
     ].reset_index(drop=True)
-eligibility_requirements = predictions_df.set_index("program")["description"].to_dict()
+eligibility_requirements = predictions_df.set_index("program_name")[
+    "plain_language_eligibility"
+].to_dict()
 program_names = list(eligibility_requirements.keys())
 
 # Load the dataset

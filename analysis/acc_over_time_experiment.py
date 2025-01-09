@@ -216,7 +216,7 @@ def plot_code_mode_results(
         results.append(
             pd.DataFrame(
                 {
-                    "program": [p],
+                    "program_name": [p],
                     "correct": [p_correct],
                     "incorrect": [p_incorrect],
                     "f1": [f1],
@@ -225,7 +225,7 @@ def plot_code_mode_results(
                 }
             )
         )
-    results_df = pd.concat(results).set_index("program")
+    results_df = pd.concat(results).set_index("program_name")
 
     fig, axs = plt.subplots(4, 1, figsize=(8, 12))
     # Accuracy plot
