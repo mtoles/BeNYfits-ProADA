@@ -9,6 +9,9 @@ from typing import Optional
 import torch
 import ast
 import re
+import importlib
+import inspect
+
 
 load_dotenv()
 
@@ -197,3 +200,19 @@ def remove_raise_statements(code: str) -> str:
     
     # Convert the modified AST back to source code
     return ast.unparse(modified_tree)
+
+def import_all_classes(module_name):
+    try:
+        # Dynamically import the module
+        module = importlib.import_module(module_name)
+
+        # Get all classes defined in the module
+        classes = {
+            name: cls
+            for name, cls in inspect.getmembers(module, inspect.isclass)
+            if cls.__module__ == module_name
+        }
+        return classes
+    except ModuleNotFoundError:
+        print(f"Module '{module_name}' not found.")
+        return {}
