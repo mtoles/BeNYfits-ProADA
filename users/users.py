@@ -92,7 +92,6 @@ class Person:
             person["relation"] = "self"
         return person
 
-
     # @staticmethod
     # def default_child(random_name=True):
     #     child = Person.default_unemployed(random_name=random_name)
@@ -119,15 +118,13 @@ class Person:
         name = self.features["name"]
         sentences = []
 
-        
-
         for f, v in self.features.items():
             new_sentence = PersonAttributeMeta.registry[f].nl_fn(name, v)
             assert new_sentence is not None, f"Failed to generate sentence for {f}"
             sentences.append(new_sentence)
             # sentences.append(fn(name, person[field]))
         return "\n".join(sentences).strip()
-    
+
     def nl_person_profile_always_include(self) -> str:
         name = self.features["name"]
         sentences = [f"You are {name}"]
@@ -223,7 +220,7 @@ class Household:
             spouse_income = 0
         return user_income + spouse_income
 
-    def marriage_investment_income(self):
+    def marriage_annual_investment_income(self):
         user_income = self.members[0]["annual_investment_income"]
         spouse = self.spouse()
         if spouse and self.user()["filing_jointly"]:
@@ -233,7 +230,10 @@ class Household:
         return user_income + spouse_income
 
     def marriage_total_income(self):
-        return self.marriage_annual_work_income() + self.marriage_annual_investment_income()
+        return (
+            self.marriage_annual_work_income()
+            + self.marriage_annual_investment_income()
+        )
 
     def hh_annual_work_income(self):
         return sum([member["annual_work_income"] for member in self.members])
@@ -241,7 +241,7 @@ class Household:
     def hh_annual_investment_income(self):
         return sum([member["annual_investment_income"] for member in self.members])
 
-    def hh_total_income(self):
+    def hh_annual_total_income(self):
         return self.hh_annual_work_income() + self.hh_annual_investment_income()
 
     def num_members(self):
@@ -284,7 +284,9 @@ class Household:
         Return the sum of the (work + investment) income of all property owners.
         """
         owners = self.property_owners()
-        return sum(o["annual_work_income"] + o["annual_investment_income"] for o in owners)
+        return sum(
+            o["annual_work_income"] + o["annual_investment_income"] for o in owners
+        )
 
     def nl_household_profile(self) -> str:
         user = self.members[0]
@@ -310,6 +312,7 @@ class Household:
             ]
         ).strip()
 
+
 def show_abnormal(member, default_member):
     excluded_keys = ["relation", "age", "name"]
     result = []
@@ -320,19 +323,27 @@ def show_abnormal(member, default_member):
             result.append(f"{key}: {member[key]}")
     return "\n".join(result).strip()
 
+
 def show_household(hh):
     result = []
     for member in hh["members"]:
         result.append(f"Relation: {member['relation']}")
         result.append(f"Age: {member['age']}")
         if member["relation"] == "self":
-            result.append(show_abnormal(member, Person.default_employed(random_name=False)))
+            result.append(
+                show_abnormal(member, Person.default_employed(random_name=False))
+            )
         elif member["relation"] == "spouse":
-            result.append(show_abnormal(member, Person.default_unemployed(random_name=False)))
+            result.append(
+                show_abnormal(member, Person.default_unemployed(random_name=False))
+            )
         elif member["relation"] == "child":
-            result.append(show_abnormal(member, Person.default_child(random_name=False)))
+            result.append(
+                show_abnormal(member, Person.default_child(random_name=False))
+            )
         result.append("")  # for spacing between members
     return "\n".join(result).strip()
+
 
 if __name__ == "__main__":
     #

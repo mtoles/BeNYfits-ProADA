@@ -49,7 +49,7 @@ class DatasetConstructor:
     def fuzz(limit, trials):
 
         source = inspect.getsource(users.benefits_programs)
-        n_source_lines = len(source.splitlines())
+        n_source_lines = len(source.splitlines()) + 1
 
         # Initialize the vector with zeros
         vector = [0 for _ in range(n_source_lines)]

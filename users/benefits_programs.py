@@ -100,7 +100,7 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
             if hh.user()["works_outside_home"]:
                 self_works = True
 
-            elif hh.user()["days_looking_for_work"]> 0: 
+            elif hh.user()["days_looking_for_work"] > 0:
                 self_works = True
 
             spouse_works = False
@@ -216,17 +216,17 @@ class ComprehensiveAfterSchool(BaseBenefitsProgram):
             if m["current_school_level"] in list(range(1, 13)) + ["k"]:
                 return True
         return False
+
     @staticmethod
     def unit_tests(hh):
-        hh1=Household([Person.default_unemployed(is_self=True)])
-        hh1.members[0]["current_school_level"] = 1 # in first grade
-        hh1=Household([Person.default_unemployed(is_self=True)])
-        hh1.members[0]["current_school_level"] = 1 # in first grade
+        hh1 = Household([Person.default_unemployed(is_self=True)])
+        hh1.members[0]["current_school_level"] = 1  # in first grade
+        hh1 = Household([Person.default_unemployed(is_self=True)])
+        hh1.members[0]["current_school_level"] = 1  # in first grade
         return [
             {
                 hh1: True,
             },
-
         ]
 
 
@@ -266,7 +266,7 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
         hra = hh.user()["receives_hra"]
         ssi = hh.user()["receives_ssi"]
         foster_care = bool([m for m in hh.members if m["in_foster_care"]])
-        hh_income = hh.hh_total_income()
+        hh_income = hh.hh_annual_total_income()
         hh_size = hh.num_members()
 
         def _income_eligible(hh_income: float, hh_size: int) -> bool:
@@ -283,6 +283,8 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
         elif ssi:
             secondary_conditions = True
         elif _income_eligible(hh_income, hh_size):
+            secondary_conditions = True
+        elif foster_care:
             secondary_conditions = True
 
         if not _has_toddler(hh):
@@ -383,7 +385,9 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
         has_toddler = _has_infant_toddler(hh)
         user_qualifies = _qualifies(hh.user())
         spouse_qualifies = _qualifies(hh.spouse())
-        hh_income_qualifies = _income_eligible(hh.hh_total_income(), hh.num_members())
+        hh_income_qualifies = _income_eligible(
+            hh.hh_annual_total_income(), hh.num_members()
+        )
 
         if not has_toddler:
             return False
@@ -508,7 +512,7 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
             return False
 
         def _r3(hh) -> bool:
-            if hh.hh_total_income() <= 50000:
+            if hh.hh_annual_total_income() <= 50000:
                 return True
             return False
 
@@ -740,7 +744,7 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
         hra = hh.user()["receives_hra"]
         ssi = hh.user()["receives_ssi"]
         foster_care = bool([m for m in hh.members if m["in_foster_care"]])
-        hh_income = hh.hh_total_income()
+        hh_income = hh.hh_annual_total_income()
         hh_size = hh.num_members()
 
         def _income_eligible(hh_income: float, hh_size: int) -> bool:
@@ -786,7 +790,7 @@ class HeadStart(BaseBenefitsProgram):
             return False
 
         def _r1(hh) -> bool:
-            if hh.user()["housing_type"] == HousingType.TEMPORARY_HOUSING.value:
+            if hh.user()["housing_type"] == HousingEnum.TEMPORARY_HOUSING.value:
                 return True
             return False
 
@@ -811,7 +815,7 @@ class HeadStart(BaseBenefitsProgram):
             return False
 
         def _r6(hh) -> bool:
-            hh_income = hh.hh_total_income()
+            hh_income = hh.hh_annual_total_income()
             hh_size = hh.num_members()
             if hh_income <= 20440 + 5380 * (hh_size - 2):
                 return True
@@ -1027,13 +1031,13 @@ class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
                 additional_members = hh_size - 8
                 income_limit = income_limits[8] + (additional_members * 6200)
 
-            return hh.hh_total_income() <= income_limit
+            return hh.hh_annual_total_income() <= income_limit
 
         return _income_eligible(hh)
 
         # ChatGPT Link - https://chatgpt.com/c/6748084a-bf98-8002-83e0-cc8e4d80c137
         hh_size = hh.num_members()
-        total_income = hh.hh_total_income()
+        total_income = hh.hh_annual_total_income()
 
         # Determine income limit for the household size
         if hh_size in income_limits:
@@ -1155,9 +1159,9 @@ class FamilyPlanningBenefitProgram(BaseBenefitsProgram):
     $1000"""
 
     @staticmethod
-    def __call__(self, hh):
+    def __call__(hh):
         num_members = len(hh.members)
-        income = hh.hh_total_annual_income()
+        income = hh.hh_annual_total_income()
         if num_members == 1:
             if income > 2799:
                 return False
@@ -1191,7 +1195,7 @@ class FamilyPlanningBenefitProgram(BaseBenefitsProgram):
                 return False
             if user["citizenship"] not in [
                 CitizenshipEnum.CITIZEN_OR_NATIONAL,
-                CitizenshipEnum.LAWFULLY_RESIDENT,
+                CitizenshipEnum.LAWFUL_RESIDENT,
             ]:
                 return False
 
@@ -1205,7 +1209,7 @@ class IDNYC(BaseBenefitsProgram):
     """Anyone who lives in NYC and is age 10 and older is eligible to apply for an IDNYC card."""
 
     @staticmethod
-    def __call__(self, hh):
+    def __call__(hh):
         for m in hh.members:
             if m["place_of_residence"] != PlaceOfResidenceEnum.NYC.value:
                 return False
@@ -1221,7 +1225,7 @@ class OfficeOfChildSupportServices(BaseBenefitsProgram):
     Are you primarily responsible for the child's day-to-day life?"""
 
     @staticmethod
-    def __call__(self, hh):
+    def __call__(hh):
         has_spouse = False
         for m in hh.members:
             if m["relation"] == RelationEnum.SPOUSE.value:
@@ -1252,7 +1256,7 @@ class HIVAIDSServicesAdministration(BaseBenefitsProgram):
     """To be eligible for HASA, you must have been diagnosed with HIV or with AIDS, as defined by the Centers for Disease Control and Prevention (CDC). You do not need to have symptoms to be eligible."""
 
     @staticmethod
-    def __call__(self, hh):
+    def __call__(hh):
         for m in hh.members:
             if m["hiv_aids"]:
                 return True
@@ -1273,7 +1277,7 @@ class AdultProtectiveServices(BaseBenefitsProgram):
         def is_eligible(m):
             if m["age"] < 18:
                 return False
-            if not m["disability"]:
+            if not m["disabled"]:
                 return False
             if m["can_manage_self"]:
                 return False
@@ -1294,7 +1298,7 @@ class AccessARideParatransitService(BaseBenefitsProgram):
     """
 
     @staticmethod
-    def __call__(self, hh):
+    def __call__(hh):
         def is_eligible(m):
             if m["can_access_subway_or_bus"]:
                 return True
@@ -1333,7 +1337,7 @@ class NYCFreeTaxPrep(BaseBenefitsProgram):
 
     @staticmethod
     def __call__(hh):
-        income = hh.total_annual_income()
+        income = hh.hh_annual_total_income()
         has_dependents = False
         for m in hh.members:
             if m["dependent"]:
@@ -1414,7 +1418,8 @@ class CUNYFatherhoodAcademy(BaseBenefitsProgram):
                 return False
             if m["college_credits"] >= 12:
                 return False
-            if m["college"]:
+            # if m["college"]:
+            if m["current_school_level"] == GradeLevelEnum.COLLEGE.value:
                 return False
             return True
 
@@ -1729,7 +1734,7 @@ class NYCHAPublicHousing(BaseBenefitsProgram):
                 7: 154250,
                 8: 164200,
             }
-            income = hh.total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             if family_size > 8:
                 return income <= thresholds[8] + 950 * (family_size - 8)
@@ -1807,11 +1812,11 @@ class MedicaidForPregnantWomen(BaseBenefitsProgram):
     def __call__(hh):
         def eligible(m):
             if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
-                if m["pregnant"]:
+                if m["months_pregnant"] > 0:
                     return True
             return False
 
-        def income(hh):
+        def threshold(hh):
             thresholds = {
                 1: 33584,
                 2: 45581,
@@ -1823,11 +1828,12 @@ class MedicaidForPregnantWomen(BaseBenefitsProgram):
                 8: 117566,
             }
             family_size = len(hh.members)
+            income = hh.hh_annual_total_income()
             if family_size > 8:
                 return income <= thresholds[8] + 11997 * (family_size - 8)
             return income <= thresholds[family_size]
 
-        if income(hh):
+        if threshold(hh):
             for m in hh.members:
                 if eligible(m):
                     return True
@@ -1846,7 +1852,7 @@ class AcceleratedStudyInAssociatePrograms(BaseBenefitsProgram):
     def __call__(hh):
         def eligible(m):
             if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
-                if m["in_state_tuition"]:
+                if m["eligible_for_instate_tuition"]:
                     if m["proficient_in_math"]:
                         if m["proficient_in_english_reading_and_writing"]:
                             if m["college_credits"] <= 15:
@@ -1897,7 +1903,7 @@ class AdvanceAndEarn(BaseBenefitsProgram):
         def eligible(m):
             if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                 if m["age"] >= 16 and m["age"] <= 24:
-                    if not m["college"]:
+                    if not m["current_school_level"] == GradeLevelEnum.COLLEGE.value:
                         if m["annual_work_income"] <= 0:
                             if m["citizenship"] in [
                                 CitizenshipEnum.CITIZEN_OR_NATIONAL.value,
@@ -1999,7 +2005,7 @@ class TrainAndEarn(BaseBenefitsProgram):
                 return True
             if m["disabled"]:
                 return True
-            if m["pregnant"]:
+            if m["months_pregnant"] > 0:
                 return True
             return False
 
@@ -2014,7 +2020,7 @@ class TrainAndEarn(BaseBenefitsProgram):
                 7: 45420,
                 8: 50560,
             }
-            income = hh.total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             if family_size > 8:
                 return income <= thresholds[8] + 5140 * (family_size - 8)
@@ -2173,8 +2179,8 @@ class VeteransAffairsSupportedHousing(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         def eligible(m):
-            if m["homeless"]:
-                if m["va_heathcare"]:
+            if m["housing_type"] == HousingEnum.HOMELESS.value:
+                if m["va_healthcare"]:
                     return True
             return False
 
@@ -2258,10 +2264,11 @@ class CoolingAssistanceBenefit(BaseBenefitsProgram):
                     return True
                 if m["heat_included_in_rent"]:
                     if m["place_of_residence"] in [
-                        PlaceOfResidenceEnum.NYCHA_DEVELOPMENT.value,
-                        PlaceOfResidenceEnum.SECTION_8.value,
+                        HousingEnum.NYCHA_DEVELOPMENT.value,
+                        HousingEnum.SECTION_8.value,
                     ]:
                         return True
+
                 def income(hh):
                     thresholds = {
                         1: 3035,
@@ -2278,11 +2285,12 @@ class CoolingAssistanceBenefit(BaseBenefitsProgram):
                         12: 8890,
                         13: 9532,
                     }
-                    hh_income = hh.hh_total_annual_income()
+                    hh_income = hh.hh_annual_total_income()
                     hh_size = hh.num_members()
                     if hh_size > 13:
                         return hh_income <= 9532 + 642 * (hh_size - 13)
                     return hh_income <= thresholds[hh_size]
+
                 if income(hh):
                     return True
             return False
@@ -2294,7 +2302,8 @@ class CoolingAssistanceBenefit(BaseBenefitsProgram):
                         if r5(hh):
                             return True
         return False
-    
+
+
 class NYCCare(BaseBenefitsProgram):
     """To be eligible for NYC Care, you must:
 
@@ -2304,7 +2313,7 @@ class NYCCare(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         def eligible(m):
-            if m["place_of_residence"] == PlaceOfResidenceEnum.NEW_YORK.value:
+            if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                 if not m["qualify_for_health_insurance"]:
                     return True
             return False
@@ -2314,16 +2323,18 @@ class NYCCare(BaseBenefitsProgram):
                 return True
         return False
 
+
 class ActionNYC(BaseBenefitsProgram):
     """ActionNYC is for all New Yorkers, regardless of immigration status. Your documented status does not affect your eligbility to use ActionNYC."""
 
     @staticmethod
     def __call__(hh):
         for m in hh.members:
-            if m["place_of_residence"] == PlaceOfResidenceEnum.NEW_YORK.value:
+            if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                 return True
         return False
-    
+
+
 class FairFaresNYC(BaseBenefitsProgram):
     """You may be eligible if you answer yes to these questions:
 
@@ -2351,7 +2362,7 @@ class FairFaresNYC(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         def threshold(hh):
-            income = hh.hh_total_annual_income()
+            income = hh.hh_annual_total_income()
             size = hh.num_members()
             thresholds = {
                 1: 18072,
@@ -2372,10 +2383,12 @@ class FairFaresNYC(BaseBenefitsProgram):
             if size > 14:
                 return income <= 102000 + 6456 * (size - 14)
             return income <= thresholds[size]
+
         if not threshold(hh):
             return False
+
         def eligible(m):
-            if m["place_of_residence"] == PlaceOfResidenceEnum.NEW_YORK.value:
+            if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                 if m["age"] >= 18 and m["age"] <= 64:
                     return True
             return False
@@ -2384,6 +2397,7 @@ class FairFaresNYC(BaseBenefitsProgram):
             if eligible(m):
                 return True
         return False
+
 
 class WeSpeakNYC(BaseBenefitsProgram):
     """Anyone is eligible to sign up for an online class. Classes and materials are created for intermediate English language learners ages 16 and above."""
@@ -2395,7 +2409,8 @@ class WeSpeakNYC(BaseBenefitsProgram):
                 if m["english_language_learner"]:
                     return True
         return False
-    
+
+
 class Homebase(BaseBenefitsProgram):
     """You are eligible for Homebase services if you:
     Live in one of the five boroughs of NYC
@@ -2408,7 +2423,8 @@ class Homebase(BaseBenefitsProgram):
                 if m["at_risk_of_homelessness"]:
                     return True
         return False
-    
+
+
 class SafeAndSickLeave(BaseBenefitsProgram):
     """NYC Paid Safe and Sick Leave covers most employees at any size business or nonprofit in NYC:
         Full and part-time employees, transitional jobs program employees, and employees who live outside of NYC.
@@ -2422,7 +2438,8 @@ class SafeAndSickLeave(BaseBenefitsProgram):
         Are an independent contractor who does not meet the definition of an employee under New York State Labor Law (go to labor.ny.gov and search Independent Contractors)
         Participate in a Work Experience Program (WEP)
         An employee subject to a collective bargaining agreement that waives the law and has a comparable benefit.
-    NY State Emergency COVID-19 and Paid Sick and Family Leave covers people under mandatory quarantine or isolation orders or whose minor dependent is."""
+    NY State Emergency COVID-19 and Paid Sick and Family Leave covers people under mandatory quarantine or isolation orders or whose minor dependent is.
+    """
 
     @staticmethod
     def __call__(hh):
@@ -2442,11 +2459,13 @@ class SafeAndSickLeave(BaseBenefitsProgram):
             if m["collective_bargaining"]:
                 return True
             return False
+
         for m in hh.members:
             if not ineligible(m):
-                if m["work_income"] > 0:
+                if m["annual_work_income"] > 0:
                     return True
         return False
+
 
 class STEMMattersNYC(BaseBenefitsProgram):
     """Available to students entering grades 1 through 12 in NYC public and charter schools in September 2024."""
@@ -2458,7 +2477,8 @@ class STEMMattersNYC(BaseBenefitsProgram):
                 if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                     return True
         return False
-    
+
+
 class COVIDNineteenFuneralAssistance(BaseBenefitsProgram):
     """You are be eligible if:
 
@@ -2474,9 +2494,10 @@ class COVIDNineteenFuneralAssistance(BaseBenefitsProgram):
                     CitizenshipEnum.CITIZEN_OR_NATIONAL.value,
                     CitizenshipEnum.LAWFUL_RESIDENT.value,
                 ]:
-                    return True    
+                    return True
         return False
-    
+
+
 class Lifeline(BaseBenefitsProgram):
     """You are eligible for Lifeline if you can answer yes to any of the questions below.
 
@@ -2497,6 +2518,7 @@ class Lifeline(BaseBenefitsProgram):
     7 $63,909
     8 $71,172
     For each additional person, add: $7,263"""
+
     @staticmethod
     def __call__(hh):
         thresholds = {
@@ -2509,7 +2531,7 @@ class Lifeline(BaseBenefitsProgram):
             7: 63909,
             8: 71172,
         }
-        income = hh.total_annual_income()
+        income = hh.hh_annual_total_income()
         family_size = len(hh.members)
         if family_size > 8:
             if income <= thresholds[8] + 7263 * (family_size - 8):
@@ -2528,6 +2550,7 @@ class Lifeline(BaseBenefitsProgram):
             if m["receives_vpsb"]:
                 return True
         return False
+
 
 class ChildCareVouchers(BaseBenefitsProgram):
     @staticmethod
@@ -2614,7 +2637,7 @@ class ChildCareVouchers(BaseBenefitsProgram):
         You live in temporary housing (priority access)
         You are attending services for domestic violence
         You are receiving treatment for substance abuse"""
-    
+
     @staticmethod
     def __call__(hh):
         def income_req(hh):
@@ -2637,7 +2660,7 @@ class ChildCareVouchers(BaseBenefitsProgram):
                 17: 14937,
                 18: 15208,
             }
-            income = hh.total_annual_income() / 12
+            income = hh.hh_annual_total_income() / 12
             family_size = len(hh.members)
             if income > thresholds[family_size]:
                 return False
@@ -2645,20 +2668,21 @@ class ChildCareVouchers(BaseBenefitsProgram):
                 if income > thresholds[18] + 271 * (family_size - 18):
                     return False
             return True
+
         def has_kids(hh):
             for m in hh.members:
                 if m["age"] < 14:
                     return True
-                
+
         def other_reason(hh):
             for m in hh.members:
-                if m["work_hours"] >= 10:
+                if m["work_hours_per_week"] >= 10:
                     return True
                 if m["enrolled_in_educational_training"]:
                     return True
                 if m["enrolled_in_vocational_training"]:
                     return True
-                if m["days_looking_for_work"]> 0:
+                if m["days_looking_for_work"] > 0:
                     return True
                 if m["housing_type"] == HousingEnum.TEMPORARY_HOUSING.value:
                     return True
@@ -2667,7 +2691,6 @@ class ChildCareVouchers(BaseBenefitsProgram):
                 if m["receiving_treatment_for_substance_abuse"]:
                     return True
             return False
-                
 
         if len(hh.members) < 2:
             return False
@@ -2678,12 +2701,14 @@ class ChildCareVouchers(BaseBenefitsProgram):
                 return True
         return False
 
+
 class NYCFinancialEmpowermentCenters(BaseBenefitsProgram):
     """You are eligible for free financial counseling if you:
 
     Live or work in NYC; and
     Are at least 18 years old
     Income and immigration status do not matter."""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
@@ -2691,6 +2716,7 @@ class NYCFinancialEmpowermentCenters(BaseBenefitsProgram):
                 if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                     return True
         return False
+
 
 class FamilyHomelessnessAndEvictionPreventionSupplement(BaseBenefitsProgram):
     """Your family must have one of the following:
@@ -2712,6 +2738,7 @@ class FamilyHomelessnessAndEvictionPreventionSupplement(BaseBenefitsProgram):
         A City agency said that you must leave your building or home because of health or safety reasons.
         A landlord has issued you a rent demand letter and threatened an eviction for non-payment of rent.
     """
+
     @staticmethod
     def __call__(hh):
         def r1(hh):
@@ -2722,7 +2749,7 @@ class FamilyHomelessnessAndEvictionPreventionSupplement(BaseBenefitsProgram):
                     return True
                 if m["age"] == 19 and m["enrolled_in_vocational_training"]:
                     return True
-                if m["pregnant"]:
+                if m["months_pregnant"] > 0:
                     return True
             return False
 
@@ -2730,12 +2757,13 @@ class FamilyHomelessnessAndEvictionPreventionSupplement(BaseBenefitsProgram):
             for m in hh.members:
                 if m["receives_cash_assistance"]:
                     return True
+
         def r3(hh):
             for m in hh.members:
                 if m["housing_type"] == HousingEnum.HRA_SHELTER.value:
                     return True
                 if m["housing_type"] == HousingEnum.DHS_SHELTER.value:
-                    if m["eligible_for_HRA_shelter"]:
+                    if m["eligible_for_hra_shelter"]:
                         return True
                 if m["evicted_months_ago"] > 0:
                     if m["evicted_months_ago"] < 12:
@@ -2749,7 +2777,8 @@ class FamilyHomelessnessAndEvictionPreventionSupplement(BaseBenefitsProgram):
                 if r3(hh):
                     return True
         return False
-    
+
+
 class NYSPaidFamilyLeave(BaseBenefitsProgram):
     """You can take Paid Family Leave if you:
 
@@ -2757,7 +2786,9 @@ class NYSPaidFamilyLeave(BaseBenefitsProgram):
     Work for a private employer in New York State or for a public employer who has opted in.
     Meet the time-worked requirements before taking Paid Family Leave:
     Full-time employees who regularly work 20 or more hours/week can take PFL after working 26 consecutive weeks.
-    Part-time employees who regularly work less than 20 hours/week can take PFL after working 175 days. These days don't need to be consecutive."""
+    Part-time employees who regularly work less than 20 hours/week can take PFL after working 175 days. These days don't need to be consecutive.
+    """
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
@@ -2766,9 +2797,10 @@ class NYSPaidFamilyLeave(BaseBenefitsProgram):
                     if m["work_hours_per_week"] >= 20:
                         if m["consecutive_work_weeks"] >= 26:
                             return True
-                        if m["nonconsecutive_work_weeks"] >= 175:
+                        if m["nonconsecutive_work_days"] >= 175:
                             return True
         return False
+
 
 class FamilyTypeHomesForAdults(BaseBenefitsProgram):
     """To be considered for FTHA housing, individuals must be:
@@ -2793,6 +2825,7 @@ class FamilyTypeHomesForAdults(BaseBenefitsProgram):
         Arson
         Verbal and/or abusive behavior
         Imprisonment"""
+
     @staticmethod
     def __call__(hh):
         def r1(m):
@@ -2800,6 +2833,7 @@ class FamilyTypeHomesForAdults(BaseBenefitsProgram):
                 if m["can_care_for_self"]:
                     return True
             return False
+
         def r2(m):
             if m["developmental_condition"]:
                 if not m["developmental_mental_day_treatment"]:
@@ -2808,7 +2842,7 @@ class FamilyTypeHomesForAdults(BaseBenefitsProgram):
                 if not m["developmental_mental_day_treatment"]:
                     return False
             return True
-        
+
         def r3(m):
             if m["wheelchair"]:
                 return False
@@ -2826,13 +2860,13 @@ class FamilyTypeHomesForAdults(BaseBenefitsProgram):
                 return False
             return True
 
-
         for m in hh.members:
             if r1(m):
                 if r2(m):
                     if r3(m):
                         return True
         return False
+
 
 class HomeFirstDownPaymentAssistance(BaseBenefitsProgram):
     """You will need to meet these income requirements to qualify for a HomeFirst loan:
@@ -2853,7 +2887,8 @@ class HomeFirstDownPaymentAssistance(BaseBenefitsProgram):
 
     Be a first-time homebuyer.
     This means you cannot have owned a home three years before buying a home with a HomeFirst loan.
-    This requirement is waived for U. S. military veterans with a DD-214 that verifies honorable service."""
+    This requirement is waived for U. S. military veterans with a DD-214 that verifies honorable service.
+    """
 
     @staticmethod
     def __call__(hh):
@@ -2866,26 +2901,28 @@ class HomeFirstDownPaymentAssistance(BaseBenefitsProgram):
                 5: 134350,
                 6: 144300,
                 7: 154250,
-                8: 164200
+                8: 164200,
             }
-            income = hh.total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             if family_size > 8:
                 return income <= thresholds[8] + 9950 * (family_size - 8)
             return income <= thresholds[family_size]
 
         def r1(m):
-            if m["first_time_homebuyer"]:
+            if m["first_time_home_buyer"]:
                 return True
             if m["honorable_service"]:
                 return True
             return False
+
         if income(hh):
             for m in hh.members:
                 if r1(m):
                     return True
         return False
-    
+
+
 class NYCMitchellLama(BaseBenefitsProgram):
     """
     Eligibility for Mitchell-Lama rental units is determined by:
@@ -2899,19 +2936,19 @@ class NYCMitchellLama(BaseBenefitsProgram):
     Federally Assisted Cooperative
 
     Non-Federally Assisted
-    1 | $86,960 | $135,875 | $135,875 | 
-    2 | $99,440 | $155,375 | $155,375 | 
-    3 | $111,840 | $174,750 | $174,750 | 
-    4 | $124,240 | $194,125 | $194,125 | 
-    5 | $134,160 | $209,625 | $209,625 | 
-    6 | $144,080 | $225,125 | $225,125 | 
-    7 | $154,080 | $240,750 | $240,750 | 
+    1 | $86,960 | $135,875 | $135,875 |
+    2 | $99,440 | $155,375 | $155,375 |
+    3 | $111,840 | $174,750 | $174,750 |
+    4 | $124,240 | $194,125 | $194,125 |
+    5 | $134,160 | $209,625 | $209,625 |
+    6 | $144,080 | $225,125 | $225,125 |
+    7 | $154,080 | $240,750 | $240,750 |
     8 | $164,000 | $256,250 | $256,250"""
 
     @staticmethod
     def __call__(hh):
         family_size = len(hh.members)
-        income = hh.total_annual_income()
+        income = hh.hh_annual_total_income()
         thresholds = {
             1: 86960,
             2: 99440,
@@ -2920,16 +2957,18 @@ class NYCMitchellLama(BaseBenefitsProgram):
             5: 134160,
             6: 144080,
             7: 154080,
-            8: 164000
+            8: 164000,
         }
         if family_size > 8:
             return income <= thresholds[8] + 9920 * (family_size - 8)
         return income <= thresholds[family_size]
 
+
 class NYCTenantResourcePortal(BaseBenefitsProgram):
     """
     All renters are eligible to receive help regardless of immigration status.
     """
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
@@ -2937,10 +2976,13 @@ class NYCTenantResourcePortal(BaseBenefitsProgram):
                 return True
         return False
 
+
 class Text2Work(BaseBenefitsProgram):
     """TXT-2-WORK is available for:
     NYC residents
-    HRA clients who receive assistance including temporary cash, SNAP, or housing assistance"""
+    HRA clients who receive assistance including temporary cash, SNAP, or housing assistance
+    """
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
@@ -2953,7 +2995,8 @@ class Text2Work(BaseBenefitsProgram):
             if m["receives_fpha"]:
                 return True
         return False
-    
+
+
 class SilverCorps(BaseBenefitsProgram):
     """You're eligible for Silver Corps if you:
 
@@ -2974,11 +3017,12 @@ class SilverCorps(BaseBenefitsProgram):
     For each additional person:
     Add $6,425
     """
+
     @staticmethod
     def __call__(hh):
         def income(hh):
             family_size = len(hh.members)
-            income = hh.total_annual_income()
+            income = hh.hh_annual_total_income()
             thresholds = {
                 1: 60240,
                 2: 81760,
@@ -2987,11 +3031,12 @@ class SilverCorps(BaseBenefitsProgram):
                 5: 146320,
                 6: 167840,
                 7: 189360,
-                8: 210880
+                8: 210880,
             }
             if family_size > 8:
                 return income <= thresholds[8] + 6425 * (family_size - 8)
             return income <= thresholds[family_size]
+
         if income(hh):
             for m in hh.members:
                 if m["age"] >= 55:
@@ -2999,16 +3044,18 @@ class SilverCorps(BaseBenefitsProgram):
                         if m["work_hours_per_week"] <= 0:
                             return True
         return False
-    
+
+
 class BigAppleConnect(BaseBenefitsProgram):
     """You can enroll in Big Apple Connect if you live in a NYCHA development."""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
             if m["housing_type"] == HousingEnum.NYCHA_DEVELOPMENT.value:
                 return True
         return False
-    
+
 
 class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
     """To be eligible for SCHE, you must meet these requirements:
@@ -3017,13 +3064,15 @@ class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
     All owners of the property are 65 or older. However, if you own the property with a spouse or sibling, only one of you need to be 65 or older.
     All owners must live on the property as the primary residence.
     The combined income for all owners must be less than or equal to $58,399.
-    You must own the property for at least 12 consecutive months before the date of filing for the exemption. This is not a requirement if you got the exemption on a property that you owned before."""
+    You must own the property for at least 12 consecutive months before the date of filing for the exemption. This is not a requirement if you got the exemption on a property that you owned before.
+    """
+
     @staticmethod
     def __call__(hh):
         if hh.user()["housing_type"] not in [
-            HousingEnum.HOUSE_2B, 
+            HousingEnum.HOUSE_2B,
             HousingEnum.CONDO,
-            HousingEnum.COOPERATIVE_APARTMENT
+            HousingEnum.COOPERATIVE_APARTMENT,
         ]:
             return False
         owner_indices = []
@@ -3031,7 +3080,10 @@ class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
         for m in hh.members:
             if m["is_property_owner"]:
                 owner_indices.append(hh.members.index(m))
-                if m["relation"] == RelationEnum.SPOUSE.value or m["relation"] == RelationEnum.SIBLING.value:
+                if (
+                    m["relation"] == RelationEnum.SPOUSE.value
+                    or m["relation"] == RelationEnum.SIBLING.value
+                ):
                     spouse_or_sibling_owner = True
         num_over_65 = 0
         primary_residents = 0
@@ -3049,7 +3101,7 @@ class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
                 return False
         if primary_residents != len(owner_indices):
             return False
-        if hh.total_annual_income() > 58399:
+        if hh.hh_annual_total_income() > 58399:
             return False
         if hh.user()["months_owned_property"] < 12:
             return False
@@ -3059,12 +3111,14 @@ class SeniorCitizenRentIncreaseExemption(BaseBenefitsProgram):
 class PreKForAll(BaseBenefitsProgram):
     """All NYC children age 3 or 4 are eligible. This includes children with disabilities or who are learning English.
     Children do not need to be toilet trained to attend pre-K."""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
             if m["age"] == 3 or m["age"] == 4:
                 return True
         return False
+
 
 class DisabledHomeownersExemption(BaseBenefitsProgram):
     """To be eligible for DHE, you must meet these requirements:
@@ -3073,13 +3127,15 @@ class DisabledHomeownersExemption(BaseBenefitsProgram):
     All property owners are people with disabilities. However, if you own the property with a spouse or sibling, only one of you need to have a disability to qualify.
     You must live on the property as your primary residence.
     The combined income for all owners must be less than or equal to $58,399.
-    Your property cannot be within a housing development controlled by a Limited Profit Housing Company, Mitchell-Lama, Limited Dividend Housing Company, or redevelopment company. Contact your property manager if you're not sure."""
+    Your property cannot be within a housing development controlled by a Limited Profit Housing Company, Mitchell-Lama, Limited Dividend Housing Company, or redevelopment company. Contact your property manager if you're not sure.
+    """
+
     @staticmethod
     def __call__(hh):
         if hh.user()["housing_type"] not in [
-            HousingEnum.HOUSE_2B, 
+            HousingEnum.HOUSE_2B,
             HousingEnum.CONDO,
-            HousingEnum.COOPERATIVE_APARTMENT
+            HousingEnum.COOPERATIVE_APARTMENT,
         ]:
             return False
         owner_indices = []
@@ -3087,7 +3143,10 @@ class DisabledHomeownersExemption(BaseBenefitsProgram):
         for m in hh.members:
             if m["is_property_owner"]:
                 owner_indices.append(hh.members.index(m))
-                if m["relation"] == RelationEnum.SPOUSE.value or m["relation"] == RelationEnum.SIBLING.value:
+                if (
+                    m["relation"] == RelationEnum.SPOUSE.value
+                    or m["relation"] == RelationEnum.SIBLING.value
+                ):
                     spouse_or_sibling_owner = True
         num_disabled = 0
         primary_residents = 0
@@ -3105,9 +3164,10 @@ class DisabledHomeownersExemption(BaseBenefitsProgram):
                 return False
         if primary_residents != len(owner_indices):
             return False
-        if hh.total_annual_income() > 58399:
+        if hh.hh_annual_total_income() > 58399:
             return False
         return True
+
 
 class VeteransPropertyTaxExemption(BaseBenefitsProgram):
     """To be eligible for Veterans' Exemption, you should be able to answer yes to all of these questions.
@@ -3120,6 +3180,7 @@ class VeteransPropertyTaxExemption(BaseBenefitsProgram):
     Korean War - June 27, 1950 - January 31, 1955
     World War II - December 7, 1941 to December 31, 1946
     World War I - April 6, 1917 to November 11, 1918"""
+
     @staticmethod
     def __call__(hh):
         def eligible(m):
@@ -3128,10 +3189,12 @@ class VeteransPropertyTaxExemption(BaseBenefitsProgram):
                     if m["conflict_veteran"]:
                         return True
             return False
+
         for m in hh.members:
             if eligible(m):
                 return True
         return False
+
 
 class HomeEnergyAssistanceProgram(BaseBenefitsProgram):
     """Regular HEAP eligibility and benefits are based on:
@@ -3170,7 +3233,9 @@ class HomeEnergyAssistanceProgram(BaseBenefitsProgram):
     less than $2,500 if it doesn't include someone 60 or older, or under age 6?
     Do you meet one of these income guidelines?
     You receive SNAP benefits, Temporary Assistance, or Code A Supplemental Security Income.
-    Your family is at or under the following gross monthly income guidelines for your household size in the table above."""
+    Your family is at or under the following gross monthly income guidelines for your household size in the table above.
+    """
+
     @staticmethod
     def __call__(hh):
         def r1(hh):
@@ -3182,11 +3247,13 @@ class HomeEnergyAssistanceProgram(BaseBenefitsProgram):
             if user["out_of_fuel"]:
                 return True
             return False
+
         def r2(hh):
             for m in hh.members:
                 if m["heating_electrical_bill_in_name"]:
                     return True
             return False
+
         def r3(hh):
             age_req = False
             for m in hh.members:
@@ -3199,11 +3266,12 @@ class HomeEnergyAssistanceProgram(BaseBenefitsProgram):
                 if hh.user()["available_financial_resources"] < 2500:
                     return True
             return False
+
         def r4(hh):
             for m in hh.members:
                 if m["receives_snap"]:
                     return True
-                if m["receives_temp_assistance"]:
+                if m["receives_temporary_assistance"]:
                     return True
                 if m["receives_ssi"]:
                     return True
@@ -3222,37 +3290,41 @@ class HomeEnergyAssistanceProgram(BaseBenefitsProgram):
                 12: 8890,
                 13: 9532,
             }
-            income = hh.hh_total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             if family_size > 13:
                 return income <= thresholds[13] + 642 * (family_size - 13)
             return income <= thresholds[family_size]
+
         if r1(hh):
             if r2(hh):
                 if r3(hh):
                     if r4(hh):
                         return True
         return False
-            
+
 
 class NYSUnemploymentInsurance(BaseBenefitsProgram):
     """You are eligible for Unemployment Insurance (UI) if you:
 
     lost your job through no fault of your own (for example, you got laid off).
     worked within the last 18 months, and able to work immediately.
-    are authorized to work in the US andwere authorized to work when you lost your job."""
+    are authorized to work in the US andwere authorized to work when you lost your job.
+    """
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
             if m["lost_job"]:
                 if m["months_since_worked"] <= 18:
-                    if m["authorized_to_work"]:
+                    if m["authorized_to_work_in_us"]:
                         return True
         return False
 
 
 class SummerMeals(BaseBenefitsProgram):
     """Summer Meals is available to anyone age 18 or younger."""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
@@ -3260,14 +3332,17 @@ class SummerMeals(BaseBenefitsProgram):
                 return True
         return False
 
+
 class NYCHAResidentEconomicEmpowermentAndSustainability(BaseBenefitsProgram):
     """Anyone who lives in NYCHA housing is eligible for REES."""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
             if m["housing_type"] == HousingEnum.NYCHA_DEVELOPMENT.value:
                 return True
         return False
+
 
 class OlderAdultEmploymentProgram(BaseBenefitsProgram):
     """To be eligible for the Older Adult Employment Program, you must:
@@ -3288,10 +3363,11 @@ class OlderAdultEmploymentProgram(BaseBenefitsProgram):
     7 $59,175
     8 $65,900
     For each additional person add $6,725"""
+
     @staticmethod
     def __call__(hh):
         def income(hh):
-            income = hh.hh_total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             thresholds = {
                 1: 18825,
@@ -3306,6 +3382,7 @@ class OlderAdultEmploymentProgram(BaseBenefitsProgram):
             if family_size > 8:
                 return income <= thresholds[8] + 6725 * (family_size - 8)
             return income <= thresholds[family_size]
+
         if income(hh):
             for m in hh.members:
                 if m["age"] < 55:
@@ -3314,12 +3391,14 @@ class OlderAdultEmploymentProgram(BaseBenefitsProgram):
                             return True
         return False
 
+
 class Workforce1CareerCenters(BaseBenefitsProgram):
     """You can get services from a Workforce1 Career Center if you:
 
     live in New York City
     are 18 or older
     are legally authorized to work in the U.S."""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
@@ -3328,6 +3407,7 @@ class Workforce1CareerCenters(BaseBenefitsProgram):
                     if m["authorized_to_work_in_us"]:
                         return True
         return False
+
 
 class CommoditySupplementalFoodProgram(BaseBenefitsProgram):
     """To be eligible, you should be able to answer yes to these questions:
@@ -3347,10 +3427,11 @@ class CommoditySupplementalFoodProgram(BaseBenefitsProgram):
     7 $61,542
     8 $68,536
     For each additional person, add: $6,994"""
+
     @staticmethod
     def __call__(hh):
         def income(hh):
-            income = hh.hh_total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             thresholds = {
                 1: 19578,
@@ -3365,6 +3446,7 @@ class CommoditySupplementalFoodProgram(BaseBenefitsProgram):
             if family_size > 8:
                 return income <= thresholds[8] + 6994 * (family_size - 8)
             return income <= thresholds[family_size]
+
         if not income:
             return False
         for m in hh.members:
@@ -3373,39 +3455,41 @@ class CommoditySupplementalFoodProgram(BaseBenefitsProgram):
                     return True
         return False
 
+
 class LearnAndEarn(BaseBenefitsProgram):
     """You are eligible if you can answer yes to these questions:
 
-Are you between 16 - 21 years old?
-Are you an NYC high school junior or senior?
-Do you have a social security number?
-Can you legally work in the US?
-Are you registered for selective service, if you're an eligible male?
-Do you meet one of these requirements?
-You or someone in your household gets cash assistance or SNAP (food stamps)
-You are a homeless or runaway youth
-You are a foster care youth or have aged out of the foster care system
-You are involved in the justice system
-You are pregnant or a parent
-You have a disability.
-Is your households income at or below the amount shown in this chart?
-Household size
-Monthly income | Yearly income | 
-1 | $1,215 | $14,580 | 
-2 | $1,643 | $19,720 | 
-3 | $2,072 | $24,860 | 
-4 | $2,500 | $30,000 | 
-5 | $2,928 | $35,140 | 
-6 | $3,357 | $40,280 | 
-7 | $3,785 | $45,420 | 
-8 | $4,213 | $50,560
-For each additional person
-add $428
-add $5,140"""
+    Are you between 16 - 21 years old?
+    Are you an NYC high school junior or senior?
+    Do you have a social security number?
+    Can you legally work in the US?
+    Are you registered for selective service, if you're an eligible male?
+    Do you meet one of these requirements?
+    You or someone in your household gets cash assistance or SNAP (food stamps)
+    You are a homeless or runaway youth
+    You are a foster care youth or have aged out of the foster care system
+    You are involved in the justice system
+    You are pregnant or a parent
+    You have a disability.
+    Is your households income at or below the amount shown in this chart?
+    Household size
+    Monthly income | Yearly income |
+    1 | $1,215 | $14,580 |
+    2 | $1,643 | $19,720 |
+    3 | $2,072 | $24,860 |
+    4 | $2,500 | $30,000 |
+    5 | $2,928 | $35,140 |
+    6 | $3,357 | $40,280 |
+    7 | $3,785 | $45,420 |
+    8 | $4,213 | $50,560
+    For each additional person
+    add $428
+    add $5,140"""
+
     @staticmethod
     def __call__(hh):
         def income(hh):
-            income = hh.hh_total_annual_income()
+            income = hh.hh_annual_total_income()
             family_size = len(hh.members)
             thresholds = {
                 1: 14580,
@@ -3420,8 +3504,10 @@ add $5,140"""
             if family_size > 8:
                 return income <= thresholds[8] + 5140 * (family_size - 8)
             return income <= thresholds[family_size]
+
         if not income:
             return False
+
         def other(m):
             if m["receives_cash_assistance"]:
                 return True
@@ -3441,14 +3527,17 @@ add $5,140"""
                 return True
             if m["disabled"]:
                 return True
-            
+
         for m in hh.members:
             if m["age"] >= 16 and m["age"] <= 21:
                 if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                     if m["current_school_level"] in [9, 10, 11, 12]:
-                        if m["ssn"]:
+                        if m["has_ssn"]:
                             if m["authorized_to_work_in_us"]:
-                                if m["registered_for_selective_service"] or m["is_eligible_for_selective_service"]:
+                                if (
+                                    m["selective_service"]
+                                    or m["is_eligible_for_selective_service"]
+                                ):
                                     if other(m):
                                         return True
         return False
@@ -3460,19 +3549,23 @@ class NYCNurseFamilyPartnership(BaseBenefitsProgram):
     Are you 28 weeks pregnant or less with your first baby?
     Do you live in New York City?
     Are you eligible for Medicaid?
-    This program is available to all eligible parents, regardless of age, immigration status, or gender identity."""
+    This program is available to all eligible parents, regardless of age, immigration status, or gender identity.
+    """
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
-            if m["pregnant"]:
+            if m["months_pregnant"] > 0:
                 if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                     if m["eligible_for_medicaid"]:
                         return True
         return False
 
+
 class SummerYouthEmploymentProgram(BaseBenefitsProgram):
     """You are eligible if you:live in New York City
     are 14-24 years old"""
+
     @staticmethod
     def __call__(hh):
         for m in hh.members:
