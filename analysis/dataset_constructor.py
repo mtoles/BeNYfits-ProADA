@@ -3,18 +3,22 @@ import inspect
 from scipy.spatial.distance import cityblock
 from collections import defaultdict
 from users.benefits_programs import (
-    ChildAndDependentCareTaxCredit,
-    EarlyHeadStartPrograms,
-    InfantToddlerPrograms,
-    ComprehensiveAfterSchool,
-    InfantToddlerPrograms,
-    ChildTaxCredit,
-    DisabilityRentIncreaseExemption,
-    EarnedIncomeTaxCredit,
-    HeadStart,
     get_random_household_input,
 )
+import users.benefits_programs
 from tqdm import tqdm
+
+from utils import import_all_classes
+
+# Import all classes except "BaseBenefitsProgram", "BenefitsProgramMeta"
+module_name = "users.benefits_programs"
+classes = import_all_classes(module_name)
+
+benefits_classes = {}
+
+for class_name, cls in classes.items():
+    if class_name not in ["BaseBenefitsProgram", "BenefitsProgramMeta"]:
+        benefits_classes[class_name] = cls
 
 
 class DatasetConstructor:
@@ -44,8 +48,8 @@ class DatasetConstructor:
 
     def fuzz(limit, trials):
 
-        # Number of lines in the source code of the function
-        n_source_lines = 1000
+        source = inspect.getsource(users.benefits_programs)
+        n_source_lines = len(source.splitlines())
 
         # Initialize the vector with zeros
         vector = [0 for _ in range(n_source_lines)]
@@ -69,17 +73,7 @@ class DatasetConstructor:
                 hh = get_random_household_input()
 
                 # Loop through all the classes to compute new_vector
-                for class_name in [
-                    ChildAndDependentCareTaxCredit,
-                    EarlyHeadStartPrograms,
-                    InfantToddlerPrograms,
-                    ComprehensiveAfterSchool,
-                    InfantToddlerPrograms,
-                    ChildTaxCredit,
-                    DisabilityRentIncreaseExemption,
-                    EarnedIncomeTaxCredit,
-                    HeadStart,
-                ]:
+                for class_name in benefits_classes.values():
                     source_lines = list(
                         DatasetConstructor._trace_execution(
                             class_name.__call__, hh
