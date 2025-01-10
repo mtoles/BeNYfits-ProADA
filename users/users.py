@@ -36,7 +36,7 @@ class Person:
         return person
 
     def total_income(self):
-        return self["work_income"] + self["investment_income"]
+        return self["annual_work_income"] + self["annual_investment_income"]
 
     def validate(self):
         schemas = {
@@ -214,35 +214,35 @@ class Household:
             parents.append(spouse)
         return parents
 
-    def marriage_work_income(self):
-        user_income = self.members[0]["work_income"]
+    def marriage_annual_work_income(self):
+        user_income = self.members[0]["annual_work_income"]
         spouse = self.spouse()
         if spouse and self.user()["filing_jointly"]:
-            spouse_income = spouse["work_income"]
+            spouse_income = spouse["annual_work_income"]
         else:
             spouse_income = 0
         return user_income + spouse_income
 
     def marriage_investment_income(self):
-        user_income = self.members[0]["investment_income"]
+        user_income = self.members[0]["annual_investment_income"]
         spouse = self.spouse()
         if spouse and self.user()["filing_jointly"]:
-            spouse_income = spouse["investment_income"]
+            spouse_income = spouse["annual_investment_income"]
         else:
             spouse_income = 0
         return user_income + spouse_income
 
     def marriage_total_income(self):
-        return self.marriage_work_income() + self.marriage_investment_income()
+        return self.marriage_annual_work_income() + self.marriage_annual_investment_income()
 
-    def hh_work_income(self):
-        return sum([member["work_income"] for member in self.members])
+    def hh_annual_work_income(self):
+        return sum([member["annual_work_income"] for member in self.members])
 
-    def hh_investment_income(self):
-        return sum([member["investment_income"] for member in self.members])
+    def hh_annual_investment_income(self):
+        return sum([member["annual_investment_income"] for member in self.members])
 
     def hh_total_income(self):
-        return self.hh_work_income() + self.hh_investment_income()
+        return self.hh_annual_work_income() + self.hh_annual_investment_income()
 
     def num_members(self):
         return len(self.members)
@@ -284,7 +284,7 @@ class Household:
         Return the sum of the (work + investment) income of all property owners.
         """
         owners = self.property_owners()
-        return sum(o["work_income"] + o["investment_income"] for o in owners)
+        return sum(o["annual_work_income"] + o["annual_investment_income"] for o in owners)
 
     def nl_household_profile(self) -> str:
         user = self.members[0]

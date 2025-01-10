@@ -20,6 +20,7 @@ GRADE_DICT = {
     11: "11th grade",
     12: "12th grade",
     "college": "college",
+    "none": "none",
 }
 
 
@@ -77,19 +78,19 @@ class age(BasePersonAttr):
     nl_fn = lambda n, x: f"{n} is {x} years old."
 
 
-class Sex(Enum):
+class SexEnum(Enum):
     MALE = "male"
     FEMALE = "female"
 
 
 class sex(BasePersonAttr):
-    schema = And(lambda x: x in [y.value for y in Sex])
-    random = lambda: np.random.choice(list(Sex)).value
-    default = Sex.FEMALE.value
+    schema = And(lambda x: x in [y.value for y in SexEnum])
+    random = lambda: np.random.choice(list(SexEnum)).value
+    default = SexEnum.FEMALE.value
     nl_fn = lambda n, x: f"{n} is {x}."
 
 
-class RelationType(Enum):
+class RelationEnum(Enum):
     SELF = "self"
     SPOUSE = "spouse"
     CHILD = "child"
@@ -104,11 +105,11 @@ class RelationType(Enum):
 
 
 class relation(BasePersonAttr):
-    schema = And(lambda x: x in RelationType._value2member_map_)
-    random = lambda: np.random.choice(list(RelationType)).value
-    default = RelationType.SELF.value
+    schema = And(lambda x: x in RelationEnum._value2member_map_)
+    random = lambda: np.random.choice(list(RelationEnum)).value
+    default = RelationEnum.SELF.value
     nl_fn = lambda n, x: (
-        f"You are {n}" if x == RelationType.SELF.value else f"{n} is your {x}"
+        f"You are {n}" if x == RelationEnum.SELF.value else f"{n} is your {x}"
     )
 
     always_include = True
@@ -134,7 +135,7 @@ class has_ssn(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if (
             hh.members[person_idx]["citizenship"]
-            != Citizenship.CITIZEN_OR_NATIONAL.value
+            != CitizenshipEnum.CITIZEN_OR_NATIONAL.value
         ):
             return False
         return original_value
@@ -151,7 +152,7 @@ class has_atin(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["relation"] != RelationType.ADOPTED_CHILD.value:
+        if hh.members[person_idx]["relation"] != RelationEnum.ADOPTED_CHILD.value:
             return False
         return original_value
 
@@ -169,7 +170,7 @@ class has_itin(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if (
             hh.members[person_idx]["citizenship"]
-            != Citizenship.CITIZEN_OR_NATIONAL.value
+            != CitizenshipEnum.CITIZEN_OR_NATIONAL.value
         ):
             return False
         if hh.members[person_idx]["has_ssn"] == True:
@@ -185,12 +186,22 @@ class can_care_for_self(BasePersonAttr):
         f"{n} can care for themselves." if x else f"{n} cannot care for themselves."
     )
 
+    def conform(cls, hh, person_idx, original_value):
+        if not hh.members[person_idx]["disabled"]:
+            return False
+        return original_value
+
+
+class PlaceOfResidenceEnum(Enum):
+    NYC = "New York City"
+    Jersey = "Jersey"
+
 
 class place_of_residence(BasePersonAttr):
-    schema = And(str, len)
-    random = lambda: np.random.choice(["NYC", "Jersey"])
-    default = "NYC"
-    nl_fn = lambda n, x: f"{n} lives in {x}."
+    schema = And(PlaceOfResidenceEnum)
+    random = lambda: np.random.choice(list(PlaceOfResidenceEnum))
+    default = PlaceOfResidenceEnum.NYC
+    nl_fn = lambda n, x: f"{n} lives in {x.value}."
 
 
 # Training Info
@@ -227,7 +238,7 @@ class enrolled_in_vocational_training(BasePersonAttr):
 
 
 # Financial Info
-class work_income(BasePersonAttr):
+class annual_work_income(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 100000)
     default = 0
@@ -239,7 +250,7 @@ class work_income(BasePersonAttr):
         return original_value
 
 
-class investment_income(BasePersonAttr):
+class annual_investment_income(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 100000)
     default = 0
@@ -379,65 +390,84 @@ class receives_disability_medicaid(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
             return False
+        if not hh.members[person_idx]["receives_medicaid"]:
+            return False
         return original_value
 
 
 # School Info
-class student(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = False
-    nl_fn = lambda n, x: f"{n} is a student." if x else f"{n} is not a student."
+# class student(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = False
+#     nl_fn = lambda n, x: f"{n} is a student." if x else f"{n} is not a student."
+
+
+class GradeLevelEnum(Enum):
+    NONE = "none"
+    PK = "pk"
+    K = "k"
+    ONE = 1
+    TWO = 2
+    THREE = 3
+    FOUR = 4
+    FIVE = 5
+    SIX = 6
+    SEVEN = 7
+    EIGHT = 8
+    NINE = 9
+    TEN = 10
+    ELEVEN = 11
+    TWELVE = 12
+    COLLEGE = "college"
+
+
+GRADE_DICT = {x.value: x.name for x in GradeLevelEnum}
 
 
 class current_school_level(BasePersonAttr):
-    schema = And(
-        lambda x: x
-        in ("pk", "k", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, "college", None)
-    )
-    random = lambda: np.random.choice(
-        ["pk", "k", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, "college", None]
-    )
+    schema = And(lambda x: x in list(GradeLevelEnum))
+    random = lambda: np.random.choice(list(GradeLevelEnum))
     default = None
     nl_fn = lambda n, x: (
-        f"{n} is in {GRADE_DICT[x]}." if x else f"{n} is not in school."
+        f"{n} is in {GRADE_DICT[x.value]}." if x else f"{n} is not in school."
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if original_value is None:
-            return None
+        if original_value is GradeLevelEnum.NONE:
+            return GradeLevelEnum.NONE
         elif hh.members[person_idx]["age"] < 4:
             return None
         elif hh.members[person_idx]["age"] == 4:
-            return "pk"
+            return GradeLevelEnum.PK
         elif hh.members[person_idx]["age"] == 5:
-            return "k"
+            return GradeLevelEnum.K
         elif hh.members[person_idx]["age"] == 6:
-            return 1
+            return GradeLevelEnum.ONE
         elif hh.members[person_idx]["age"] == 7:
-            return 2
+            return GradeLevelEnum.TWO
         elif hh.members[person_idx]["age"] == 8:
-            return 3
+            return GradeLevelEnum.THREE
         elif hh.members[person_idx]["age"] == 9:
-            return 4
+            return GradeLevelEnum.FOUR
         elif hh.members[person_idx]["age"] == 10:
-            return 5
+            return GradeLevelEnum.FIVE
         elif hh.members[person_idx]["age"] == 11:
-            return 6
+            return GradeLevelEnum.SIX
         elif hh.members[person_idx]["age"] == 12:
-            return 7
+            return GradeLevelEnum.SEVEN
         elif hh.members[person_idx]["age"] == 13:
-            return 8
+            return GradeLevelEnum.EIGHT
         elif hh.members[person_idx]["age"] == 14:
-            return 9
+            return GradeLevelEnum.NINE
         elif hh.members[person_idx]["age"] == 15:
-            return 10
+            return GradeLevelEnum.TEN
         elif hh.members[person_idx]["age"] == 16:
-            return 11
+            return GradeLevelEnum.ELEVEN
         elif hh.members[person_idx]["age"] == 17:
-            return 12
+            return GradeLevelEnum.TWELVE
         elif hh.members[person_idx]["age"] >= 18:
-            return "college"
+            return GradeLevelEnum.COLLEGE
         return original_value
 
 
@@ -456,18 +486,19 @@ class works_outside_home(BasePersonAttr):
         return original_value
 
 
-class looking_for_work(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = False
-    nl_fn = lambda n, x: (
-        f"{n} is looking for work." if x else f"{n} is not looking for work."
-    )
+# use days_looking_for_work != 0
+# class looking_for_work(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = False
+#     nl_fn = lambda n, x: (
+#         f"{n} is looking for work." if x else f"{n} is not looking for work."
+#     )
 
-    def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["age"] < 16:
-            return False
-        return original_value
+#     def conform(cls, hh, person_idx, original_value):
+#         if hh.members[person_idx]["age"] < 16:
+#             return False
+#         return original_value
 
 
 class work_hours_per_week(BasePersonAttr):
@@ -706,7 +737,7 @@ class filing_jointly(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["relation"] != RelationType.SPOUSE.value:
+        if hh.members[person_idx]["relation"] != RelationEnum.SPOUSE.value:
             return False
         else:
             # set same as user
@@ -723,7 +754,7 @@ class dependent(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["relation"] != RelationType.SELF.value:
+        if hh.members[person_idx]["relation"] != RelationEnum.SELF.value:
             return False
         return original_value
 
@@ -745,8 +776,9 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
         return original_value
 
 
-class HousingType(Enum):
-    HOUSE = "house"
+class HousingEnum(Enum):
+    HOUSE_2B = "2 bedroom house"
+    HOUSE_4B = "4 bedroom house"
     CONDO = "condo"
     COOPERATIVE_APARTMENT = "cooperative apartment"
     MANUFACTURED_HOME = "manufactured home"
@@ -765,14 +797,18 @@ class HousingType(Enum):
     SECTION_213_COOP = "Section 213 coop"
     RENT_REGULATED_HOTEL = "rent regulated hotel"
     RENT_REGULATED_SINGLE_ROOM_OCCUPANCY = "rent regulated single room occupancy (SRO)"
+    NYCHA_DEVELOPMENT = "NYCHA development"
+    SECTION_8 = "Section 8"
 
 
 class housing_type(BasePersonAttr):
-    schema = And(str, lambda x: x in [y.value for y in HousingType])
-    random = lambda: np.random.choice(list(HousingType)).value
-    default = HousingType.HOUSE.value
+    schema = And(str, lambda x: x in [y.value for y in HousingEnum])
+    random = lambda: np.random.choice(list(HousingEnum)).value
+    default = HousingEnum.HOUSE_2B.value
     nl_fn = lambda n, x: (
-        f"{n} lives in a {x}." if x != "homeless" else f"{n} is homeless."
+        f"{n} lives in a {x}. It is not any other type of government housing or development."
+        if x != "homeless"
+        else f"{n} is homeless."
     )
 
     def conform(cls, hh, person_idx, original_value):
@@ -826,7 +862,8 @@ class months_owned_property(BasePersonAttr):
             return 0
         if not hh.members[person_idx]["is_property_owner"]:
             return 0
-        return original_value
+        else:
+            return hh.members[0][cls.__name__]
 
 
 class had_previous_sche(BasePersonAttr):
@@ -846,19 +883,19 @@ class had_previous_sche(BasePersonAttr):
 # senior citizen rent increase exemption
 
 
-### New vars for Pre-K for all
-class toilet_trained(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = False
-    nl_fn = lambda n, x: (
-        f"{n} is toilet trained." if x else f"{n} is not toilet trained."
-    )
+# ### New vars for Pre-K for all
+# class toilet_trained(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = False
+#     nl_fn = lambda n, x: (
+#         f"{n} is toilet trained." if x else f"{n} is not toilet trained."
+#     )
 
-    def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["age"] > 5:
-            return True
-        return original_value
+#     def conform(cls, hh, person_idx, original_value):
+#         if hh.members[person_idx]["age"] > 5:
+#             return True
+#         return original_value
 
 
 ### New vars for Disabled Homeowners' Exemption
@@ -901,15 +938,34 @@ class conflict_veteran(BasePersonAttr):
 ### HEAP
 
 
+class electricity_shut_off(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n}'s electricity is shut off or in danger of being shut off."
+        if x
+        else f"{n}'s electricity system is not shut off or in danger of being shut off."
+    )
+
+    def conform(cls, hh, person_idx, original_value):
+        if hh.members[person_idx]["housing_type"] == HousingEnum.HOMELESS.value:
+            return False
+
+
 class heat_shut_off(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} heating system is shut off or in danger of being shut off."
+        f"{n}'s heating system is shut off or in danger of being shut off."
         if x
-        else f"{n} heating system is not shut off or in danger of being shut off."
+        else f"{n}'s heating system is not shut off or in danger of being shut off."
     )
+
+    def conform(cls, hh, person_idx, original_value):
+        if hh.members[person_idx]["housing_type"] == HousingEnum.HOMELESS.value:
+            return False
 
     # requires not homeless
 
@@ -926,22 +982,29 @@ class out_of_fuel(BasePersonAttr):
     # requires not homeless
 
 
-class heating_bill_in_name(BasePersonAttr):
+class heating_electrical_bill_in_name(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} has a heating bill in their name."
+        f"{n} has a heating and electrical bill in their name."
         if x
-        else f"{n} does not have a heating bill in their name."
+        else f"{n} does not have a heating or electrical bill in their name."
     )
 
     # requires not homeless
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[0]["housing_type"] == HousingType.HOMELESS.value:
+        if hh.members[0]["housing_type"] == HousingEnum.HOMELESS.value:
             return False
         return original_value
+
+
+class available_financial_resources(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: np.random.randint(0, 10000)
+    default = 0
+    nl_fn = lambda n, x: f"{n}'s household has {x} in available financial resources."
 
 
 class receives_temporary_assistance(BasePersonAttr):
@@ -1037,6 +1100,29 @@ class was_authorized_to_work_when_job_lost(BasePersonAttr):
 ### Special Supplemental Nutrition Program for Women, Infants, and Children
 
 
+class is_parent(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (f"{n} is a parent." if x else f"{n} is not a parent.")
+
+    def conform(cls, hh, person_idx, original_value):
+        if hh.members[person_idx]["relation"] in [
+            RelationEnum.SELF.value,
+            RelationEnum.SPOUSE.value,
+        ]:
+            for m in hh.members:
+                if m["relation"] in [
+                    RelationEnum.ADOPTED_CHILD,
+                    RelationEnum.CHILD,
+                    RelationEnum.FOSTER_CHILD,
+                    RelationEnum.GRANDCHILD,
+                    RelationEnum.STEPCHILD,
+                ]:
+                    return True
+        return original_value
+
+
 class months_pregnant(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
     random = lambda: np.random.randint(0, 9)
@@ -1048,7 +1134,7 @@ class months_pregnant(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
             return 0
-        if hh.members[person_idx]["sex"] == Sex.MALE.value:
+        if hh.members[person_idx]["sex"] == SexEnum.MALE.value:
             return 0
         return original_value
 
@@ -1064,7 +1150,7 @@ class breastfeeding(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
             return False
-        if hh.members[person_idx]["sex"] == Sex.MALE.value:
+        if hh.members[person_idx]["sex"] == SexEnum.MALE.value:
             return False
         return original_value
 
@@ -1072,16 +1158,16 @@ class breastfeeding(BasePersonAttr):
 ### NYCHA Resident Economic Empowerment and Sustainability
 
 
-class nycha_resident(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = False
-    nl_fn = lambda n, x: (
-        f"{n} is a NYCHA resident." if x else f"{n} is not a NYCHA resident."
-    )
+# class nycha_resident(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = False
+#     nl_fn = lambda n, x: (
+#         f"{n} is a NYCHA resident." if x else f"{n} is not a NYCHA resident."
+#     )
 
-    def conform(cls, hh, person_idx, original_value):
-        return hh.members[person_idx][cls.__name__]
+#     def conform(cls, hh, person_idx, original_value):
+#         return hh.members[person_idx][cls.__name__]
 
 
 ### Learn & Earn
@@ -1112,11 +1198,11 @@ class is_eligible_for_selective_service(BasePersonAttr):
             return False
         if (
             hh.members[person_idx]["citizenship"]
-            != Citizenship.CITIZEN_OR_NATIONAL.value
+            != CitizenshipEnum.CITIZEN_OR_NATIONAL.value
         ):
             return False
         else:
-            if hh.members[person_idx]["sex"] == Sex.MALE.value:
+            if hh.members[person_idx]["sex"] == SexEnum.MALE.value:
                 return True
             else:
                 return False
@@ -1169,15 +1255,15 @@ class foster_age_out(BasePersonAttr):
 ### Family Planning Benefit Program
 
 
-class Citizenship(Enum):
+class CitizenshipEnum(Enum):
     CITIZEN_OR_NATIONAL = "citizen_or_national"
     LAWFUL_RESIDENT = "lawful_resident"
     UNLAWFUL_RESIDENT = "unlawful_resident"
 
 
 class citizenship(BasePersonAttr):
-    schema = And(str, lambda x: x in [c.value for c in Citizenship])
-    random = lambda: np.random.choice(list(Citizenship)).value
+    schema = And(str, lambda x: x in [c.value for c in CitizenshipEnum])
+    random = lambda: np.random.choice(list(CitizenshipEnum)).value
     default = "self"
     nl_fn = lambda n, x: f"{n} is a {x}."
 
@@ -1193,17 +1279,17 @@ class responsible_for_day_to_day(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
+        if hh.members[person_idx]["age"] < 18:
+            return False
         for p in hh.members:
             if p["relation"] in [
-                RelationType.CHILD.value,
-                RelationType.ADOPTED_CHILD.value,
-                RelationType.STEPCHILD.value,
-                RelationType.GRANDCHILD.value,
+                RelationEnum.CHILD.value,
+                RelationEnum.ADOPTED_CHILD.value,
+                RelationEnum.STEPCHILD.value,
+                RelationEnum.GRANDCHILD.value,
             ]:
                 return original_value
         return False
-
-    # parent only
 
 
 ### Adult Protective Services
@@ -1273,7 +1359,7 @@ class recovering_from_surgery(BasePersonAttr):
 from enum import Enum
 
 
-class EducationLevel(Enum):
+class EducationLevelEnum(Enum):
     HIGH_SCHOOL_DIPLOMA = "high school diploma"
     HSE_DIPLOMA = "HSE diploma"
     GED = "GED"
@@ -1281,14 +1367,14 @@ class EducationLevel(Enum):
 
 
 class high_school_equivalent(BasePersonAttr):
-    schema = And(lambda x: x in [e.value for e in EducationLevel])
-    random = lambda: np.random.choice([e.value for e in EducationLevel])
-    default = EducationLevel.HIGH_SCHOOL_DIPLOMA.value
+    schema = And(lambda x: x in [e.value for e in EducationLevelEnum])
+    random = lambda: np.random.choice([e.value for e in EducationLevelEnum])
+    default = EducationLevelEnum.HIGH_SCHOOL_DIPLOMA.value
     nl_fn = lambda n, x: f"{n}'s education level is: {x}."
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
-            return EducationLevel.NO_HIGH_SCHOOL_EQUIVALENT.value
+            return EducationLevelEnum.NO_HIGH_SCHOOL_EQUIVALENT.value
         return original_value
 
 
@@ -1300,6 +1386,8 @@ class college(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
+            return False
+        if not hh.members[person_idx]["student"]:
             return False
         return original_value
 
@@ -1350,7 +1438,7 @@ class emotional_behavioral_condition(BasePersonAttr):
     nl_fn = lambda n, x: (
         f"{n} has an serious emotional or behavioral condition that interferes with social functions."
         if x
-        else f"{n} does not have an emotional or behavioral condition."
+        else f"{n} does not have an emotional or behavioral condition and is not at risk."
     )
     # for "need extra health care assitance" use can_care_for_self
 
@@ -1391,7 +1479,7 @@ class health_insurance(BasePersonAttr):
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} has health insurance" if x else f"{n} does not have health insurance."
+        f"{n} has health insurance" if x else f"{n} is not covered by health insurance."
     )
 
 
@@ -1560,7 +1648,7 @@ class work_or_volunteer_experience(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] > 0:
+        if hh.members[person_idx]["annual_work_income"] > 0:
             return True
         if hh.members[person_idx]["age"] < 13:
             return False
@@ -1581,6 +1669,11 @@ class lives_in_jobs_plus_neighborhood(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
+        if (
+            hh.members[person_idx]["place_of_residence"]
+            != PlaceOfResidenceEnum.NYC.value
+        ):
+            return False
         return hh.members[person_idx][cls.__name__]
 
 
@@ -1627,7 +1720,7 @@ class ac(BasePersonAttr):
     nl_fn = lambda n, x: (
         f"{n} has an air conditioning unit."
         if x
-        else f"{n} does not have an air conditioning unit."
+        else f"{n} does not have an air conditioning unit or the unit is over 5 years old."
     )
 
     # same for all members
@@ -1679,6 +1772,11 @@ class qualify_for_health_insurance(BasePersonAttr):
         else f"{n} does not qualify for a health care plan available in New York State."
     )
 
+    def conform(cls, hh, person_idx, original_value):
+        if hh.members[person_idx]["health_insurance"] == True:
+            return True
+        return original_value
+
 
 ### We Speak NYC
 
@@ -1710,7 +1808,7 @@ class at_risk_of_homelessness(BasePersonAttr):
     # contingent on not being homeless
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["housing_type"] == HousingType.HOMELESS.value:
+        if hh.members[person_idx]["housing_type"] == HousingEnum.HOMELESS.value:
             return True
         return hh.members[person_idx][cls.__name__]
 
@@ -1728,7 +1826,7 @@ class transitional_job(BasePersonAttr):
     # contingent on having a job
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1746,7 +1844,7 @@ class federal_work_study(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1780,7 +1878,7 @@ class government_job(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1798,7 +1896,7 @@ class is_therapist(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 18:
             return False
@@ -1816,7 +1914,7 @@ class contractor(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1834,7 +1932,7 @@ class wep(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1852,7 +1950,7 @@ class collective_bargaining(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1867,7 +1965,7 @@ class covid_funeral_expenses(BasePersonAttr):
     random = lambda: bool(np.random.choice([True, False]))
     default = 0
     nl_fn = lambda n, x: (
-        f"{n} incurred funeral expenses due to a covid death."
+        f"{n} incurred funeral expenses due to a covid death on or after January 20, 2020, and the death was attributed to COVID-19 on the death certificate."
         if x
         else f"{n} did not incur funeral expenses due to a covid death."
     )
@@ -1928,7 +2026,7 @@ class employer_opt_in(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return False
         if hh.members[person_idx]["age"] < 16:
             return False
@@ -1946,16 +2044,16 @@ class consecutive_work_weeks(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return 0
         if hh.members[person_idx]["age"] < 16:
             return 0
         return original_value
 
 
-class nonconsecutive_work_weeks(BasePersonAttr):
+class nonconsecutive_work_days(BasePersonAttr):
     schema = And(int)
-    random = lambda: np.random.randint(0, 52)
+    random = lambda: np.random.randint(0, 365)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has worked {x} nonconsecutive weeks at their current employer."
@@ -1964,7 +2062,7 @@ class nonconsecutive_work_weeks(BasePersonAttr):
     )
 
     def conform(cls, hh, person_idx, original_value):
-        if hh.members[person_idx]["work_income"] == 0:
+        if hh.members[person_idx]["annual_work_income"] == 0:
             return 0
         if hh.members[person_idx]["age"] < 16:
             return 0
@@ -2096,5 +2194,79 @@ class honorable_service(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
+            return False
+        return original_value
+
+
+class receives_medicaid(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} receives Medicaid." if x else f"{n} does not receive Medicaid."
+    )
+
+
+class receives_fpha(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} receives Federal Public Housing Assistance (FPHA)."
+        if x
+        else f"{n} does not receive Federal Public Housing Assistance (FPHA)."
+    )
+
+    def conform(cls, hh, person_idx, original_value):
+        return hh.members[person_idx][cls.__name__]
+
+
+class receives_vpsb(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} receives Veterals Pension and Survivor Benefits (VPSB)."
+        if x
+        else f"{n} does not receive Veterals Pension and Survivor Benefits (VPSB)."
+    )
+
+
+class eligible_for_HRA_shelter(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is eligible for Health Reimbursement Arrangement (HRA) shelter."
+        if x
+        else f"{n} is not eligible for Health Reimbursement Arrangement (HRA) shelter."
+    )
+
+    def conform(cls, hh, person_idx, original_value):
+        return hh.members[person_idx][cls.__name__]
+
+
+class wheelchair(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is wheelchair bound." if x else f"{n} does not use a wheelchair."
+    )
+
+    def conform(cls, hh, person_idx, original_value):
+        if not hh.members[person_idx]["disabled"]:
+            return False
+        return original_value
+
+
+class bedridden(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (f"{n} is bedridden." if x else f"{n} is not bedridden.")
+
+    def conform(cls, hh, person_idx, original_value):
+        if not hh.members[person_idx]["disabled"]:
             return False
         return original_value
