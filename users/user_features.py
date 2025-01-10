@@ -2206,6 +2206,19 @@ class receives_medicaid(BasePersonAttr):
         f"{n} receives Medicaid." if x else f"{n} does not receive Medicaid."
     )
 
+class eligible_for_medicaid(BasePersonAttr):
+    schema = And(bool)
+    random = lambda: bool(np.random.choice([True, False]))
+    default = False
+    nl_fn = lambda n, x: (
+        f"{n} is eligible for Medicaid." if x else f"{n} is not eligible for Medicaid."
+    )
+
+    def conform(cls, hh, person_idx, original_value):
+        if hh.members[person_idx]["receives_medicaid"]:
+            return True
+        return original_value
+
 
 class receives_fpha(BasePersonAttr):
     schema = And(bool)

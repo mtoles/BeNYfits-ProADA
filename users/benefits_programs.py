@@ -3461,10 +3461,20 @@ class NYCNurseFamilyPartnership(BaseBenefitsProgram):
     This program is available to all eligible parents, regardless of age, immigration status, or gender identity."""
     @staticmethod
     def __call__(hh):
-        pass
+        for m in hh.members:
+            if m["pregnant"]:
+                if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
+                    if m["eligible_for_medicaid"]:
+                        return True
+        return False
 
 class SummerYouthEmploymentProgram(BaseBenefitsProgram):
-    """Description for Summer Youth Employment Program"""
+    """You are eligible if you:live in New York City
+    are 14-24 years old"""
     @staticmethod
     def __call__(hh):
-        pass
+        for m in hh.members:
+            if m["age"] >= 14 and m["age"] <= 24:
+                if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
+                    return True
+        return False
