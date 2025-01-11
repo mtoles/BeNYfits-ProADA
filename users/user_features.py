@@ -1383,15 +1383,15 @@ class mental_health_condition(BasePersonAttr):
     )
 
 
-class difficulty_in_regular_classroom(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = False
-    nl_fn = lambda n, x: (
-        f"{n} has serious difficulty in a regular classroom."
-        if x
-        else f"{n} does not have difficulty in a regular classroom."
-    )
+# class difficulty_in_regular_classroom(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = False
+#     nl_fn = lambda n, x: (
+#         f"{n} has serious difficulty in a regular classroom."
+#         if x
+#         else f"{n} does not have difficulty in a regular classroom."
+#     )
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] > 18:
