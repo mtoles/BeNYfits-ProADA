@@ -3,7 +3,17 @@ from names import get_full_name
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
-from users.user_features import PersonAttributeMeta
+from users.user_features import (
+    PersonAttributeMeta,
+    HousingEnum,
+    RelationEnum,
+    SexEnum,
+    PlaceOfResidenceEnum,
+    CitizenshipEnum,
+    EducationLevelEnum,
+    GradeLevelEnum,
+)
+from users import user_features
 
 
 np.random.seed(0)
@@ -191,6 +201,14 @@ class Household:
             member.validate()
         assert _one_self(self)
 
+    def conform(self):
+        for i in range(len(self.members)):
+            for attr in user_features.BasePersonAttr.registry.keys():
+                cls = user_features.BasePersonAttr.registry[attr]
+                self.members[i][attr] = cls.conform(cls, self, i, self.members[i][attr])
+        self.validate()
+        return self
+
     ### CONVENIENCE METHODS FOR GRAPH LOGIC ###
     def user(self):
         return self.members[0]
@@ -267,11 +285,11 @@ class Household:
             )
         self.features["housing_type"] = htype
 
-    def get_housing_type(self) -> str:
-        """
-        Retrieve the household's housing type.
-        """
-        return self.features.get("housing_type", None)
+    # def get_housing_type(self) -> str:
+    #     """
+    #     Retrieve the household's housing type.
+    #     """
+    #     return self.features.get("housing_type", None)
 
     def property_owners(self):
         """
@@ -311,6 +329,22 @@ class Household:
                 f"There are {num_members} members in your household, of which {num_children} are children."
             ]
         ).strip()
+
+
+def nuclear_family():
+    mom = Person.default_person(random_name=False)
+    mom["sex"] = SexEnum.FEMALE.value
+    mom["age"] = 40
+    dad = Person.default_person(random_name=False)
+    dad["sex"] = SexEnum.MALE.value
+    dad["age"] = 40
+    dad["relation"] = RelationEnum.SPOUSE.value
+    child = Person.default_person(random_name=False)
+    child["sex"] = SexEnum.FEMALE.value
+    child["age"] = 10
+    child["relation"] = RelationEnum.CHILD.value
+    child["dependent"] = True
+    return Household([mom, dad, child])
 
 
 def show_abnormal(member, default_member):

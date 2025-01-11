@@ -105,6 +105,9 @@ parser.add_argument(
     ),
     help="Use lmwrapper cache. Disable to allow sampling",
 )
+
+### run unit tests
+
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")

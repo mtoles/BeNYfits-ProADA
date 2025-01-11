@@ -1,6 +1,6 @@
 import random
 from names import get_full_name
-from users.users import Household, Person
+from users.users import Household, Person, nuclear_family
 from users import user_features
 from users.user_features import (
     HousingEnum,
@@ -12,6 +12,15 @@ from users.user_features import (
     GradeLevelEnum,
 )
 import numpy as np
+import unittest
+from copy import deepcopy
+import sys
+
+
+def trace_returns(frame, event, arg):
+    if event == "return":  # and frame.f_code.co_name == "foo":
+        print(f"Returning from {frame.f_code.co_name} at line {frame.f_lineno}")
+    return trace_returns
 
 
 # from users.users import Household, Person # don't import this to avoid circular logic
@@ -24,6 +33,18 @@ class BenefitsProgramMeta(type):
         if name != "BaseBenefitsProgram":
             cls.registry[name] = new_program
         return new_program
+
+    @classmethod
+    def run_tests(cls):
+        passed = 0
+        total = len(cls.registry)
+        for program in cls.registry.values():
+            if hasattr(program, "test_cases"):
+                # print(f"Running tests for {program.__name__}")
+                program.test_cases()
+                print(f"Finished running tests for {program.__name__}")
+                passed += 1
+        print(f"Passed {passed} out of {total} tests")
 
 
 class BaseBenefitsProgram(metaclass=BenefitsProgramMeta):
@@ -73,10 +94,11 @@ def get_random_household_input():
         members.append(adult)
 
     hh = Household(members)
-    for i in range(len(hh.members)):
-        for attr in user_features.BasePersonAttr.registry.keys():
-            cls = user_features.BasePersonAttr.registry[attr]
-            hh.members[i][attr] = cls.conform(cls, hh, i, hh.members[i][attr])
+    # for i in range(len(hh.members)):
+    #     for attr in user_features.BasePersonAttr.registry.keys():
+    #         cls = user_features.BasePersonAttr.registry[attr]
+    #         hh.members[i][attr] = cls.conform(cls, hh, i, hh.members[i][attr])
+    hh = hh.conform()
     hh.validate()
     return hh
 
@@ -143,7 +165,7 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
             qualifying_family_lived_with_hh = []
 
             for m in qualifying_family:
-                if m["duration_more_than_half_prev_year"]:
+                if m["lived_together_last_6_months"]:
                     qualifying_family_lived_with_hh.append(m)
 
             if filing_jointly:
@@ -204,6 +226,45 @@ class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
 
         return True
 
+    @classmethod
+    def test_cases(cls):
+        ### Passing
+        adult = Person.default_person(is_self=True)
+        adult["works_outside_home"] = True
+        child = Person.default_person(is_self=False)
+        child["age"] = 12
+        child["lived_together_last_6_months"]
+        child["has_paid_caregiver"] = True
+        adult["annual_work_income"] = 10000
+        hh_pass_1 = Household([adult, child])
+
+        hh_pass_2 = deepcopy(hh_pass_1)
+        spouse = Person.default_person(is_self=False)
+        spouse["relation"] = "spouse"
+        spouse["works_outside_home"] = True
+        spouse["filing_jointly"] = True
+        hh_pass_2.user()["filing_jointly"] = True
+
+        ### Failing
+        hh_fail_1 = deepcopy(hh_pass_1)
+        hh_fail_1.user()["works_outside_home"] = False
+
+        hh_fail_2 = deepcopy(hh_pass_2)
+        hh_fail_2.members[1]["age"] = 15
+
+        for i, hh in enumerate([hh_pass_1, hh_pass_2]):
+            result = cls.__call__(hh)
+            assert result, f"test {i} failed"
+        for i, hh in enumerate(
+            [
+                hh_fail_1,
+                hh_fail_2,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert not result, f"test {i} failed"
+        # return {"pass": [hh_pass_1, hh_pass_2], "fail": [hh_fail_1, hh_fail_2]}
+
 
 # def ComprehensiveAfterSchool(hh) -> bool:
 class ComprehensiveAfterSchool(BaseBenefitsProgram):
@@ -217,17 +278,30 @@ class ComprehensiveAfterSchool(BaseBenefitsProgram):
                 return True
         return False
 
-    @staticmethod
-    def unit_tests(hh):
-        hh1 = Household([Person.default_unemployed(is_self=True)])
-        hh1.members[0]["current_school_level"] = 1  # in first grade
-        hh1 = Household([Person.default_unemployed(is_self=True)])
-        hh1.members[0]["current_school_level"] = 1  # in first grade
-        return [
-            {
-                hh1: True,
-            },
-        ]
+    @classmethod
+    def test_cases(cls):
+        ### Passing
+        adult = Person.default_person(is_self=True)
+        adult["current_school_level"] = 1
+        hh_pass_1 = Household([adult])
+
+        hh_fail_1 = deepcopy(hh_pass_1)
+        hh_fail_1.members[0]["current_school_level"] = "college"
+
+        for i, hh in enumerate(
+            [
+                hh_pass_1,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert result, f"test {i} failed"
+        for i, hh in enumerate(
+            [
+                hh_fail_1,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert not result, f"test {i} failed"
 
 
 # def EarlyHeadStartPrograms(hh) -> bool:
@@ -293,6 +367,47 @@ class EarlyHeadStartPrograms(BaseBenefitsProgram):
             return False
 
         return True
+
+    @classmethod
+    def test_cases(cls):
+        # Early Head Start Tests
+        # Passing Test Case
+        person_pass_ehs = Person.default_person(is_self=True)
+        child1 = Person.default_person(is_self=False)
+        child1["age"] = 2
+        person_pass_ehs["housing_type"] = HousingEnum.TEMPORARY_HOUSING.value
+        person_pass_ehs["annual_work_income"] = 14000
+        hh_pass_ehs = Household([person_pass_ehs, child1])
+
+        # Failing Test Case (child too old)
+        person_fail_age_ehs = deepcopy(person_pass_ehs)
+        child2 = deepcopy(child1)
+        child2["age"] = 4
+        hh_fail_age_ehs = Household([person_fail_age_ehs, child2])
+
+        # Failing Test Case (income too high)
+        person_fail_income_ehs = deepcopy(person_pass_ehs)
+        person_fail_income_ehs["annual_work_income"] = 40000
+        person_fail_income_ehs["housing_type"] = HousingEnum.HOUSE_2B.value
+        hh_fail_income_ehs = Household([person_fail_income_ehs, child1])
+
+        for i, hh in enumerate(
+            [
+                hh_pass_ehs,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert result, f"EarlyHeadStart test {i} failed"
+        for i, hh in enumerate(
+            [
+                hh_fail_age_ehs,
+                hh_fail_income_ehs,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert not result, f"EarlyHeadStart test {i} failed"
+
+        print(f"{cls.__name__} tests passed")
 
 
 # def InfantToddlerPrograms(hh) -> bool:
@@ -400,6 +515,14 @@ class InfantToddlerPrograms(BaseBenefitsProgram):
 
         return True
 
+    @classmethod
+    def test_cases(cls):
+        hh1 = nuclear_family()
+        hh1.user()["work_hours_per_week"] = 10
+        hh1.spouse()["enrolled_in_educational_training"] = True
+        hh1.members[2]["age"] = 0
+        assert cls.__call__(hh1)
+
 
 # def ChildTaxCredit(hh) -> bool:
 class ChildTaxCredit(BaseBenefitsProgram):
@@ -422,7 +545,7 @@ class ChildTaxCredit(BaseBenefitsProgram):
             return False
 
         def _r2(hh) -> list:
-            eligible_child = False
+            # eligible_child = False
 
             def _qualifies(m) -> bool:
 
@@ -457,7 +580,7 @@ class ChildTaxCredit(BaseBenefitsProgram):
         def _r3(eligible_children: list) -> list:
             def _qualifies(m) -> bool:
 
-                if not m["duration_more_than_half_prev_year"]:
+                if not m["lived_together_last_6_months"]:
                     return False
                 elif not m["dependent"]:
                     return False
@@ -485,6 +608,111 @@ class ChildTaxCredit(BaseBenefitsProgram):
             return False
 
         return True
+
+    @classmethod
+    def test_cases(cls):
+        """Tests eligibility for the 2023 tax year credit."""
+
+        # Test 1: Basic eligibility (single filer)
+        hh1 = nuclear_family()
+        hh1.user()["annual_work_income"] = 50000
+        hh1.spouse()["annual_work_income"] = 0
+        hh1.user()["work_hours_per_week"] = 10
+        hh1.spouse()["work_hours_per_week"] = 10
+        hh1.members[2]["age"] = 10
+        hh1.members[2]["has_ssn"] = True
+        hh1.members[2]["relation"] = RelationEnum.CHILD
+        hh1.members[2]["lived_together_last_6_months"] = True
+        hh1.members[2]["provides_over_half_of_own_financial_support"] = False
+        hh1.user()["filing_jointly"] = False
+        assert cls.__call__(hh1), "Test 1 failed: Basic eligibility"
+
+        # Test 2: Married filing jointly with combined income below $400,000
+        hh2 = nuclear_family()
+        hh2.user()["annual_work_income"] = 150000
+        hh2.spouse()["annual_work_income"] = 200000
+        hh2.members[2]["age"] = 8
+        hh2.members[2]["has_ssn"] = True
+        hh2.members[2]["relation"] = RelationEnum.ADOPTED_CHILD
+        hh2.members[2]["lived_together_last_6_months"] = True
+        hh2.members[2]["provides_over_half_of_own_financial_support"] = False
+        hh2.user()["filing_jointly"] = True
+        assert cls.__call__(hh2), "Test 2 failed: Married filing jointly"
+
+        # Test 3: Child aged 16, but no SSN or ATIN
+        hh3 = nuclear_family()
+        hh3.user()["annual_work_income"] = 75000
+        hh3.members[2]["age"] = 16
+        hh3.members[2]["has_ssn"] = False
+        hh3.members[2]["relation"] = RelationEnum.CHILD
+        hh3.members[2]["lived_together_last_6_months"] = True
+        hh3.members[2]["provides_over_half_of_own_financial_support"] = False
+        assert not cls.__call__(hh3), "Test 3 failed: Child missing SSN or ATIN"
+
+        # Test 4: Income exceeds $200,000 for single filer
+        hh4 = nuclear_family()
+        hh4.user()["annual_work_income"] = 250000
+        hh4.spouse()["annual_work_income"] = 0
+        hh4.members[2]["age"] = 12
+        hh4.members[2]["has_ssn"] = True
+        hh4.members[2]["relation"] = RelationEnum.CHILD
+        hh4.members[2]["lived_together_last_6_months"] = True
+        hh4.members[2]["provides_over_half_of_own_financial_support"] = False
+        hh4.user()["filing_jointly"] = False
+        assert not cls.__call__(hh4), "Test 4 failed: Income exceeds $200,000"
+
+        # Test 5: Qualifying child is not a direct relation (e.g., foster child)
+        hh5 = nuclear_family()
+        hh5.user()["annual_work_income"] = 120000
+        hh5.members[2]["age"] = 15
+        hh5.members[2]["has_ssn"] = True
+        hh5.members[2]["relation"] = RelationEnum.FOSTER_CHILD
+        hh5.members[2]["lived_together_last_6_months"] = True
+        hh5.members[2]["provides_over_half_of_own_financial_support"] = False
+        hh5.user()["filing_jointly"] = False
+        assert cls.__call__(hh5), "Test 5 failed: Foster child as qualifying child"
+
+        # Test 6: Child provided more than half of their financial support
+        hh6 = nuclear_family()
+        hh6.user()["annual_work_income"] = 50000
+        hh6.members[2]["age"] = 14
+        hh6.members[2]["has_ssn"] = True
+        hh6.members[2]["relation"] = RelationEnum.CHILD
+        hh6.members[2]["lived_together_last_6_months"] = True
+        hh6.members[2]["provides_over_half_of_own_financial_support"] = True
+        assert not cls.__call__(
+            hh6
+        ), "Test 6 failed: Child providing own financial support"
+
+        # Test 7: Child did not live with the filer for more than half of the year
+        hh7 = nuclear_family()
+        hh7.user()["annual_work_income"] = 50000
+        hh7.members[2]["age"] = 10
+        hh7.members[2]["has_ssn"] = True
+        hh7.members[2]["relation"] = RelationEnum.CHILD
+        hh7.members[2]["lived_together_last_6_months"] = False
+        hh7.members[2]["provides_over_half_of_own_financial_support"] = False
+        assert not cls.__call__(hh7), "Test 7 failed: Child did not live with filer"
+
+        # Additional edge cases
+        # Ensure households with no children fail
+        hh8 = nuclear_family()
+        hh8.user()["annual_work_income"] = 60000
+        hh8.spouse()["annual_work_income"] = 0
+        hh8.members = hh8.members[:-1]
+        assert not cls.__call__(hh8), "Test 8 failed: No children in household"
+
+        # Ensure a child above 16 fails
+        hh9 = nuclear_family()
+        hh9.user()["annual_work_income"] = 50000
+        hh9.members[2]["age"] = 17
+        hh9.members[2]["has_ssn"] = True
+        hh9.members[2]["relation"] = RelationEnum.CHILD
+        hh9.members[2]["lived_together_last_6_months"] = True
+        hh9.members[2]["provides_over_half_of_own_financial_support"] = False
+        assert not cls.__call__(hh9), "Test 9 failed: Child above 16"
+
+        print("All tests passed!")
 
 
 # def DisabilityRentIncreaseExemption(hh) -> bool:
@@ -524,7 +752,7 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
             return False
 
         def _r5(hh) -> bool:
-            if not hh.user()["place_of_residence"] == "NYC":
+            if not hh.user()["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                 return False
             elif (
                 hh.user()["housing_type"] == HousingEnum.RENT_STABILIZED_APARTMENT.value
@@ -590,6 +818,99 @@ class DisabilityRentIncreaseExemption(BaseBenefitsProgram):
 
         return True
 
+    @classmethod
+    def test_cases(cls):
+        # Test case 1: All requirements met
+        hh1 = nuclear_family()
+        hh1.user()["age"] = 25  # Age 18 or older
+        hh1.user()["name_is_on_lease"] = True  # Name on lease
+        hh1.user()["annual_work_income"] = 20000
+        hh1.spouse()["annual_work_income"] = 15000
+        hh1.members[2]["annual_work_income"] = 0  # Combined income $50,000 or less
+        hh1.user()["monthly_rent_spending"] = 10000  # More than 1/3 of income on rent
+        hh1.user()[
+            "place_of_residence"
+        ] = PlaceOfResidenceEnum.NYC.value  # Lives in NYC
+        hh1.user()[
+            "housing_type"
+        ] = HousingEnum.RENT_STABILIZED_APARTMENT.value  # Valid housing type
+        hh1.user()["receives_ssi"] = True  # Receives SSI
+        assert cls.__call__(hh1)
+
+        # Test case 2: Age requirement not met
+        hh2 = nuclear_family()
+        hh2.user()["age"] = 17  # Under 18
+        hh2.user()["name_is_on_lease"] = True
+        hh2.user()["annual_work_income"] = 20000
+        hh2.spouse()["annual_work_income"] = 15000
+        hh2.user()["monthly_rent_spending"] = 800
+        hh2.user()["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh2.user()["housing_type"] = HousingEnum.RENT_STABILIZED_APARTMENT.value
+        hh2.user()["receives_ssi"] = True
+        assert not cls.__call__(hh2)
+
+        # Test case 3: Name on lease missing
+        hh3 = nuclear_family()
+        hh3.user()["age"] = 25
+        hh3.user()["name_is_on_lease"] = False  # Name not on lease
+        hh3.user()["annual_work_income"] = 20000
+        hh3.spouse()["annual_work_income"] = 15000
+        hh3.user()["monthly_rent_spending"] = 800
+        hh3.user()["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.user()["housing_type"] = HousingEnum.RENT_STABILIZED_APARTMENT.value
+        hh3.user()["receives_ssi"] = True
+        assert not cls.__call__(hh3)
+
+        # Test case 4: Combined income exceeds $50,000
+        hh4 = nuclear_family()
+        hh4.user()["age"] = 25
+        hh4.user()["name_is_on_lease"] = True
+        hh4.user()["annual_work_income"] = 40000  # Exceeds limit
+        hh4.spouse()["annual_work_income"] = 20000
+        hh4.user()["monthly_rent_spending"] = 800
+        hh4.user()["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh4.user()["housing_type"] = HousingEnum.RENT_STABILIZED_APARTMENT.value
+        hh4.user()["receives_ssi"] = True
+        assert not cls.__call__(hh4)
+
+        # Test case 5: Rent spending less than one-third of income
+        hh5 = nuclear_family()
+        hh5.user()["age"] = 25
+        hh5.user()["name_is_on_lease"] = True
+        hh5.user()["annual_work_income"] = 20000
+        hh5.spouse()["annual_work_income"] = 15000
+        hh5.user()["monthly_rent_spending"] = 500  # Less than 1/3
+        hh5.user()["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh5.user()["housing_type"] = HousingEnum.RENT_STABILIZED_APARTMENT.value
+        hh5.user()["receives_ssi"] = True
+        assert not cls.__call__(hh5)
+
+        # Test case 6: Invalid housing type
+        hh6 = nuclear_family()
+        hh6.user()["age"] = 25
+        hh6.user()["name_is_on_lease"] = True
+        hh6.user()["annual_work_income"] = 20000
+        hh6.spouse()["annual_work_income"] = 15000
+        hh6.user()["monthly_rent_spending"] = 800
+        hh6.user()["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh6.user()["housing_type"] = HousingEnum.HOUSE_2B.value  # Invalid housing type
+        hh6.user()["receives_ssi"] = True
+        assert not cls.__call__(hh6)
+
+        # Test case 7: Missing income from eligible benefits
+        hh7 = nuclear_family()
+        hh7.user()["age"] = 25
+        hh7.user()["name_is_on_lease"] = True
+        hh7.user()["annual_work_income"] = 20000
+        hh7.spouse()["annual_work_income"] = 15000
+        hh7.user()["monthly_rent_spending"] = 800
+        hh7.user()["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh7.user()["housing_type"] = HousingEnum.RENT_STABILIZED_APARTMENT.value
+        hh7.user()["receives_ssi"] = False  # No eligible income source
+        assert not cls.__call__(hh7)
+
+        # Additional edge cases can be added as needed to cover every scenario.
+
 
 # def EarnedIncomeTaxCredit(hh):
 class EarnedIncomeTaxCredit(BaseBenefitsProgram):
@@ -620,11 +941,11 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
                     # "stepchild",
                     # "foster_child",
                     # "grandchild",
-                    RelationEnum.CHILD,
-                    RelationEnum.STEPCHILD,
-                    RelationEnum.FOSTER_CHILD,
-                    RelationEnum.GRANDCHILD,
-                    RelationEnum.ADOPTED_CHILD,
+                    RelationEnum.CHILD.value,
+                    RelationEnum.STEPCHILD.value,
+                    RelationEnum.FOSTER_CHILD.value,
+                    RelationEnum.GRANDCHILD.value,
+                    RelationEnum.ADOPTED_CHILD.value,
                 ]:
                     qualifying_children.append(m)
 
@@ -645,10 +966,12 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
                     if hh.marriage_total_income() <= 56838:
                         return True
                     return False
+                else:
+                    if hh.marriage_total_income() <= 17640:
+                        return True
+                    return False
             else:
-                if hh.marriage_total_income() <= 17640:
-                    return True
-                return False
+                raise NotImplementedError  # should never happen
 
         def _r4(hh) -> bool:
             qualifying_children = []
@@ -659,11 +982,11 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
                     # "stepchild",
                     # "foster_child",
                     # "grandchild",
-                    RelationEnum.CHILD,
-                    RelationEnum.STEPCHILD,
-                    RelationEnum.FOSTER_CHILD,
-                    RelationEnum.GRANDCHILD,
-                    RelationEnum.ADOPTED_CHILD,
+                    RelationEnum.CHILD.value,
+                    RelationEnum.STEPCHILD.value,
+                    RelationEnum.FOSTER_CHILD.value,
+                    RelationEnum.GRANDCHILD.value,
+                    RelationEnum.ADOPTED_CHILD.value,
                 ]:
                     qualifying_children.append(m)
 
@@ -681,12 +1004,12 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
             if hh.user()["filing_jointly"]:
                 return True
             else:
-                duration_more_than_half_prev_year_members = []
+                lived_together_last_6_months_members = []
 
                 for m in hh.members:
-                    if m["duration_more_than_half_prev_year"]:
-                        duration_more_than_half_prev_year_members.append(m)
-                if bool(duration_more_than_half_prev_year_members):
+                    if m["lived_together_last_6_months"]:
+                        lived_together_last_6_months_members.append(m)
+                if bool(lived_together_last_6_months_members):
                     return True
                 return False
 
@@ -708,55 +1031,94 @@ class EarnedIncomeTaxCredit(BaseBenefitsProgram):
 
         return True
 
+    @classmethod
+    def test_cases(cls):
+        # Test 1: Married with qualifying children, earning under $63,398
+        hh1 = nuclear_family()
+        hh1.user()["annual_work_income"] = 40000
+        hh1.spouse()["annual_work_income"] = 20000
+        hh1.user()["filing_jointly"] = True
+        hh1.spouse()["filing_jointly"] = True
+        hh1.members[2]["relation"] = RelationEnum.CHILD.value
+        hh1.members[2]["age"] = 10
+        assert cls.__call__(hh1)
 
-# def EarlyHeadStartPrograms(hh) -> bool:
-class EarlyHeadStartPrograms(BaseBenefitsProgram):
-    @staticmethod
-    def __call__(hh) -> bool:
-        """
-        The best way to find out if your family is eligible for Early Head Start is to contact a program directly. Your family qualifies for Early Head Start if your child is age 3 or younger and at least one of these categories applies to you:
-        1. You live in temporary housing.
-        2. You receive HRA Cash Assistance.
-        3. You receive SSI (Supplemental Security Insurance).
-        4. You are enrolling a child who is in foster care.
-        5. If your household income is at or below these amounts:
-        Family size and yearly income:
-        1 - $14,580
-        2 - $19,720
-        3 - $24,860
-        4 - $30,000
-        5 - $35,140
-        6 - $40,280
-        7 - $45,420
-        8 - $50,560
-        For each additional person, add $5,140.
-        """
+        # Test 2: Married with no qualifying children, earning under $24,210
+        hh2 = nuclear_family()
+        hh2.user()["annual_work_income"] = 12000
+        hh2.spouse()["annual_work_income"] = 8000
+        assert cls.__call__(hh2)
 
-        def _has_toddler(hh) -> bool:
-            members = hh.members
-            for m in members:
-                if m["age"] <= 3:
-                    return True
-            return False
+        # Test 3: Single with qualifying children, earning under $56,838
+        hh3 = nuclear_family()
+        hh3.spouse()["annual_work_income"] = 0  # Spouse does not exist
+        hh3.user()["annual_work_income"] = 50000
+        hh3.members[2]["relation"] = RelationEnum.CHILD.value
+        hh3.members[2]["age"] = 8
+        assert cls.__call__(hh3)
 
-        # temp_housing = hh.user()["lives_in_temp_housing"]
-        temp_housing = hh.user()["housing_type"] == HousingEnum.TEMPORARY_HOUSING.value
-        hra = hh.user()["receives_hra"]
-        ssi = hh.user()["receives_ssi"]
-        foster_care = bool([m for m in hh.members if m["in_foster_care"]])
-        hh_income = hh.hh_annual_total_income()
-        hh_size = hh.num_members()
+        # Test 4: Single with no qualifying children, earning under $17,640
+        hh4 = nuclear_family()
+        hh4.spouse()["annual_work_income"] = 0
+        hh4.user()["annual_work_income"] = 16000
+        hh4.members[2]["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        hh4.members[2]["age"] = 10
+        assert cls.__call__(hh4)
 
-        def _income_eligible(hh_income: float, hh_size: int) -> bool:
-            return hh_income <= 9440 + 5140 * hh_size
+        # Test 5: No children, filer age between 25 and 64
+        hh5 = nuclear_family()
+        hh5.spouse()["annual_work_income"] = 0
+        hh5.user()["annual_work_income"] = 15000
+        hh5.user()["age"] = 30
+        hh5.members[2]["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        assert cls.__call__(hh5)
 
-        return _has_toddler(hh) and (
-            temp_housing
-            or hra
-            or ssi
-            or foster_care
-            or _income_eligible(hh_income, hh_size)
-        )
+        # Test 6: Married Filing Separately, with a qualifying child
+        hh6 = nuclear_family()
+        hh6.spouse()["filing_jointly"] = False
+        hh6.user()["filing_jointly"] = False
+        hh6.user()["annual_work_income"] = 30000
+        hh6.members[2]["relation"] = RelationEnum.CHILD.value
+        hh6.members[2]["age"] = 5
+        hh6.members[2]["lived_together_last_6_months"] = True
+        assert cls.__call__(hh6)
+
+        # Test 8: Invalid case - investment income over $11,000
+        hh8 = nuclear_family()
+        hh8.user()["annual_work_income"] = 50000
+        hh8.user()["annual_investment_income"] = 12000
+        hh8.members[2]["relation"] = RelationEnum.CHILD.value
+        hh8.members[2]["age"] = 15
+        assert not cls.__call__(hh8)
+
+        # Test 9: Invalid case - no valid Social Security Number
+        hh9 = nuclear_family()
+        hh9.user()["has_ssn"] = False
+        hh9.user()["annual_work_income"] = 50000
+        hh9.members[2]["relation"] = RelationEnum.CHILD.value
+        hh9.members[2]["age"] = 15
+        assert not cls.__call__(hh9)
+
+        # Test 10: Invalid case - no qualifying children and filer under 25
+        hh10 = nuclear_family()
+        hh10.user()["age"] = 20
+        hh10.user()["annual_work_income"] = 15000
+        hh10.members[2]["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        assert not cls.__call__(hh10)
+
+        # Test 11: Invalid case - married with no children earning over $24,210
+        hh11 = nuclear_family()
+        hh11.user()["annual_work_income"] = 20000
+        hh11.spouse()["annual_work_income"] = 5000
+        hh11.members[2]["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        assert not cls.__call__(hh11)
+
+        # Test 12: Invalid case - married filing separately with no qualifying child
+        hh12 = nuclear_family()
+        hh12.user()["annual_work_income"] = 30000
+        hh12.spouse()["filing_jointly"] = False
+        hh12.members[2]["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        assert not cls.__call__(hh12)
 
 
 # def HeadStart(hh) -> bool:
@@ -810,7 +1172,13 @@ class HeadStart(BaseBenefitsProgram):
             return False
 
         def _r5(hh) -> bool:
-            if bool([m for m in hh.members if m["in_foster_care"]]):
+            if bool(
+                [
+                    m
+                    for m in hh.members
+                    if m["relation"] == RelationEnum.FOSTER_CHILD.value
+                ]
+            ):
                 return True
             return False
 
@@ -838,23 +1206,114 @@ class HeadStart(BaseBenefitsProgram):
 
         return False
 
+    @classmethod
+    def test_cases(cls):
+        # 1. Child aged 3-4 and living in temporary housing
+        hh1 = nuclear_family()
+        hh1.members[2]["age"] = 4
+        hh1.user()["housing_type"] = HousingEnum.TEMPORARY_HOUSING.value
+        assert cls.__call__(hh1)
 
-class ComprehensiveAfterSchool(BaseBenefitsProgram):
-    @staticmethod
-    def __call__(hh) -> bool:
-        """
-        All NYC students in kindergarten to 12th grade are eligible to enroll in COMPASS programs. Each program may have different age and eligibility requirements.
-        """
-        for m in hh.members:
-            if m["current_school_level"] in list(range(1, 13)) + ["k"]:
-                return True
-        return False
+        # 2. Child aged 3-4 and receiving HRA Cash Assistance
+        hh2 = nuclear_family()
+        hh2.members[2]["age"] = 3
+        hh2.user()["receives_temporary_assistance"] = True
+        assert cls.__call__(hh2)
 
+        # 3. Child aged 3-4 and receiving SNAP
+        hh3 = nuclear_family()
+        hh3.members[2]["age"] = 4
+        hh3.user()["receives_snap"] = True
+        assert cls.__call__(hh3)
 
-# TODO - RATTAN
-# Cash Assistance --- Very vague --- No clear requirements
+        # 4. Child aged 3-4 and receiving SSI
+        hh4 = nuclear_family()
+        hh4.members[2]["age"] = 3
+        hh4.user()["receives_ssi"] = True
+        assert cls.__call__(hh4)
 
-# Health Insurance Assistance - Vague and Not clear
+        # 5. Child aged 3-4 and in foster care
+        hh5 = nuclear_family()
+        hh5.members[2]["age"] = 3
+        hh5.members[2]["in_foster_care"] = True
+        assert cls.__call__(hh5)
+
+        # 6. Child aged 3-4 and family income below threshold for household size
+        hh6 = nuclear_family()
+        hh6.members[2]["age"] = 3
+        hh6.user()["annual_work_income"] = 10000
+        hh6.user()["annual_investment_income"] = 5000
+        assert cls.__call__(hh6)
+
+        # 7. Child aged 3-4, income just below threshold for household size of 3
+        hh7 = nuclear_family()
+        hh7.members[2]["age"] = 4
+        hh7.user()["annual_work_income"] = 10000
+        hh7.user()["annual_investment_income"] = 15000
+        assert cls.__call__(hh7)
+
+        # 8. Child aged 3-4, income just above threshold for household size of 3
+        hh8 = nuclear_family()
+        hh8.members[2]["age"] = 4
+        hh8.user()["annual_work_income"] = 20000
+        hh8.user()["annual_investment_income"] = 10000
+        assert not cls.__call__(hh8)
+
+        # 9. No eligible child, but household meets income requirements
+        hh9 = nuclear_family()
+        hh9.members[2]["age"] = 5
+        hh9.user()["annual_work_income"] = 10000
+        hh9.user()["annual_investment_income"] = 15000
+        assert not cls.__call__(hh9)
+
+        # 10. Child aged 3-4, multiple qualifying conditions (e.g., receiving SNAP and in temporary housing)
+        hh10 = nuclear_family()
+        hh10.members[2]["age"] = 4
+        hh10.user()["receives_snap"] = True
+        hh10.user()["housing_type"] = HousingEnum.TEMPORARY_HOUSING.value
+        assert cls.__call__(hh10)
+
+        # 11. Child aged 3-4, no qualifying conditions met
+        hh11 = nuclear_family()
+        hh11.user()["annual_work_income"] = 999999
+        hh11.members[2]["age"] = 3
+        assert not cls.__call__(hh11)
+
+        # 12. Larger household size (5) with income below threshold
+        hh12 = nuclear_family()
+        # hh12.members.append({"age": 8})  # Adding another child
+        hh12.members.append(hh12.members[2])
+        hh12.members.append(hh12.members[2])
+        hh12.members[2]["age"] = 4
+        hh12.user()["annual_work_income"] = 30000
+        assert cls.__call__(hh12)
+
+        # 13. Larger household size (5) with income above threshold
+        hh13 = nuclear_family()
+        hh12.members.append(hh12.members[2])
+        hh12.members.append(hh12.members[2])
+        hh13.members[2]["age"] = 3
+        hh13.user()["annual_work_income"] = 40000
+        assert not cls.__call__(hh13)
+
+        # 14. Edge case: Child aged 2 (not 3-4), income below threshold
+        hh14 = nuclear_family()
+        hh14.members[2]["age"] = 2
+        hh14.user()["annual_work_income"] = 15000
+        assert not cls.__call__(hh14)
+
+        # 15. Edge case: Child aged 5 (not 3-4), meeting other qualifying conditions
+        hh15 = nuclear_family()
+        hh15.members[2]["age"] = 5
+        hh15.user()["receives_snap"] = True
+        assert not cls.__call__(hh15)
+
+        # 16. Child aged 3-4, receiving SSI, income above threshold
+        hh16 = nuclear_family()
+        hh16.members[2]["age"] = 4
+        hh16.user()["receives_ssi"] = True
+        hh16.user()["annual_work_income"] = 50000
+        assert cls.__call__(hh16)
 
 
 class SchoolTaxReliefProgram(BaseBenefitsProgram):
@@ -896,12 +1355,6 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
         def _is_eligible_homeowner(hh):
             # Check if the user owns an eligible type of housing
             eligible_housing_types = [
-                # "house",
-                # "condo",
-                # "cooperative_apartment",
-                # "manufactured_home",
-                # "farmhouse",
-                # "mixed_use_property",
                 HousingEnum.HOUSE_2B.value,
                 HousingEnum.CONDO.value,
                 HousingEnum.COOPERATIVE_APARTMENT.value,
@@ -993,6 +1446,11 @@ class SchoolTaxReliefProgram(BaseBenefitsProgram):
 
         return basic_star_eligible or enhanced_star_eligible
 
+    @classmethod
+    def test_cases(cls):
+        pass
+        # raise NotImplementedError # "needs to be split into two programs"
+
 
 class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
     """
@@ -1051,6 +1509,51 @@ class Section8HousingChoiceVoucherProgram(BaseBenefitsProgram):
         # Check if the household's total income is within the limit
         return total_income <= income_limit
 
+    @classmethod
+    def test_cases(cls):
+
+        # Household of 3, combined income below threshold
+        hh3 = nuclear_family()
+        hh3.user()["annual_work_income"] = 40000
+        hh3.spouse()["annual_work_income"] = 20000
+        hh3.members[2]["annual_work_income"] = 5000
+        assert cls.__call__(hh3)
+
+        # Household of 3, combined income at threshold
+        hh3.spouse()["annual_work_income"] = 24900
+        assert cls.__call__(hh3)
+
+        # Household of 3, combined income above threshold
+        hh3.spouse()["annual_work_income"] = 30000
+        assert not cls.__call__(hh3)
+
+        # Household of 4, income below threshold with additional child
+        hh4 = nuclear_family()
+        hh4.members.append(hh4.members[-1])  # Add a fourth member
+        hh4.user()["annual_work_income"] = 50000
+        hh4.spouse()["annual_work_income"] = 20000
+        assert cls.__call__(hh4)
+
+        # Household of 4, income at threshold
+        hh4.spouse()["annual_work_income"] = 27650
+        assert cls.__call__(hh4)
+
+        # Household of 4, income above threshold
+        hh4.spouse()["annual_work_income"] = 30000
+        assert not cls.__call__(hh4)
+
+        # Test large household (8 members), income below threshold
+        hh8 = nuclear_family()
+        for _ in range(5):
+            hh8.members.append(hh8.members[-1])  # Add 5 additional members
+        hh8.user()["annual_work_income"] = 70000
+        hh8.spouse()["annual_work_income"] = 30000
+        assert cls.__call__(hh8)
+
+        # Test large household (8 members), income above threshold
+        hh8.spouse()["annual_work_income"] = 40000
+        assert not cls.__call__(hh8)
+
 
 class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
     """
@@ -1069,14 +1572,13 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh) -> bool:
         # 1. Check housing type using the new Household getter
-        valid_housing_types = {
-            "one_family_home",
-            "two_family_home",
-            "three_family_home",
-            "condo",
-            "coop",
-        }
-        housing_type = hh.get_housing_type()  # e.g., "one_family_home", "condo", etc.
+        valid_housing_types = [
+            HousingEnum.HOUSE_2B.value,
+            HousingEnum.CONDO.value,
+            HousingEnum.COOPERATIVE_APARTMENT.value,
+        ]
+        # housing_type = hh.get_housing_type()  # e.g., "one_family_home", "condo", etc.
+        housing_type = hh.user()["housing_type"]
         if housing_type not in valid_housing_types:
             return False
 
@@ -1090,7 +1592,7 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
 
         # Helper function to determine if two people are spouses or siblings
         def are_spouses_or_siblings(p1, p2):
-            rel1, rel2 = p1.get("relation", ""), p2.get("relation", "")
+            rel1, rel2 = p1["relation"], p2["relation"]
             # Basic logic: If either reports "spouse" or "sibling", treat them accordingly
             return (RelationEnum.SPOUSE.value in [rel1, rel2]) or (
                 RelationEnum.SIBLING.value in [rel1, rel2]
@@ -1099,23 +1601,23 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
         # 2A. Check the age requirement
         if len(owners) == 1:
             # If there is only one owner, that owner must be at least 65
-            if owners[0].get("age", 0) < 65:
+            if owners[0]["age"] < 65:
                 return False
 
         elif len(owners) == 2:
             # If there are exactly two owners, check if they are spouses or siblings
             if are_spouses_or_siblings(owners[0], owners[1]):
                 # Only one must be 65+
-                if not any(o.get("age", 0) >= 65 for o in owners):
+                if not any(o["age"] >= 65 for o in owners):
                     return False
             else:
                 # Otherwise, both must be 65+
-                if not all(o.get("age", 0) >= 65 for o in owners):
+                if not all(o["age"] >= 65 for o in owners):
                     return False
 
         else:
             # If more than two owners, all must be 65+
-            if not all(o.get("age", 0) >= 65 for o in owners):
+            if not all(o["age"] >= 65 for o in owners):
                 return False
 
         # 3. Primary residence requirement (all owners must live in the property they own)
@@ -1132,11 +1634,115 @@ class SeniorCitizenHomeownersExemption(BaseBenefitsProgram):
 
         # 5. Ownership duration (>=12 months) or previously had SCHE
         for o in owners:
-            print(o["months_owned_property"])
             if not o["had_previous_sche"] and o["months_owned_property"] < 12:
                 return False
 
         return True
+
+    @classmethod
+    def test_cases(cls):
+        # Test 1: All conditions met
+        hh1 = nuclear_family()
+        hh1.members[0]["housing_type"] = HousingEnum.CONDO.value
+        hh1.members[1]["housing_type"] = HousingEnum.CONDO.value
+        hh1.members[2]["housing_type"] = HousingEnum.CONDO.value
+        hh1.members[0]["is_property_owner"] = True
+        hh1.members[1]["is_property_owner"] = True
+        hh1.members[0]["age"] = 70
+        hh1.members[1]["age"] = 65
+        hh1.members[0]["primary_residence"] = True
+        hh1.members[1]["primary_residence"] = True
+        hh1.members[0]["annual_work_income"] = 20000
+        hh1.members[1]["annual_work_income"] = 10000
+        hh1.members[0]["months_owned_property"] = 24
+        hh1.members[1]["months_owned_property"] = 24
+        assert cls.__call__(hh1)
+
+        # Test 2: Property type not eligible
+        hh2 = nuclear_family()
+        hh2.members[0]["housing_type"] = HousingEnum.RENT_CONTROLLED_APARTMENT.value
+        hh2.members[1]["housing_type"] = HousingEnum.RENT_CONTROLLED_APARTMENT.value
+        hh2.members[2]["housing_type"] = HousingEnum.RENT_CONTROLLED_APARTMENT.value
+        hh2.members[0]["age"] = 70
+        hh2.members[1]["age"] = 65
+        hh2.members[0]["is_property_owner"] = True
+        hh2.members[1]["is_property_owner"] = True
+        hh2.members[0]["primary_residence"] = True
+        hh2.members[1]["primary_residence"] = True
+        hh2.members[0]["annual_work_income"] = 20000
+        hh2.members[1]["annual_work_income"] = 10000
+        hh2.members[0]["months_owned_property"] = 24
+        hh2.members[1]["months_owned_property"] = 24
+        assert not cls.__call__(hh2)
+
+        # Test 3: At least one owner under 65, no exception
+        hh3 = nuclear_family()
+        hh3.members[0]["housing_type"] = HousingEnum.CONDO.value
+        hh3.members[1]["housing_type"] = HousingEnum.CONDO.value
+        hh3.members[2]["housing_type"] = HousingEnum.CONDO.value
+        hh3.members[0]["age"] = 70
+        hh3.members[1]["age"] = 60
+        hh3.members[1]["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        hh3.members[0]["is_property_owner"] = True
+        hh3.members[1]["is_property_owner"] = True
+        hh3.members[0]["primary_residence"] = True
+        hh3.members[1]["primary_residence"] = True
+        hh3.members[0]["annual_work_income"] = 20000
+        hh3.members[1]["annual_work_income"] = 10000
+        hh3.members[0]["months_owned_property"] = 24
+        hh3.members[1]["months_owned_property"] = 24
+        assert not cls.__call__(hh3)
+
+        # Test 4: Combined income exceeds the limit
+        hh4 = nuclear_family()
+        hh4.members[0]["housing_type"] = HousingEnum.CONDO.value
+        hh4.members[1]["housing_type"] = HousingEnum.CONDO.value
+        hh4.members[2]["housing_type"] = HousingEnum.CONDO.value
+        hh4.members[0]["age"] = 70
+        hh4.members[1]["age"] = 65
+        hh4.members[0]["is_property_owner"] = True
+        hh4.members[1]["is_property_owner"] = True
+        hh4.members[0]["primary_residence"] = True
+        hh4.members[1]["primary_residence"] = True
+        hh4.members[0]["annual_work_income"] = 30000
+        hh4.members[1]["annual_work_income"] = 30000
+        hh4.members[0]["months_owned_property"] = 24
+        hh4.members[1]["months_owned_property"] = 24
+        assert not cls.__call__(hh4)
+
+        # Test 5: Not all owners own the property
+        hh5 = nuclear_family()
+        hh5.members[0]["housing_type"] = HousingEnum.CONDO.value
+        hh5.members[1]["housing_type"] = HousingEnum.CONDO.value
+        hh5.members[2]["housing_type"] = HousingEnum.CONDO.value
+        hh5.members[0]["age"] = 70
+        hh5.members[1]["age"] = 65
+        hh5.members[0]["is_property_owner"] = True
+        hh5.members[1]["is_property_owner"] = True
+        hh5.members[0]["primary_residence"] = True
+        hh5.members[1]["primary_residence"] = False
+        hh5.members[0]["annual_work_income"] = 20000
+        hh5.members[1]["annual_work_income"] = 10000
+        hh5.members[0]["months_owned_property"] = 24
+        hh5.members[1]["months_owned_property"] = 24
+        assert not cls.__call__(hh5)
+
+        # Test 6: Ownership duration less than 12 months
+        hh6 = nuclear_family()
+        hh6.members[0]["housing_type"] = HousingEnum.CONDO.value
+        hh6.members[1]["housing_type"] = HousingEnum.CONDO.value
+        hh6.members[2]["housing_type"] = HousingEnum.CONDO.value
+        hh6.members[0]["age"] = 70
+        hh6.members[1]["age"] = 65
+        hh6.members[0]["is_property_owner"] = True
+        hh6.members[1]["is_property_owner"] = True
+        hh6.members[0]["primary_residence"] = True
+        hh6.members[1]["primary_residence"] = True
+        hh6.members[0]["annual_work_income"] = 20000
+        hh6.members[1]["annual_work_income"] = 10000
+        hh6.members[0]["months_owned_property"] = 6
+        hh6.members[1]["months_owned_property"] = 6
+        assert not cls.__call__(hh6)
 
 
 class FamilyPlanningBenefitProgram(BaseBenefitsProgram):
@@ -1161,7 +1767,7 @@ class FamilyPlanningBenefitProgram(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         num_members = len(hh.members)
-        income = hh.hh_annual_total_income()
+        income = hh.hh_annual_total_income() / 12
         if num_members == 1:
             if income > 2799:
                 return False
@@ -1194,15 +1800,110 @@ class FamilyPlanningBenefitProgram(BaseBenefitsProgram):
             if user["place_of_residence"] != PlaceOfResidenceEnum.NYC.value:
                 return False
             if user["citizenship"] not in [
-                CitizenshipEnum.CITIZEN_OR_NATIONAL,
-                CitizenshipEnum.LAWFUL_RESIDENT,
+                CitizenshipEnum.CITIZEN_OR_NATIONAL.value,
+                CitizenshipEnum.LAWFUL_RESIDENT.value,
             ]:
                 return False
+            return True
 
         for m in hh.members:
             if user_is_eligible(m):
                 return True
         return False
+
+    @classmethod
+    def test_cases(cls):
+        # Case 1: Single-member household, eligible
+        hh1 = nuclear_family()
+        hh1.members = hh1.members[:1]  # Single-member household
+        hh1.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh1.members[0]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+        hh1.members[0]["annual_work_income"] = 2500  # Below threshold for family size 1
+        assert cls.__call__(hh1)
+
+        # Case 2: Family of 3, eligible
+        hh2 = nuclear_family()
+        hh2.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh2.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh2.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+
+        hh2.members[0]["citizenship"] = CitizenshipEnum.LAWFUL_RESIDENT.value
+        hh2.members[1]["citizenship"] = CitizenshipEnum.LAWFUL_RESIDENT.value
+        hh2.members[2]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+
+        hh2.members[0]["annual_work_income"] = 2000
+        hh2.members[1]["annual_work_income"] = 1000
+        hh2.members[2][
+            "annual_work_income"
+        ] = 500  # Total income = 3500, below threshold for 3 members
+        assert cls.__call__(hh2)
+
+        # Case 3: Family of 4, not eligible (income too high)
+        hh3 = nuclear_family()
+        hh3.members.append(hh3.members[-1])  # Add a fourth member
+        hh3.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[3]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+
+        hh3.members[0]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+        hh3.members[1]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+        hh3.members[2]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+        hh3.members[3]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+
+        hh3.members[0]["annual_work_income"] = 3000
+        hh3.members[1]["annual_work_income"] = 3000
+        hh3.members[2]["annual_work_income"] = 500
+        hh3.members[3][
+            "annual_work_income"
+        ] = 999999  # Total income = 7000, above threshold for 4 members
+        assert not cls.__call__(hh3)
+
+        # Case 4: Non-NYC resident, not eligible
+        hh4 = nuclear_family()
+        hh4.members[0]["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        hh4.members[1]["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        hh4.members[2]["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+
+        hh4.members[0]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+        hh4.members[1]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+        hh4.members[2]["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+
+        hh4.members[0]["annual_work_income"] = 2000
+        hh4.members[1]["annual_work_income"] = 1000
+        hh4.members[2][
+            "annual_work_income"
+        ] = 500  # Total income = 3500, below threshold for 3 members
+        assert not cls.__call__(hh4)
+
+        # Case 5: Household with non-citizen members, not eligible
+        hh5 = nuclear_family()
+        hh5.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh5.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh5.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+
+        hh5.members[0]["citizenship"] = CitizenshipEnum.UNLAWFUL_RESIDENT.value
+        hh5.members[1]["citizenship"] = CitizenshipEnum.UNLAWFUL_RESIDENT.value
+        hh5.members[2]["citizenship"] = CitizenshipEnum.UNLAWFUL_RESIDENT.value
+
+        hh5.members[0]["annual_work_income"] = 1000
+        hh5.members[1]["annual_work_income"] = 1000
+        hh5.members[2][
+            "annual_work_income"
+        ] = 1000  # Total income = 3000, below threshold for 3 members
+        assert not cls.__call__(hh5)
+
+        # Case 6: Family of 8, eligible
+        hh6 = nuclear_family()
+        for _ in range(5):
+            hh6.members.append(hh6.members[-1])  # Add 5 additional members to make 8
+        for member in hh6.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+            member["citizenship"] = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
+            member["annual_work_income"] = (
+                1000  # Total income = 8000, below threshold for 8 members
+            )
+        assert cls.__call__(hh6)
 
 
 class IDNYC(BaseBenefitsProgram):
@@ -1210,12 +1911,83 @@ class IDNYC(BaseBenefitsProgram):
 
     @staticmethod
     def __call__(hh):
-        for m in hh.members:
+        def eligible(m):
             if m["place_of_residence"] != PlaceOfResidenceEnum.NYC.value:
                 return False
             if m["age"] < 10:
                 return False
-        return True
+            return True
+
+        for m in hh.members:
+            if eligible(m):
+                return True
+        return False
+
+    @classmethod
+    def test_cases(cls):
+        # Test case 1: Default household, no one eligible
+        hh1 = nuclear_family()
+        for member in hh1.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        assert not cls.__call__(hh1)
+
+        # Test case 2: Default household, user eligible (age 40, lives in NYC)
+        hh2 = nuclear_family()
+        for member in hh2.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh2.user()["age"] = 40
+        hh2.spouse()["age"] = 40
+        hh2.members[2]["age"] = 9
+        assert cls.__call__(hh2)
+
+        # Test case 3: Default household, child eligible (age 10, lives in NYC)
+        hh3 = nuclear_family()
+        for member in hh3.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.user()["age"] = 40
+        hh3.spouse()["age"] = 40
+        hh3.members[2]["age"] = 10
+        assert cls.__call__(hh3)
+
+        # Test case 4: Household with an additional eligible child
+        hh4 = nuclear_family()
+        for member in hh4.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh4.user()["age"] = 40
+        hh4.spouse()["age"] = 40
+        hh4.members[2]["age"] = 10
+        hh4.members.append(hh4.members[-1])
+        hh4.members[-1]["age"] = 15
+        assert cls.__call__(hh4)
+
+        # Test case 5: Household with no one eligible due to location
+        hh5 = nuclear_family()
+        for member in hh5.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        hh5.user()["age"] = 40
+        hh5.spouse()["age"] = 40
+        hh5.members[2]["age"] = 10
+        assert not cls.__call__(hh5)
+
+        # Test case 6: Household with all members eligible
+        hh6 = nuclear_family()
+        for member in hh6.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh6.user()["age"] = 40
+        hh6.spouse()["age"] = 40
+        hh6.members[2]["age"] = 10
+        hh6.members.append(hh6.members[-1])
+        hh6.members[-1]["age"] = 20
+        assert cls.__call__(hh6)
+
+        # Test case 7: Household with no one eligible due to age
+        hh7 = nuclear_family()
+        for member in hh7.members:
+            member["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh7.user()["age"] = 9
+        hh7.spouse()["age"] = 9
+        hh7.members[2]["age"] = 9
+        assert not cls.__call__(hh7)
 
 
 class OfficeOfChildSupportServices(BaseBenefitsProgram):
@@ -1231,7 +2003,7 @@ class OfficeOfChildSupportServices(BaseBenefitsProgram):
             if m["relation"] == RelationEnum.SPOUSE.value:
                 has_spouse = True
         if has_spouse:
-            return True
+            return False
         child_under_21 = False
         for m in hh.members:
             if m["age"] < 21:
@@ -1251,6 +2023,51 @@ class OfficeOfChildSupportServices(BaseBenefitsProgram):
             return True
         return False
 
+    @classmethod
+    def test_cases(cls):
+        # Test Case 1: Single parent, responsible for day-to-day life, child under 21
+        hh1 = nuclear_family()
+        hh1.members[0]["relation"] = RelationEnum.SELF.value
+        hh1.members[1]["relation"] = RelationEnum.CHILD.value
+        hh1.members[1]["age"] = 5
+        hh1.members[0]["responsible_for_day_to_day"] = True
+        assert cls.__call__(hh1)
+
+        # Test Case 2: Both parents in household, not eligible
+        hh2 = nuclear_family()
+        hh2.members[0]["relation"] = RelationEnum.SELF.value
+        hh2.members[1]["relation"] = RelationEnum.SPOUSE.value
+        hh2.members[2]["relation"] = RelationEnum.CHILD.value
+        hh2.members[2]["age"] = 10
+        hh2.members[0]["responsible_for_day_to_day"] = True
+        hh2.members[1]["responsible_for_day_to_day"] = True
+        assert not cls.__call__(hh2)
+
+        # Test Case 3: Single parent but child is 21 or older, not eligible
+        hh3 = nuclear_family()
+        hh3.members = hh3.members[:2]
+        hh3.members[0]["relation"] = RelationEnum.SELF.value
+        hh3.members[1]["relation"] = RelationEnum.CHILD.value
+        hh3.members[1]["age"] = 21
+        hh3.members[0]["responsible_for_day_to_day"] = True
+        assert not cls.__call__(hh3)
+
+        # Test Case 4: Legal guardian responsible for child under 21
+        hh4 = nuclear_family()
+        hh4.members[0]["relation"] = RelationEnum.OTHER_FAMILY.value
+        hh4.members[1]["relation"] = RelationEnum.CHILD.value
+        hh4.members[1]["age"] = 8
+        hh4.members[0]["responsible_for_day_to_day"] = True
+        assert cls.__call__(hh4)
+
+        # Test Case 5: No children in household, not eligible
+        hh5 = nuclear_family()
+        hh5.members = hh5.members[:2]  # Remove child
+        hh5.members[0]["relation"] = RelationEnum.SELF.value
+        hh5.members[1]["relation"] = RelationEnum.SPOUSE.value
+        hh5.members[0]["responsible_for_day_to_day"] = True
+        assert not cls.__call__(hh5)
+
 
 class HIVAIDSServicesAdministration(BaseBenefitsProgram):
     """To be eligible for HASA, you must have been diagnosed with HIV or with AIDS, as defined by the Centers for Disease Control and Prevention (CDC). You do not need to have symptoms to be eligible."""
@@ -1261,6 +2078,36 @@ class HIVAIDSServicesAdministration(BaseBenefitsProgram):
             if m["hiv_aids"]:
                 return True
         return False
+
+    @classmethod
+    def test_cases(cls):
+        # Test case 1: User diagnosed with HIV
+        hh1 = nuclear_family()
+        hh1.user()["hiv_aids"] = True
+        hh1.spouse()["hiv_aids"] = False
+        hh1.members[2]["hiv_aids"] = False
+        assert cls.__call__(hh1)
+
+        # Test case 2: Spouse diagnosed with HIV
+        hh2 = nuclear_family()
+        hh2.user()["hiv_aids"] = False
+        hh2.spouse()["hiv_aids"] = True
+        hh2.members[2]["hiv_aids"] = False
+        assert cls.__call__(hh2)
+
+        # Test case 3: Child diagnosed with HIV
+        hh3 = nuclear_family()
+        hh3.user()["hiv_aids"] = False
+        hh3.spouse()["hiv_aids"] = False
+        hh3.members[2]["hiv_aids"] = True
+        assert cls.__call__(hh3)
+
+        # Test case 4: No one diagnosed with HIV
+        hh4 = nuclear_family()
+        hh4.user()["hiv_aids"] = False
+        hh4.spouse()["hiv_aids"] = False
+        hh4.members[2]["hiv_aids"] = False
+        assert not cls.__call__(hh4)
 
 
 class AdultProtectiveServices(BaseBenefitsProgram):
@@ -1290,6 +2137,103 @@ class AdultProtectiveServices(BaseBenefitsProgram):
                 return True
         return False
 
+    @classmethod
+    def test_cases(cls):
+        # Test case 1: Single eligible member
+        hh1 = nuclear_family()
+        hh1.members = hh1.members[:1]
+        hh1.members[0]["age"] = 18  # User
+        hh1.members[0]["can_manage_self"] = False
+        hh1.members[0]["disabled"] = True
+        hh1.members[0]["has_family_to_help"] = False
+        assert cls.__call__(hh1)
+
+        # Test case 2: No members meet age requirement
+        hh2 = nuclear_family()
+        hh2.members[0]["age"] = 17  # User
+        hh2.members[1]["age"] = 16  # Spouse
+        hh2.members[2]["age"] = 10  # Child
+        assert not cls.__call__(hh2)
+
+        # Test case 3: All members meet eligibility
+        hh3 = nuclear_family()
+        for member in hh3.members:
+            member["age"] = 40
+            member["can_manage_self"] = False
+            member["disabled"] = True
+            member["has_family_to_help"] = False
+        assert cls.__call__(hh3)
+
+        # Test case 4: Some members meet eligibility
+        hh4 = nuclear_family()
+        hh4.members[0]["age"] = 18
+        hh4.members[0]["can_manage_self"] = False
+        hh4.members[0]["disabled"] = True
+        hh4.members[0]["has_family_to_help"] = False
+        hh4.members[1]["age"] = 40
+        hh4.members[1]["can_manage_self"] = True  # Spouse can manage self
+        hh4.members[2]["age"] = 10
+        assert cls.__call__(hh4)
+
+        # Test case 5: No members have a disability
+        hh5 = nuclear_family()
+        for member in hh5.members:
+            member["age"] = 40
+            member["can_manage_self"] = True
+            member["disabled"] = False
+            member["has_family_to_help"] = True
+        assert not cls.__call__(hh5)
+
+        # Test case 6: Member has family willing to help
+        hh6 = nuclear_family()
+        hh6.members[0]["age"] = 30
+        hh6.members[0]["can_manage_self"] = False
+        hh6.members[0]["disabled"] = True
+        hh6.members[0]["has_family_to_help"] = True  # Has family support
+        assert not cls.__call__(hh6)
+
+        # Test case 7: Member cannot manage resources without help
+        hh7 = nuclear_family()
+        hh7.members[0]["age"] = 18
+        hh7.members[0]["can_manage_self"] = False
+        hh7.members[0]["disabled"] = True
+        hh7.members[0]["has_family_to_help"] = False
+        assert cls.__call__(hh7)
+
+        # Test case 8: Adding extra eligible members
+        hh8 = nuclear_family()
+        hh8.members[0]["age"] = 40
+        hh8.members[0]["can_manage_self"] = False
+        hh8.members[0]["disabled"] = True
+        hh8.members[0]["has_family_to_help"] = False
+        hh8.members.append(hh8.members[-1])  # Add another member
+        hh8.members[-1]["age"] = 19
+        hh8.members[-1]["can_manage_self"] = False
+        hh8.members[-1]["disabled"] = True
+        hh8.members[-1]["has_family_to_help"] = False
+        assert cls.__call__(hh8)
+
+        # Test case 9: Dropping last member to make the household ineligible
+        hh9 = nuclear_family()
+        hh9.members[0]["age"] = 40
+        hh9.members[0]["can_manage_self"] = False
+        hh9.members[0]["disabled"] = True
+        hh9.members[0]["has_family_to_help"] = False
+        hh9.members = hh9.members[:2]  # Drop child
+        hh9.members[1]["age"] = 10  # Spouse is not eligible
+        hh9.members[1]["can_manage_self"] = True
+        assert cls.__call__(hh9)
+
+        # Test case 10: Edge case where all conditions are barely met
+        hh10 = nuclear_family()
+        hh10.members[0]["age"] = 18
+        hh10.members[0]["can_manage_self"] = False
+        hh10.members[0]["disabled"] = True
+        hh10.members[0]["has_family_to_help"] = False
+        hh10.members[1]["age"] = 17  # Spouse under age
+        hh10.members[2]["age"] = 10
+        assert cls.__call__(hh10)
+
 
 class AccessARideParatransitService(BaseBenefitsProgram):
     """You are eligible for Access-A-Ride if:
@@ -1311,6 +2255,42 @@ class AccessARideParatransitService(BaseBenefitsProgram):
                 return True
         return False
 
+    @classmethod
+    def test_cases(cls):
+        # Test case 1: User has a disability that prevents them from using accessible buses or subways
+        hh1 = nuclear_family()
+        hh1.members[0]["can_access_subway_or_bus"] = False
+        hh1.members[0]["disabled"] = True
+        hh1.members[1]["can_access_subway_or_bus"] = True
+        hh1.members[1]["disabled"] = False
+        hh1.members[2]["can_access_subway_or_bus"] = True
+        hh1.members[2]["disabled"] = False
+        assert cls.__call__(hh1)
+
+        # Test case 2: Spouse has a disability and cannot use accessible buses or subways
+        hh2 = nuclear_family()
+        hh2.members[1]["can_access_subway_or_bus"] = False
+        hh2.members[1]["disabled"] = True
+        hh2.members[0]["can_access_subway_or_bus"] = True
+        hh2.members[0]["disabled"] = False
+        hh2.members[2]["can_access_subway_or_bus"] = True
+        hh2.members[2]["disabled"] = False
+        assert cls.__call__(hh2)
+
+        # Test case 3: User is recovering from surgery
+        hh3 = nuclear_family()
+        hh3.members[0]["recovering_from_surgery"] = True
+        hh3.members[1]["recovering_from_surgery"] = False
+        hh3.members[2]["recovering_from_surgery"] = False
+        assert cls.__call__(hh3)
+
+        # Test case 4: Spouse is recovering from surgery
+        hh4 = nuclear_family()
+        hh4.members[1]["recovering_from_surgery"] = True
+        hh4.members[0]["recovering_from_surgery"] = False
+        hh4.members[2]["recovering_from_surgery"] = False
+        assert cls.__call__(hh4)
+
 
 class BeaconPrograms(BaseBenefitsProgram):
     """Youth ages 5-21 who are enrolled in school can participate."""
@@ -1318,15 +2298,44 @@ class BeaconPrograms(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         def is_eligible(m):
-            if m["age"] < 5 or m["age"] > 21:
-                return False
-            else:
-                return True
+            if m["current_school_level"] != GradeLevelEnum.NONE.value:
+                if m["age"] < 5 or m["age"] > 21:
+                    return False
+                else:
+                    return True
 
         for m in hh.members:
             if is_eligible(m):
                 return True
         return False
+
+    @classmethod
+    def test_cases(cls):
+        # Test Case 1: A child (age 10) enrolled in school
+        hh = nuclear_family()
+        hh.members[2]["age"] = 10
+        hh.members[2]["current_school_level"] = GradeLevelEnum.FIVE.value
+        assert cls.__call__(hh)
+
+        # Test Case 2: Youth (age 21) enrolled in college
+        hh.members[2]["age"] = 21
+        hh.members[2]["current_school_level"] = GradeLevelEnum.COLLEGE.value
+        assert cls.__call__(hh)
+
+        # Test Case 3: Youth (age 5) enrolled in kindergarten
+        hh.members[2]["age"] = 5
+        hh.members[2]["current_school_level"] = GradeLevelEnum.K.value
+        assert cls.__call__(hh)
+
+        # Test Case 4: Youth (age 18) not enrolled in school
+        hh.members[2]["age"] = 18
+        hh.members[2]["current_school_level"] = GradeLevelEnum.NONE.value
+        assert not cls.__call__(hh)
+
+        # Test Case 5: Youth (age 22) enrolled in school (outside the age range)
+        hh.members[2]["age"] = 22
+        hh.members[2]["current_school_level"] = GradeLevelEnum.COLLEGE.value
+        assert not cls.__call__(hh)
 
 
 class NYCFreeTaxPrep(BaseBenefitsProgram):
@@ -1350,6 +2359,38 @@ class NYCFreeTaxPrep(BaseBenefitsProgram):
                 return True
         return False
 
+    @classmethod
+    def test_cases(cls):
+        # Test 1: Eligible Household with Dependents and Income Below Threshold
+        hh1 = nuclear_family()
+        hh1.user()["annual_work_income"] = 50000
+        hh1.spouse()["annual_work_income"] = 30000
+        hh1.members[2]["relation"] = RelationEnum.CHILD.value
+        hh1.members[2]["age"] = 10
+        assert cls.__call__(hh1)
+
+        # Test 2: Ineligible Household with Dependents and Income Above Threshold
+        hh2 = nuclear_family()
+        hh2.user()["annual_work_income"] = 60000
+        hh2.spouse()["annual_work_income"] = 30000
+        hh2.members[2]["relation"] = RelationEnum.CHILD.value
+        hh2.members[2]["age"] = 10
+        assert not cls.__call__(hh2)
+
+        # Test 3: Eligible Individual without Dependents and Income Below Threshold
+        hh3 = nuclear_family()
+        hh3.spouse()["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        hh3.members = hh3.members[:1]  # Remove spouse and child
+        hh3.user()["annual_work_income"] = 50000
+        assert cls.__call__(hh3)
+
+        # Test 4: Ineligible Individual without Dependents and Income Above Threshold
+        hh4 = nuclear_family()
+        hh4.spouse()["relation"] = RelationEnum.OTHER_NON_FAMILY.value
+        hh4.members = hh4.members[:1]  # Remove spouse and child
+        hh4.user()["annual_work_income"] = 60000
+        assert not cls.__call__(hh4)
+
 
 class MiddleSchool(BaseBenefitsProgram):
     """To be eligible to apply for a New York City public middle school, your child should be able to answer yes to these questions:
@@ -1365,6 +2406,47 @@ class MiddleSchool(BaseBenefitsProgram):
                     return True
         return False
 
+    @classmethod
+    def test_cases(cls):
+        # Test 1: Eligible household with a 5th-grade child and NYC residency
+        hh1 = nuclear_family()
+        hh1.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh1.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh1.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh1.members[2]["current_school_level"] = GradeLevelEnum.FIVE.value
+        assert cls.__call__(hh1)
+
+        # Test 2: Household with a 5th-grade child but lives outside NYC
+        hh2 = nuclear_family()
+        hh2.members[0]["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        hh2.members[1]["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        hh2.members[2]["place_of_residence"] = PlaceOfResidenceEnum.Jersey.value
+        hh2.members[2]["current_school_level"] = GradeLevelEnum.FIVE.value
+        assert not cls.__call__(hh2)
+
+        # Test 3: Household living in NYC but the child is not in 5th grade
+        hh3 = nuclear_family()
+        hh3.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[2]["current_school_level"] = GradeLevelEnum.SIX.value
+        assert not cls.__call__(hh3)
+
+        # Test 4: Household with multiple children, one eligible and others not
+        hh4 = nuclear_family()
+        hh4.members.append(deepcopy(hh4.members[-1]))  # Add a second child
+        hh4.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh4.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh4.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh4.members[3]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh4.members[2][
+            "current_school_level"
+        ] = GradeLevelEnum.FIVE.value  # First child eligible
+        hh4.members[3][
+            "current_school_level"
+        ] = GradeLevelEnum.SIX.value  # Second child not eligible
+        assert cls.__call__(hh4)
+
 
 class KindergartenAndElementarySchool(BaseBenefitsProgram):
     """All NYC children age 4-5 are eligible for kindergarten and are guaranteed placement."""
@@ -1375,6 +2457,32 @@ class KindergartenAndElementarySchool(BaseBenefitsProgram):
             if m["age"] >= 4 and m["age"] <= 5:
                 return True
         return False
+
+    @classmethod
+    def test_cases(cls):
+        # Test case 1: Household with a 4-year-old child
+        hh1 = nuclear_family()
+        hh1.members[2]["age"] = 4
+        hh1.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh1.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh1.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        assert cls.__call__(hh1)  # Should pass, as the child is 4 and resides in NYC
+
+        # Test case 2: Household with a 5-year-old child
+        hh2 = nuclear_family()
+        hh2.members[2]["age"] = 5
+        hh2.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh2.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh2.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        assert cls.__call__(hh2)  # Should pass, as the child is 5 and resides in NYC
+
+        # Test case 3: Household with a 6-year-old child
+        hh3 = nuclear_family()
+        hh3.members[2]["age"] = 6
+        hh3.members[0]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[1]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        hh3.members[2]["place_of_residence"] = PlaceOfResidenceEnum.NYC.value
+        assert not cls.__call__(hh3)  # Should fail, as the child is older than 5
 
 
 class CUNYFatherhoodAcademy(BaseBenefitsProgram):
@@ -3555,11 +4663,56 @@ class NYCNurseFamilyPartnership(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         for m in hh.members:
-            if m["months_pregnant"] > 0:
+            if 0 < m["months_pregnant"] < 28:
                 if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                     if m["eligible_for_medicaid"]:
                         return True
         return False
+
+    @classmethod
+    def test_cases(cls):
+        # NYCNurseFamilyPartnership Tests
+
+        # Passing Test Case
+        person_pass = Person.default_person(is_self=True)
+        person_pass["place_of_residence"] = "New York City"
+        person_pass["eligible_for_medicaid"] = True
+        person_pass["months_pregnant"] = 20
+        hh_pass_nfp = Household([person_pass])
+
+        # Failing Test Case (not living in NYC)
+        person_fail_residence = deepcopy(person_pass)
+        person_fail_residence["place_of_residence"] = "Jersey"
+        hh_fail_residence = Household([person_fail_residence])
+
+        # Failing Test Case (not eligible for Medicaid)
+        person_fail_medicaid = deepcopy(person_pass)
+        person_fail_medicaid["eligible_for_medicaid"] = False
+        hh_fail_medicaid = Household([person_fail_medicaid])
+
+        # Failing Test Case (too far along in pregnancy)
+        person_fail_pregnancy = deepcopy(person_pass)
+        person_fail_pregnancy["months_pregnant"] = 30
+        hh_fail_pregnancy = Household([person_fail_pregnancy])
+
+        for i, hh in enumerate(
+            [
+                hh_pass_nfp,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert result, f"NYCNurseFamilyPartnership test {i} failed"
+        for i, hh in enumerate(
+            [
+                hh_fail_residence,
+                hh_fail_medicaid,
+                hh_fail_pregnancy,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert not result, f"NYCNurseFamilyPartnership test {i} failed"
+
+        print(f"{cls.__name__} tests passed")
 
 
 class SummerYouthEmploymentProgram(BaseBenefitsProgram):
@@ -3573,3 +4726,38 @@ class SummerYouthEmploymentProgram(BaseBenefitsProgram):
                 if m["place_of_residence"] == PlaceOfResidenceEnum.NYC.value:
                     return True
         return False
+
+    # SummerYouthEmploymentProgram Tests
+    @classmethod
+    def test_cases(cls):
+        # Passing Test Case
+        person_pass_syep = Person.default_person(is_self=True)
+        person_pass_syep["place_of_residence"] = "New York City"
+        person_pass_syep["age"] = 16
+        hh_pass_syep = Household([person_pass_syep])
+
+        # Failing Test Case (not living in NYC)
+        person_fail_residence_syep = deepcopy(person_pass_syep)
+        person_fail_residence_syep["place_of_residence"] = "Jersey"
+        hh_fail_residence_syep = Household([person_fail_residence_syep])
+
+        # Failing Test Case (age out of range)
+        person_fail_age_syep = deepcopy(person_pass_syep)
+        person_fail_age_syep["age"] = 25
+        hh_fail_age_syep = Household([person_fail_age_syep])
+
+        for i, hh in enumerate(
+            [
+                hh_pass_syep,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert result, f"SummerYouthEmploymentProgram test {i} failed"
+        for i, hh in enumerate(
+            [
+                hh_fail_residence_syep,
+                hh_fail_age_syep,
+            ]
+        ):
+            result = cls.__call__(hh)
+            assert not result, f"SummerYouthEmploymentProgram test {i} failed"

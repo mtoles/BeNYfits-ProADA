@@ -202,6 +202,8 @@ class place_of_residence(BasePersonAttr):
     random = lambda: np.random.choice([x.value for x in PlaceOfResidenceEnum])
     default = PlaceOfResidenceEnum.NYC.value
     nl_fn = lambda n, x: f"{n} lives in {x}."
+    def conform(cls, hh, person_idx, original_value):
+        return hh.members[0]["place_of_residence"]
 
 
 # Training Info
@@ -611,15 +613,16 @@ class monthly_rent_spending(BasePersonAttr):
 
 
 # Relation Info
-class duration_more_than_half_prev_year(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = True
-    nl_fn = lambda n, x: (
-        f"{n} lived with you more than half of the previous year."
-        if x
-        else f"{n} did not live with you more than half of the previous year."
-    )
+# class duration_more_than_half_prev_year(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = True
+#     nl_fn = lambda n, x: (
+#         f"{n} lived with you more than half of the previous year."
+#         if x
+#         else f"{n} did not live with you more than half of the previous year."
+#     )
+# instead use lived_together lived_together_last_6_months 
 
 
 class lived_together_last_6_months(BasePersonAttr):
@@ -912,7 +915,7 @@ class heating_electrical_bill_in_name(BasePersonAttr):
 class available_financial_resources(BasePersonAttr):
     schema = And(float)
     random = lambda: float(np.random.randint(0, 10000))
-    default = 0
+    default = 0.0
     nl_fn = lambda n, x: f"{n}'s household has {x} in available financial resources."
 
 
@@ -1189,7 +1192,7 @@ class CitizenshipEnum(Enum):
 class citizenship(BasePersonAttr):
     schema = And(str, lambda x: x in [c.value for c in CitizenshipEnum])
     random = lambda: np.random.choice(list(CitizenshipEnum)).value
-    default = "self"
+    default = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
     nl_fn = lambda n, x: f"{n} is a {x}."
 
 
@@ -1888,7 +1891,7 @@ class collective_bargaining(BasePersonAttr):
 class covid_funeral_expenses(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    default = 0
+    default = False
     nl_fn = lambda n, x: (
         f"{n} incurred funeral expenses due to a covid death on or after January 20, 2020, and the death was attributed to COVID-19 on the death certificate."
         if x
@@ -1924,7 +1927,7 @@ class evicted_months_ago(BasePersonAttr):
 class currently_being_evicted(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    default = 0
+    default = False
     nl_fn = lambda n, x: (
         f"{n} is currently being evicted."
         if x
