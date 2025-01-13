@@ -202,6 +202,7 @@ class place_of_residence(BasePersonAttr):
     random = lambda: np.random.choice([x.value for x in PlaceOfResidenceEnum])
     default = PlaceOfResidenceEnum.NYC.value
     nl_fn = lambda n, x: f"{n} lives in {x}."
+
     def conform(cls, hh, person_idx, original_value):
         return hh.members[0]["place_of_residence"]
 
@@ -244,7 +245,9 @@ class annual_work_income(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 100000)
     default = 0
-    nl_fn = lambda n, x: f"{n} makes {x} per year working."
+    nl_fn = lambda n, x: (
+        f"{n} makes {x} per year working." if x else f"{n} does not work."
+    )
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
@@ -609,6 +612,14 @@ class monthly_rent_spending(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
             return 0
+        if hh.members[person_idx]["housing_type"] in [
+            HousingEnum.HOMELESS.value,
+            HousingEnum.DHS_SHELTER.value,
+            HousingEnum.HRA_SHELTER.value,
+        ]:
+            return 0
+        if hh.members[person_idx]["is_property_owner"]:
+            return 0
         return original_value
 
 
@@ -622,7 +633,7 @@ class monthly_rent_spending(BasePersonAttr):
 #         if x
 #         else f"{n} did not live with you more than half of the previous year."
 #     )
-# instead use lived_together lived_together_last_6_months 
+# instead use lived_together lived_together_last_6_months
 
 
 class lived_together_last_6_months(BasePersonAttr):
@@ -955,10 +966,18 @@ class lost_job(BasePersonAttr):
 
 
 class months_since_worked(BasePersonAttr):
-    schema = And(int, lambda v: v >= 0)
-    random = lambda: np.random.randint(0, 240)  # e.g., up to 20 years
+    schema = And(int, lambda v: v >= -1)
+    random = lambda: np.random.randint(-1, 240)  # e.g., up to 20 years
     default = 0
-    nl_fn = lambda n, x: f"{n} has been unemployed for {x} months."
+
+    def nl_fn(n, x):
+        if x == 0:
+            return f"{n} is currently working"
+        if x == -1:
+            return f"{n} has never worked"
+        return f"{n} has been unemployed for {x} months"
+
+    # nl_fn = lambda n, x: f"{n} has been unemployed for {x} months."
 
     # if under 16, set to age * 12
 
@@ -1382,16 +1401,15 @@ class mental_health_condition(BasePersonAttr):
         else f"{n} does not have a mental health condition."
     )
 
-
-# class difficulty_in_regular_classroom(BasePersonAttr):
-#     schema = And(bool)
-#     random = lambda: bool(np.random.choice([True, False]))
-#     default = False
-#     nl_fn = lambda n, x: (
-#         f"{n} has serious difficulty in a regular classroom."
-#         if x
-#         else f"{n} does not have difficulty in a regular classroom."
-#     )
+    # class difficulty_in_regular_classroom(BasePersonAttr):
+    #     schema = And(bool)
+    #     random = lambda: bool(np.random.choice([True, False]))
+    #     default = False
+    #     nl_fn = lambda n, x: (
+    #         f"{n} has serious difficulty in a regular classroom."
+    #         if x
+    #         else f"{n} does not have difficulty in a regular classroom."
+    #     )
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] > 18:
@@ -1681,11 +1699,6 @@ class heat_included_in_rent(BasePersonAttr):
         else f"{n} does not have heat included in their rent."
     )
 
-    # same for all members
-
-    def conform(cls, hh, person_idx, original_value):
-        return hh.members[person_idx][cls.__name__]
-
 
 ### NYC Care
 
@@ -1709,15 +1722,16 @@ class qualify_for_health_insurance(BasePersonAttr):
 ### We Speak NYC
 
 
-class english_language_learner(BasePersonAttr):
-    schema = And(bool)
-    random = lambda: bool(np.random.choice([True, False]))
-    default = False
-    nl_fn = lambda n, x: (
-        f"{n} is an English language learner."
-        if x
-        else f"{n} is not an English language learner."
-    )
+# class english_language_learner(BasePersonAttr):
+#     schema = And(bool)
+#     random = lambda: bool(np.random.choice([True, False]))
+#     default = False
+#     nl_fn = lambda n, x: (
+#         f"{n} is an English language learner."
+#         if x
+#         else f"{n} is not an English language learner."
+#     )
+# use proficient_in_english_reading_and_writing
 
 
 ### Homebase
@@ -2168,7 +2182,7 @@ class receives_vpsb(BasePersonAttr):
     random = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
-        f"{n} receives Veterals Pension and Survivor Benefits (VPSB)."
+        f"{n} receives Veterans Pension and Survivor Benefits (VPSB)."
         if x
         else f"{n} does not receive Veterals Pension and Survivor Benefits (VPSB)."
     )

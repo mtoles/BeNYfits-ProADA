@@ -111,9 +111,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-programs_abbreviation = "_".join(
-    ["".join([char for char in program if char.isupper()]) for program in args.programs]
-)
+# programs_abbreviation = "_".join(
+#     ["".join([char for char in program if char.isupper()]) for program in args.programs]
+# )
+programs_abbreviation = len(args.programs)
 
 output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 
@@ -122,10 +123,10 @@ output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 def read_eligibility_requirements(file_path, num_programs):
     with open(file_path, "r") as file:
         file_content = file.read()
-        # strip lines at the top starting with #
-        file_content = "\n".join(
-            [line for line in file_content.split("\n") if not line.startswith("#")]
-        )
+        # # strip lines at the top starting with #
+        # file_content = "\n".join(
+        #     [line for line in file_content.split("\n") if not line.startswith("#")]
+        # )
         assert len(file_content) > 0, "File is empty"
         eligibility_df = pd.read_json(file_content, lines=True)
         if num_programs is not None:
@@ -149,14 +150,20 @@ def eligibility_to_string(eligibility_df):
 predictions_df = read_eligibility_requirements(
     args.eligibility_requirements, args.num_programs
 )
-if args.programs is not None:
-    predictions_df = predictions_df[
-        predictions_df["program_name"].apply(lambda x: x in args.programs)
-    ].reset_index(drop=True)
+# if args.programs is not None:
+#     predictions_df = predictions_df[
+#         predictions_df["program_name"].apply(lambda x: x in args.programs)
+#     ].reset_index(drop=True)
 eligibility_requirements = predictions_df.set_index("program_name")[
     "plain_language_eligibility"
 ].to_dict()
-program_names = list(eligibility_requirements.keys())
+program_names = set(eligibility_requirements.keys())
+class_names = set(args.programs)
+bad_class_names = class_names - program_names
+bad_program_names = program_names - class_names
+print(f"Bad class names: {bad_class_names}")
+print(f"Bad program names: {bad_program_names}")
+assert len(bad_class_names) == 0
 
 # Load the dataset
 if os.path.exists(args.dataset_path):
