@@ -4420,6 +4420,7 @@ class NYCYouthLeadershipCouncils(BaseBenefitsProgram):
         for m in hh.members:
             if eligible(m):
                 return True
+        return False
 
     @classmethod
     def test_cases(cls):

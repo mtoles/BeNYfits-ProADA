@@ -73,7 +73,7 @@ class name(BasePersonAttr):
 ### DEMOGRAPHICS ###
 class age(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
-    random = lambda: np.random.randint(0, 100)
+    random = lambda: np.random.randint(0, 80)
     default = 20
     nl_fn = lambda n, x: f"{n} is {x} years old."
 
@@ -243,7 +243,11 @@ class enrolled_in_vocational_training(BasePersonAttr):
 # Financial Info
 class annual_work_income(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
-    random = lambda: np.random.randint(0, 100000)
+    def random():
+        if np.random.choice([True, False]):
+            return np.random.randint(0, 100000)
+        else:
+            return 0
     default = 0
     nl_fn = lambda n, x: (
         f"{n} makes {x} per year working." if x else f"{n} does not work."
@@ -257,7 +261,12 @@ class annual_work_income(BasePersonAttr):
 
 class annual_investment_income(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
-    random = lambda: np.random.randint(0, 100000)
+    # random = lambda: np.random.randint(0, 100000)
+    def random():
+        if np.random.choice([True, False]):
+            return np.random.randint(0, 100000)
+        else:
+            return 0
     default = 0
     nl_fn = lambda n, x: f"{n} makes {x} per year from investments."
 
@@ -623,18 +632,6 @@ class monthly_rent_spending(BasePersonAttr):
         return original_value
 
 
-# Relation Info
-# class duration_more_than_half_prev_year(BasePersonAttr):
-#     schema = And(bool)
-#     random = lambda: bool(np.random.choice([True, False]))
-#     default = True
-#     nl_fn = lambda n, x: (
-#         f"{n} lived with you more than half of the previous year."
-#         if x
-#         else f"{n} did not live with you more than half of the previous year."
-#     )
-# instead use lived_together lived_together_last_6_months
-
 
 class lived_together_last_6_months(BasePersonAttr):
     schema = And(bool)
@@ -847,7 +844,7 @@ class conflict_veteran(BasePersonAttr):
     nl_fn = lambda n, x: (
         f"{n} served in the US armed forces in conflict in Iraq."
         if x
-        else f"{n} is not a conflict veteran."
+        else f"{n} is not a conflict veteran and did not serve in any conflict."
     )
 
     def conform(cls, hh, person_idx, original_value):
@@ -967,7 +964,15 @@ class lost_job(BasePersonAttr):
 
 class months_since_worked(BasePersonAttr):
     schema = And(int, lambda v: v >= -1)
-    random = lambda: np.random.randint(-1, 240)  # e.g., up to 20 years
+    # random = lambda: np.random.randint(-1, 240)  # e.g., up to 20 years
+    def random():
+        r = np.random.randint(3)
+        if r == 0:
+            return -1
+        elif r == 1:
+            return 0
+        else:
+            return np.random.randint(1, 240)
     default = 0
 
     def nl_fn(n, x):
@@ -1072,7 +1077,12 @@ class is_parent(BasePersonAttr):
 
 class months_pregnant(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
-    random = lambda: np.random.randint(0, 9)
+    # random = lambda: np.random.randint(0, 9)
+    def random():
+        if np.random.choice([True, False]):
+            return np.random.randint(1, 9)
+        else:
+            return 0
     default = 0
     nl_fn = lambda n, x: (
         f"{n} is {x} months pregnant." if x else f"{n} is not pregnant."
@@ -1401,15 +1411,6 @@ class mental_health_condition(BasePersonAttr):
         else f"{n} does not have a mental health condition."
     )
 
-    # class difficulty_in_regular_classroom(BasePersonAttr):
-    #     schema = And(bool)
-    #     random = lambda: bool(np.random.choice([True, False]))
-    #     default = False
-    #     nl_fn = lambda n, x: (
-    #         f"{n} has serious difficulty in a regular classroom."
-    #         if x
-    #         else f"{n} does not have difficulty in a regular classroom."
-    #     )
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] > 18:
@@ -1512,7 +1513,12 @@ class proficient_in_english_reading_and_writing(BasePersonAttr):
 
 class college_credits(BasePersonAttr):
     schema = And(int)
-    random = lambda: np.random.randint(0, 200)
+    # random = lambda: np.random.randint(0, 200)
+    def random():
+        if np.random.choice([True, False]):
+            return np.random.randint(1, 200)
+        else:
+            return 0
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has {x} college credits."
@@ -1931,7 +1937,11 @@ class covid_funeral_expenses(BasePersonAttr):
 
 class evicted_months_ago(BasePersonAttr):
     schema = And(int)
-    random = lambda: np.random.randint(0, 24)
+    def random():
+        if np.random.choice([True, False]):
+            return 0
+        else:
+            return np.random.randint(1, 24)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} was evicted {x} months ago." if x else f"{n} has never been evicted."
@@ -2027,7 +2037,14 @@ class developmental_mental_day_treatment(BasePersonAttr):
 
 class years_sober(BasePersonAttr):
     schema = And(int)
-    random = lambda: np.random.randint(-1, 16)
+    def random():
+        r = np.random.randint(3)
+        if r == 0:
+            return 0
+        elif r == 1:
+            return -1
+        else:
+            return np.random.randint(1, 16)
     default = 10
 
     def get_string(n, x):
