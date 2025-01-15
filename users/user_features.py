@@ -746,7 +746,28 @@ class is_property_owner(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
             return False
+        if hh.members[person_idx]["housing_type"] in [
+            HousingEnum.COOPERATIVE_APARTMENT.value,
+            HousingEnum.MIXED_USE_PROPERTY.value,
+            HousingEnum.HOMELESS.value,
+            HousingEnum.DHS_SHELTER.value,
+            HousingEnum.HRA_SHELTER.value,
+            HousingEnum.TEMPORARY_HOUSING.value,
+            HousingEnum.RENT_STABILIZED_APARTMENT.value,
+            HousingEnum.RENT_CONTROLLED_APARTMENT.value,
+            HousingEnum.MITCHELL_LAMA_DEVELOPMENT.value,
+            HousingEnum.LIMITED_DIVIDEND_DEVELOPMENT.value,
+            HousingEnum.REDEVELOPMENT_COMPANY_DEVELOPMENT.value,
+            HousingEnum.HDFC_DEVELOPMENT.value,
+            HousingEnum.SECTION_213_COOP.value,
+            HousingEnum.RENT_REGULATED_HOTEL.value,
+            HousingEnum.RENT_REGULATED_SINGLE_ROOM_OCCUPANCY.value,
+            HousingEnum.NYCHA_DEVELOPMENT.value,
+            HousingEnum.SECTION_8.value,
+        ]:
+            return False
         return original_value
+
 
 
 class primary_residence(BasePersonAttr):

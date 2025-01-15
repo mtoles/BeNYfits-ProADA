@@ -22,8 +22,8 @@ for class_name, cls in classes.items():
 
 
 parser = argparse.ArgumentParser(description="Construct an edge case dataset")
-parser.add_argument("-l", "--limit", type=int, default=20, help="The number of households to generate")
-parser.add_argument("-t", "--trials", type=int, default=1000, help="The number of times to attempt to generate a valid household")
+parser.add_argument("-l", "--limit", type=int, default=100, help="The number of households to generate")
+parser.add_argument("-t", "--trials", type=int, default=10000, help="The number of times to attempt to generate a valid household")
 parser.add_argument("-o", "--output", type=str, default="edge_case_dataset.jsonl", help="Output path to save the dataset to")
 args = parser.parse_args()
 

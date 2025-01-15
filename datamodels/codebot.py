@@ -13,6 +13,9 @@ from enum import Enum
 from pydantic import BaseModel
 import json
 
+import numpy as np
+
+np.random.seed(0)
 list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
 
 
@@ -270,7 +273,9 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
 
     def run_generated_code(self, locals):
         program_outputs = {}
-        for program_name in locals["program_names"]:
+        program_names = locals["program_names"]
+        sorted_program_names = sorted(program_names, key=len, reverse=True)
+        for program_name in sorted_program_names:
             spo = self.run_single_program(program_name, locals)  # single program output
             # drop history and hh
             del spo["history"]
@@ -377,9 +382,9 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     prev_hh = deepcopy(locals["hh"])
                     locals["hh"][key] = new_hh_value
                     continue
-                elif type(e) == ValueError:
-                    error=e
-                    raise NotImplementedError
+                # elif type(e) == ValueError:
+                #     error=e
+                #     raise NotImplementedError
                     # key_options = set(locals["hh"].keys()).intersection(
                     #     set(relevant_val_dict.keys())
                     # )
@@ -434,7 +439,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                         "program_name": program_name,
                         "hh": locals["hh"],
                         "history": history,
-                        "eligibility": None,
+                        "eligibility": np.random.choice([True, False]),
                         "completed": False,
                     }
         return {
