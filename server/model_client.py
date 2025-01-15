@@ -1,19 +1,37 @@
 from server.model_server import ForwardRequest
 import requests
-from enum import Enum
 from typing import Union, Optional
 from openai import OpenAI, NotGiven
 from joblib import Memory
 from fastapi import HTTPException
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
+import threading
+import traceback
 
+load_dotenv()
 memory = Memory(".joblib_cache", verbose=0)
+LM_PORT_NO = int(os.getenv("LM_PORT_NO"))
 
+results = {}
 
 class ModelAPIClient:
-    def __init__(self, api_url, lm_logger=None):
+    def __init__(self, api_url, port_no, lm_logger=None):
         self.api_url = api_url
+        self.port_no = port_no
         self.lm_logger = lm_logger
+
+    def _forward(self, fr: ForwardRequest):
+        url = f"{self.api_url}:{self.port_no}/forward"
+        try:
+            response = requests.post(url, json=vars(fr))
+            response.raise_for_status()
+            results[fr.json()] = response
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"traceback:\n{traceback.format_exc()}"
+            )
 
     def forward(
         self,
@@ -27,10 +45,6 @@ class ModelAPIClient:
     ):
         assert constraint_type in ["types", "choice", "regex", "none"]
         assert not (constraint_type == "none" and constraints)
-        # if constraints:
-        #     assert "int" not in constraints  # probably an error
-        #     assert "float" not in constraints  # probably an error
-        #     assert type(constraints) == list
 
         if constraint_type == "types":
             constraints = [(x).__name__ for x in constraints]
@@ -45,36 +59,29 @@ class ModelAPIClient:
         )
         if fr.name_of_model.startswith("gpt"):
             response = self.forward_gpt(fr)
-            # self.lm_logger.log_io(
-            #     lm_input=history, lm_output=response, role=logging_role
-            # )
-            # return response
         else:
-            response_package = requests.post(
-                f"{self.api_url}/forward", json=vars(fr)
-            )
-            status_code = response_package.status_code
-            response = response_package.json()
-            if status_code != 200:
-                raise Exception(f"Prediction error: {response.json()['detail']}")
+            t = threading.Thread(target=self._forward, args=(fr,))
+            t.start()
+            t.join()
+            response = results[fr.json()]
+            status_code = response.status_code
 
-        generated_text = response["generated_text"]
-        self.lm_logger.log_io(
-            lm_input=history, lm_output=generated_text, role=logging_role
-        )
-        return generated_text
+        if status_code == 200:
+            response_package = response.json()
+
+            generated_text = response_package["generated_text"]
+            if self.lm_logger is not None:
+                self.lm_logger.log_io(
+                    lm_input=history, lm_output=generated_text, role=logging_role
+                )
+            return generated_text
+        else:
+            raise Exception(f"Prediction error: {response.json()['detail']}")
 
     @memory.cache
     def forward_gpt(request: ForwardRequest):
         client = OpenAI()
-        # try:
-        # if request.constraints is not None and request.constraint_type=="openai":
-        #     # if request.constraint_type == "options":
-        #     response_format = request.constraints
-        # else:
-        #     response_format = None
         if request.response_format is None:
-            # completion = client.beta.chat.completions.parse(
             completion = client.chat.completions.create(
                 model=request.name_of_model,
                 messages=request.history,
@@ -89,39 +96,28 @@ class ModelAPIClient:
             )
         generated_text = completion.choices[0].message.content.strip()
         return {"generated_text": generated_text}
-        # except Exception as e:
-        #     raise HTTPException(status_code=500, detail=str(e))
+
 
 
 if __name__ == "__main__":
-    ModelAPIClient = ModelAPIClient("http://coffee.cs.columbia.edu:55244")
-    # ModelAPIClient = ModelAPIClient("http://localhost:55244")
-    # ModelAPIClient = ModelAPIClient("http://localhost:8000")
+    ModelAPIClient = ModelAPIClient(f"http://coffee.cs.columbia.edu", LM_PORT_NO)
 
-    # request = ForwardRequest(
-    #     name_of_model="Qwen/Qwen2.5-Coder-7B-Instruct",
-    #     history=[
-    #         {
-    #             "role": "user",
-    #             "content": "How many words are in the sentence 'Hello World'?",
-    #         },
-    #     ],
-    #     use_cache=False,
-    #     constraints="int",
-    # )
-    history = [
-        {
-            "role": "user",
-            "content": "How many words are in the sentence 'Hello World'?",
-        }
-    ]
+    def hist(i):
+        return [
+            {
+                "role": "user",
+                "content": f"How many words are in the sentence '{' '.join(['buffalo']*i)}'?",
+            }
+        ]
 
-    output = ModelAPIClient.forward(
-        history,
-        use_cache=True,
-        logging_role="test",
-        chat_model_id="Qwen/Qwen2.5-Coder-7B-Instruct",
-    )
+    for i in range(2, 4):
+        history = hist(i)
+        output = ModelAPIClient.forward(
+            history,
+            use_cache=True,
+            logging_role="test",
+            chat_model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        )
 
-    print(output)
-    print
+        print(output)
+    print("done")

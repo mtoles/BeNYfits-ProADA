@@ -7,152 +7,145 @@ from fastapi import FastAPI, HTTPException
 from joblib import Memory
 from typing import Union, Optional, Any
 import outlines
-import ast
 import traceback
-from openai import OpenAI
 import uvicorn
+import threading
+import queue
+import time
+from dotenv import load_dotenv
+
+
+from server_internals import ForwardRequest, forward_hf
 
 """
 run with:
 uvicorn server.model_server:app --reload
 """
 
-memory = Memory(".joblib_cache", verbose=0)
+
+load_dotenv()
+LM_PORT_NO = int(os.getenv("LM_PORT_NO"))
 
 app = FastAPI()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-class ForwardRequest(BaseModel):
-    name_of_model: str
-    history: list[dict]
-    use_cache: bool
-    constraints: Optional[Union[BaseModel, list[str], str]]
-    # constraints: Optional[Union[list[str], str]]
-    constraint_type: Optional[str]
-    response_format: Any
-
-
 current_name_of_model = None
 model = None
 tk = None
+# Create a queue and shared results dictionary
+q = queue.Queue()
+results = {}
 
 
-def _str_to_type(s):
-    if s == "int":
-        return int
-    elif s == "float":
-        return float
-    else:
-        raise NotImplementedError
+# Define a worker function
+def worker(q, results):
+    while True:
+        item, event = q.get()  # Get an item and its associated event
+        if item is None:  # Exit signal
+            break
+        print(f"Processing item: {item}")
+        # time.sleep(1)  # Simulate work
+
+        # fr = ForwardRequest(item
+        # )
+        r = forward_hf(item)
+        # Store the result (could be more complex in real cases)
+        results[item.json()] = r
+        event.set()  # Signal that the item has been processed
+        q.task_done()  # Mark the task as done
 
 
-@memory.cache
-def forward_hf(request: ForwardRequest):
-    global current_name_of_model, model, tk
-    name_of_model = request.name_of_model
-    history = request.history
-    print(f"hf Received: {history}")
+num_threads = 1
+threads = []
+for i in range(num_threads):
+    t = threading.Thread(target=worker, args=(q, results))
+    t.start()
+    threads.append(t)
 
-    # constraint = None
-    # if request.constraints == "int":
-    #     constraint = int
-    # elif request.constraints == "float":
-    #     constraint = float
-    # elif type(request.constraints) == list:
-    #     constraint = request.constraints
-    # elif request.constraints is None:
-    #     constraint = None
-    # else:
-    # #     constraint = ast.literal_eval(request.constraints)  # list of options
-    #     raise NotImplementedError
-    #     # assert type(constraint) == list
-    #     # assert set([type(x) == str for x in constraint]) == set([str])
 
-    if request.constraint_type == "types":
-        constraints = [_str_to_type(x) for x in request.constraints]
-    elif request.constraint_type == "choice":
-        constraints = request.constraints
-    elif request.constraint_type == "regex":
-        constraints = request.constraints
-    elif request.constraint_type == "none":
-        constraints = None
-    else:
-        raise NotImplementedError
-    print(f"constraints (input): {request.constraints}")
-    print(f"constraint_type: {request.constraint_type}")
-    print(f"constraints: {constraints}")
+# Function to process items and wait for them
+def process_item(item):
+    event = threading.Event()  # Create an event for this item
+    q.put((item, event))  # Add the item and event to the queue
+    print(f"Waiting for item {item} to be processed...")
+    event.wait()  # Wait until the item is processed
+    # Retrieve the result from the shared dictionary
+    processed_item = results[item.json()]
+    print(f"Item {item} has been processed with result: {processed_item}")
+    return processed_item
 
-    if name_of_model != current_name_of_model:
-        if model is not None:
-            del model
-            del tk
-            torch.cuda.empty_cache()
-        try:
-            tk = AutoTokenizer.from_pretrained(name_of_model)
-            print("CUDA devices available:")
-            for i in range(torch.cuda.device_count()):
-                print(f"- {torch.cuda.get_device_name(i)}")
-            # model = outlines.models.transformers(name_of_model, device="cuda", kwargs={"torch_dtype": torch.bfloat16})
-            raw_model = AutoModelForCausalLM.from_pretrained(
-                name_of_model, torch_dtype=torch.bfloat16
-            ).to("cuda")
-            # if torch.cuda.device_count() > 1:
-            # raw_model = torch.nn.DataParallel(raw_model)
-            model = outlines.models.Transformers(raw_model, tk)
-            current_name_of_model = name_of_model
-        except Exception as e:
-            print(traceback.format_exc())
-            print(e)
-            raise HTTPException(
-                status_code=500, detail=f"Error loading model '{name_of_model}': {e}"
-            )
-    try:
-        prompt = tk.apply_chat_template(
-            history,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        if request.constraint_type == "none":
-            generator = outlines.generate.text(model)
-        elif request.constraint_type == "choice":
-            generator = outlines.generate.choice(model, request.constraints)
-        elif request.constraint_type == "types":
-            assert len(constraints) == 1
-            generator = outlines.generate.format(model, constraints[0])
-        elif request.constraint_type == "regex":
-            generator = outlines.generate.regex(model, request.constraints)
-        else:
-            print(f"Unknown constraints: {request.constraints}")
-            raise NotImplementedError
-        generated_text = str(generator(prompt)).strip()
-        print(f"hf Generated: {generated_text}")
-        return {"generated_text": generated_text}
-    except Exception as e:
-        print(traceback.format_exc())
-        print(e)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating text: {e} in line {traceback.format_exc()}",
-        )
+
+item_threads = []
 
 
 @app.post("/forward")
 def forward(request: ForwardRequest):
-    try:
-        print("at /forward")
-        if request.name_of_model.startswith("gpt"):
-            raise NotImplementedError  # gpt moved to client side
-            # output = forward_gpt(request)
-        else:
-            output = forward_hf(request)
-        return output
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"traceback:\n{traceback.format_exc()}"
-        )
+    # try:
+    #     print("at /forward")
+    #     if request.name_of_model.startswith("gpt"):
+    #         raise NotImplementedError  # gpt moved to client side
+    #         # output = forward_gpt(request)
+    #     else:
+    #         output = forward_hf(request)
+    #     return output
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=500, detail=f"traceback:\n{traceback.format_exc()}"
+    #     )
+    t = threading.Thread(target=process_item, args=(request,))
+    # print(f"starting thread for {request}")
+    t.start()
+    item_threads.append(t)
+    t.join()
+    return results[request.json()]
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=55244)
+    # uvicorn.run(app, host="0.0.0.0", port=55244)
+    server_thread = threading.Thread(
+        target=uvicorn.run, args=(app,), kwargs={"host": "0.0.0.0", "port": LM_PORT_NO}
+    )
+    server_thread.start()
+
+    # call forward a few times in multiple threads
+    def call_forward(i):
+        x = forward(i)
+        print(f">>>>>>>>> client received: {x}")
+
+    threads = []
+    for i in range(10):
+        prompt = f"what is 10 + {i}"
+        fr = ForwardRequest(
+            name_of_model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+            history=[{"role": "user", "content": prompt}],
+            use_cache=False,
+            constraints=None,
+            constraint_type="none",
+            response_format=None,
+        )
+        t = threading.Thread(target=call_forward, args=(fr,))
+        t.start()
+        threads.append(t)
+    print("all threads started")
+
+    # wait for all threads to finish
+    for t in threads:
+        t.join()
+
+    for i in range(100, 110):
+        prompt = f"what is 10 + {i}"
+        fr = ForwardRequest(
+            name_of_model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+            history=[{"role": "user", "content": prompt}],
+            use_cache=False,
+            constraints=None,
+            constraint_type="none",
+            response_format=None,
+        )
+        t = threading.Thread(target=call_forward, args=(fr,))
+        t.start()
+        threads.append(t)
+
+    print("all threads started")

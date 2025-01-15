@@ -210,6 +210,11 @@ def plot_code_mode_results(
         p_correct = (y_pred == y_true).sum() / n
         p_incorrect = (y_pred != y_true).sum() / n
 
+        tp = (y_pred == 1) & (y_true == 1)
+        fp = (y_pred == 1) & (y_true == 0)
+        fn = (y_pred == 0) & (y_true == 1)
+        tn = (y_pred == 0) & (y_true == 0)
+
         # Compute precision, recall, F1 (macro averaged)
         precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
 

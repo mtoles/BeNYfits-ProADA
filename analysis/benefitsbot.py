@@ -147,14 +147,14 @@ def eligibility_to_string(eligibility_df):
 # df["labels"] = df["labels"].apply(lambda x: x[: args.num_programs])
 
 # Description about all the benefits eligbility in natural language
-predictions_df = read_eligibility_requirements(
+requirements = read_eligibility_requirements(
     args.eligibility_requirements, args.num_programs
 )
 # if args.programs is not None:
 #     predictions_df = predictions_df[
 #         predictions_df["program_name"].apply(lambda x: x in args.programs)
 #     ].reset_index(drop=True)
-eligibility_requirements = predictions_df.set_index("program_name")[
+eligibility_requirements = requirements.set_index("program_name")[
     "plain_language_eligibility"
 ].to_dict()
 program_names = set(eligibility_requirements.keys())
@@ -167,16 +167,16 @@ assert len(bad_class_names) == 0
 
 # Load the dataset
 if os.path.exists(args.dataset_path):
-    df = pd.read_json(args.dataset_path, lines=True)
+    labels_df = pd.read_json(args.dataset_path, lines=True)
 elif args.dataset_path == "unittest":
-    df = unit_test_dataset()
-df["hh"] = df["hh"].apply(
+    labels_df = unit_test_dataset()
+labels_df["hh"] = labels_df["hh"].apply(
     lambda hh: Household.from_dict(hh) if isinstance(hh, dict) else hh
 )
 if args.ds_shift:
-    df = df.iloc[args.ds_shift :]
+    labels_df = labels_df.iloc[args.ds_shift :]
 if args.downsample_size:
-    df = df[: args.downsample_size]
+    labels_df = labels_df[: args.downsample_size]
 
 predictions = []
 histories = []
@@ -228,7 +228,7 @@ generated_code_path = os.path.join("generated_code", generated_code_filename)
 os.makedirs("generated_code", exist_ok=True)
 
 generated_code_results = []
-for index, row in tqdm(df.iterrows()):
+for index, row in tqdm(labels_df.iterrows()):
     chatbot = get_chatbot(args.chatbot_strategy)
     # hh_nl_desc = row["hh_nl_desc"]
     # hh_nl_always_include = row["hh_nl_desc_always_include"]
@@ -246,49 +246,25 @@ for index, row in tqdm(df.iterrows()):
     lm_logger.add_empty_convo(labels.to_dict())
     # Temporarily load codellama if we are using llama
     code_run_mode = "code" in args.chatbot_strategy
-    # secondary_code_model_mode = (
-    #     "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
-    # ) and "code" in args.chatbot_strategy
 
-    ### PRE-CONVERSATION (codellama and code gen) ###
+    ### PRE-CONVERSATION (Code Mode) ###
     if code_run_mode:
         with open(generated_code_path, "w") as tf:
             chatbot.pre_conversation(locals())
-            #     tf = open(generated_code_path, "w")
-            #     chatbot.pre_conversation(locals())
-            # finally:
-            #     tf.close()
-            # os.remove("generated_code.py")
-
-        # run generated code
-        # chatbot = get_chatbot(args.chatbot_strategy)
+        ### RUN GENERATED CODE ###
         generated_code_results.append(chatbot.run_generated_code(locals()))
 
-        # code_hh = generated_code_result["hh"]
-        # code_mode_predictions = generated_code_result["eligibility"]
-        # code_history = generated_code_result["history"]
-        # code_passed = code_mode_predictions is not None
-
-        # TODO: compute dialog turns correctly
-        # per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
-        # lm_logger.log_predictions(per_turn_all_predictions)
-
-        code_passed = True
         predictions_log_entry = {}
         for k, v in generated_code_results[-1].items():
             predictions_log_entry[k] = 1 if v["eligibility"] else 0
-        lm_logger.log_predictions([predictions_log_entry])
+        # lm_logger.log_predictions([predictions_log_entry])
 
     # continue
-    if not code_run_mode or not code_passed:
+    if not code_run_mode:
 
         per_turn_predictions = []
-        ### -------- ###
 
         history = (
-            # code_history
-            # if "code_history" in locals()
-            # else
             [
                 {
                     "role": "system",
@@ -301,8 +277,6 @@ for index, row in tqdm(df.iterrows()):
         cur_iter_count = 0
         decision = None
 
-        # try:
-        # save the chat history no matter what
         while True:
             if cur_iter_count != 0:
                 per_turn_predictions.append(
@@ -356,17 +330,6 @@ for index, row in tqdm(df.iterrows()):
         per_turn_all_predictions.append(per_turn_predictions)
         lm_logger.log_predictions(per_turn_predictions)
         lm_logger.log_hh_diff(row["hh"])
-        # except Exception as e:
-        #     # write the exception and the last attempted lm call to a log file
-        #     with open(f"{output_dir}/exceptions.log", "a") as f:
-        #         f.write(f"Index: {index}\n")
-        #         f.write(f"Exception: {e}\n")
-        #         f.write(f"LM Call: {lm_logger.latest_input}\n")
-        #         f.write("\n\n==========\n\n")
-        #         print(e)
-        # finally:
-        #     # delete the tempfile
-        #     lm_logger.save()
     non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
 
 lm_logger.save()
@@ -395,8 +358,8 @@ if code_run_mode:
 
     # call one final time
     plot_code_mode_results(
-        predictions_df,
-        df[args.programs].reset_index(),
+        predictions_df.astype(int),
+        labels_df[args.programs].reset_index().astype(int),
         output_dir=output_dir,
         experiment_params={
             "Backbone Model": args.chat_model_id,
@@ -410,7 +373,7 @@ if code_run_mode:
 else:
     plot_code_mode_results(
         non_code_preds_df,
-        df[args.programs].reset_index(),
+        labels_df[args.programs].reset_index(),
         output_dir=output_dir,
         experiment_params={
             "Backbone Model": args.chat_model_id,
