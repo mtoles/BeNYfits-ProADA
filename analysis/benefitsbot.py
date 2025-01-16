@@ -157,6 +157,10 @@ predictions_df = read_eligibility_requirements(
 eligibility_requirements = predictions_df.set_index("program_name")[
     "plain_language_eligibility"
 ].to_dict()
+eligibility_requirements = {
+    k: v for k, v in eligibility_requirements.items() if k in args.programs
+}
+
 program_names = set(eligibility_requirements.keys())
 class_names = set(args.programs)
 bad_class_names = class_names - program_names
@@ -370,6 +374,17 @@ for index, row in tqdm(df.iterrows()):
     non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
 
 lm_logger.save()
+
+turns = []
+# turns = [len(x) - 1 for x in per_turn_all_predictions] # turns taken in each dialog
+for log in lm_logger.log:
+    count = 0
+    dialog = log["dialog"]
+    for convo in dialog:
+        if convo[-1]["role"] in ["predict_cq", "key_error"]:
+            count += 1
+    turns.append(count)
+
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)

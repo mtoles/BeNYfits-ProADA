@@ -101,10 +101,15 @@ class ChatBot:
             logging_role="predict_benefits_eligibility",
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
+            constraint_type="regex",
+            constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
         )
         # TODO - Ensure output is a list of boolean
-        lm_output = self.extract_prediction(lm_output, programs)
-        return lm_output
+        # lm_output = self.extract_prediction(lm_output, programs)
+        processed_output = ast.literal_eval(f"[{lm_output}]")
+        assert len(processed_output) == len(programs)
+        output_dict = dict(zip(programs, processed_output))
+        return output_dict
 
     def predict_cq(self, history, chat_model_id) -> str:
         """

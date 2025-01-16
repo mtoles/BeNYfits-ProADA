@@ -365,15 +365,15 @@ def show_household(hh):
         result.append(f"Age: {member['age']}")
         if member["relation"] == "self":
             result.append(
-                show_abnormal(member, Person.default_employed(random_name=False))
+                show_abnormal(member, Person.default_person(random_name=False))
             )
         elif member["relation"] == "spouse":
             result.append(
-                show_abnormal(member, Person.default_unemployed(random_name=False))
+                show_abnormal(member, Person.default_person(random_name=False))
             )
         elif member["relation"] == "child":
             result.append(
-                show_abnormal(member, Person.default_child(random_name=False))
+                show_abnormal(member, Person.default_person(random_name=False))
             )
         result.append("")  # for spacing between members
     return "\n".join(result).strip()
