@@ -150,7 +150,9 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     )
                     # replace all hh.get(...) with hh["..."]
                     clean_checker_output = re.sub(
-                        r'hh\.get\(f?(["\'])(.*?)\1\)', r'hh["\2"]', clean_checker_output
+                        r'hh\.get\(f?(["\'])(.*?)\1\)',
+                        r'hh["\2"]',
+                        clean_checker_output,
                     )
                     clean_checker_output = black.format_str(
                         remove_raise_statements(clean_checker_output),
@@ -271,38 +273,38 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
         sys.path.append(tf.name)
         return program
 
-    def run_generated_code(self, locals):
+    def run_generated_code(self, chatbot, tf, args, row, synthetic_user, eligibility_requirements):
         program_outputs = {}
-        program_names = locals["program_names"]
+        program_names = args.programs
         sorted_program_names = sorted(program_names, key=len, reverse=True)
         for program_name in sorted_program_names:
-            spo = self.run_single_program(program_name, locals)  # single program output
+            spo = self.run_single_program(program_name, chatbot, tf, args, row, synthetic_user, eligibility_requirements)  # single program output
             # drop history and hh
             del spo["history"]
             del spo["hh"]
-            program_outputs[spo["program_name"]] = spo
+            del spo["program_name"]
+            program_outputs[program_name] = spo
 
         return program_outputs
 
-    def run_single_program(self, program_name, locals):
-        gen_code_path = locals["tf"].name
-        synthetic_user = locals["synthetic_user"]
+    def run_single_program(self, program_name, chatbot, tf, args, row, synthetic_user, eligibility_requirements):
+        gen_code_path = tf.name
         # import the generated code from the temp file
         spec = importlib.util.spec_from_file_location("generated_code", gen_code_path)
         generated_code = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generated_code)
 
         history = []
-        locals["hh"] = ImaginaryData()
+        hh = ImaginaryData()
         # run the generated code until we get a valid output
         attempt_no = 0
         prev_hh = None
         while True:
-            if locals["hh"] == prev_hh:
+            if hh == prev_hh:
                 print("returning None eligibility due to no change in locals")
                 return {
                     "program_name": program_name,
-                    "hh": locals["hh"],
+                    "hh": hh,
                     "history": history,
                     "eligibility": None,
                     "completed": False,
@@ -312,7 +314,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
             try:
                 p_fn = generated_code.calls[program_name]
                 # eligibility = generated_code.calls[program_name](local_scope=locals)
-                eligibility = p_fn(hh=locals["hh"])
+                eligibility = p_fn(hh=hh)
                 break
             except Exception as e:
                 error_var = e
@@ -324,9 +326,9 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                 # fn_name = traceback.extract_tb(e.__traceback__)[
                 #     1
                 # ].name  # TODO: get without hard coding index
-                assert fn_name in list(locals["eligibility_requirements"].keys())
+                assert fn_name in list(eligibility_requirements.keys())
                 fn_code = inspect.getsource(eval("generated_code" + "." + fn_name))
-                relevant_program = locals["eligibility_requirements"][
+                relevant_program = eligibility_requirements[
                     fn_name.lstrip("validate_")
                 ]
                 # relevant_val_dict = generated_code.vals[program_name]()
@@ -379,72 +381,74 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                         logging_role="extract_value_from_ans",
                     )
                     history.append({"role": "assistant", "content": new_hh_value})
-                    prev_hh = deepcopy(locals["hh"])
-                    locals["hh"][key] = new_hh_value
+                    # prev_hh = deepcopy(locals["hh"])
+                    prev_hh = deepcopy(hh)
+                    # locals["hh"][key] = new_hh_value
+                    hh[key] = new_hh_value
                     continue
                 # elif type(e) == ValueError:
                 #     error=e
                 #     raise NotImplementedError
-                    # key_options = set(locals["hh"].keys()).intersection(
-                    #     set(relevant_val_dict.keys())
-                    # )
-                    # key = None
-                    # attempt_no = 0
-                    # while key not in relevant_val_dict.keys():
-                    #     raw_key = self.forward_generic(
-                    #         prompt=self.value_error_find_key_prompt.format(
-                    #             attempt_no=attempt_no,
-                    #             code=fn_code,
-                    #             line=line,
-                    #             traceback=str(e),
-                    #             key_options=str(key_options),
-                    #         ),
-                    #         logging_role="value_error_find_key",
-                    #     )
-                    #     key = raw_key.strip("'\"` \n.")
-                    #     attempt_no += 1
-                    # # target_type = e.args[0]
-                    # # print(e)
-                    # target_type = relevant_val_dict[key]
-                    # original_value = locals["hh"][key]
-                    # # original_value = str(e)[str(e).find('"') + 1 :].strip('"')
-                    # if type(target_type) == type:
-                    #     prompt = self.type_error_prompt.format(
-                    #         eligibility_requirements=relevant_program,
-                    #         line=line,
-                    #         value=original_value,
-                    #         target_type=[target_type],
-                    #         dialog=hist_to_str(history),
-                    #     )
-                    # else:  # type(target_type) == list[str]
-                    #     prompt = self.str_error_prompt.format(
-                    #         eligibility_requirements=relevant_program,
-                    #         line=line,
-                    #         value=original_value,
-                    #         target_options=target_type,
-                    #         dialog=hist_to_str(history),
-                    #     )
-                    # retyped_val = self.forward_generic(
-                    #     prompt=prompt,
-                    #     logging_role="type_error",
-                    # )
-                    # prev_hh = deepcopy(locals["hh"])
-                    # locals["hh"][key] = retyped_val
-                    # continue
+                # key_options = set(locals["hh"].keys()).intersection(
+                #     set(relevant_val_dict.keys())
+                # )
+                # key = None
+                # attempt_no = 0
+                # while key not in relevant_val_dict.keys():
+                #     raw_key = self.forward_generic(
+                #         prompt=self.value_error_find_key_prompt.format(
+                #             attempt_no=attempt_no,
+                #             code=fn_code,
+                #             line=line,
+                #             traceback=str(e),
+                #             key_options=str(key_options),
+                #         ),
+                #         logging_role="value_error_find_key",
+                #     )
+                #     key = raw_key.strip("'\"` \n.")
+                #     attempt_no += 1
+                # # target_type = e.args[0]
+                # # print(e)
+                # target_type = relevant_val_dict[key]
+                # original_value = locals["hh"][key]
+                # # original_value = str(e)[str(e).find('"') + 1 :].strip('"')
+                # if type(target_type) == type:
+                #     prompt = self.type_error_prompt.format(
+                #         eligibility_requirements=relevant_program,
+                #         line=line,
+                #         value=original_value,
+                #         target_type=[target_type],
+                #         dialog=hist_to_str(history),
+                #     )
+                # else:  # type(target_type) == list[str]
+                #     prompt = self.str_error_prompt.format(
+                #         eligibility_requirements=relevant_program,
+                #         line=line,
+                #         value=original_value,
+                #         target_options=target_type,
+                #         dialog=hist_to_str(history),
+                #     )
+                # retyped_val = self.forward_generic(
+                #     prompt=prompt,
+                #     logging_role="type_error",
+                # )
+                # prev_hh = deepcopy(locals["hh"])
+                # locals["hh"][key] = retyped_val
+                # continue
                 else:
                     print(
                         f"returning None because of error in generated code. Error: {error_var}"
                     )
                     return {
                         "program_name": program_name,
-                        "hh": locals["hh"],
+                        "hh": hh,
                         "history": history,
                         "eligibility": np.random.choice([True, False]),
                         "completed": False,
                     }
         return {
             "program_name": program_name,
-            "hh": locals["hh"],
+            "hh": hh,
             "history": history,
             "eligibility": eligibility,
             "completed": True,

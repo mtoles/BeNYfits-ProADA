@@ -1,5 +1,5 @@
 # from models.model_utils import LanguageModelWrapper
-from models.lm_backbone import LmBackboneModel
+# from models.lm_backbone import LmBackboneModel
 from typing import List, Optional
 from copy import deepcopy
 import re
@@ -9,8 +9,14 @@ import re
 from models.lm_logging import LmLogger
 from inspect import currentframe
 from server.model_client import ModelAPIClient
+from dotenv import load_dotenv
+import os
 
 np.random.seed(42)
+load_dotenv()
+URL = os.getenv("LM_SERVER_URL")
+PORT_NO = int(os.getenv("LM_PORT_NO"))
+
 
 benefits_ready_prompt = {
     "role": "system",
@@ -66,7 +72,9 @@ class ChatBot:
         self.use_cache = use_cache
         self.lm_api = ModelAPIClient(
             # "http://localhost:8000",
-            "http://localhost:55244",
+            # "http://localhost:55244",
+            URL,
+            PORT_NO,
             lm_logger=lm_logger,
         )
         self.num_programs = no_of_programs

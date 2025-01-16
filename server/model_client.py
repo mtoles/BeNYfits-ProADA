@@ -16,6 +16,7 @@ LM_PORT_NO = int(os.getenv("LM_PORT_NO"))
 
 results = {}
 
+
 class ModelAPIClient:
     def __init__(self, api_url, port_no, lm_logger=None):
         self.api_url = api_url
@@ -59,6 +60,7 @@ class ModelAPIClient:
         )
         if fr.name_of_model.startswith("gpt"):
             response = self.forward_gpt(fr)
+            status_code = response["status_code"]
         else:
             t = threading.Thread(target=self._forward, args=(fr,))
             t.start()
@@ -67,7 +69,10 @@ class ModelAPIClient:
             status_code = response.status_code
 
         if status_code == 200:
-            response_package = response.json()
+            if not isinstance(response, dict):
+                response_package = response.json()
+            else:
+                response_package = response
 
             generated_text = response_package["generated_text"]
             if self.lm_logger is not None:
@@ -95,8 +100,7 @@ class ModelAPIClient:
                 response_format=request.response_format,
             )
         generated_text = completion.choices[0].message.content.strip()
-        return {"generated_text": generated_text}
-
+        return {"generated_text": generated_text, "status_code": 200}
 
 
 if __name__ == "__main__":

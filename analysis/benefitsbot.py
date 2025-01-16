@@ -16,6 +16,7 @@ from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
 from users.benefits_programs import BenefitsProgramMeta
+import concurrent.futures
 
 start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
@@ -108,6 +109,7 @@ parser.add_argument(
 
 ### run unit tests
 
+THREADS = 2
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -142,6 +144,54 @@ def eligibility_to_string(eligibility_df):
     return eligibility_def
 
 
+def run_in_parallel(
+    labels_df,
+    args,
+    lm_logger,
+    eligibility_requirements,
+    generated_code_path,
+    NUM_THREADS=2,
+):
+    """
+    Main function to submit parallel tasks and store results in a dictionary.
+    """
+    # results_dict = {}
+
+    # We keep track of these lists if you need them across rows
+    # But each thread can also have its own local lists, so adapt as you see fit.
+    # per_turn_all_predictions = []
+    # last_turn_iteration = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+        # Submit jobs
+        future_to_index = {}
+        for index, row in tqdm(labels_df.iterrows(), total=len(labels_df)):
+            future = executor.submit(
+                process_single_row,
+                index,
+                row,
+                args,
+                lm_logger,
+                eligibility_requirements,
+                generated_code_path,
+                per_turn_all_predictions,
+                last_turn_iteration,
+            )
+            future_to_index[future] = index
+
+        # Collect results
+        for future in concurrent.futures.as_completed(future_to_index):
+            i = future_to_index[future]
+            result = {i: future.result()}
+            dialog_results.update(result)
+            # try:
+            #     result = future.result()
+            #     results_dict[i] = result
+            # except Exception as e:
+            #     print(f"Exception at index {i}: {e}")
+        return  # dont' return anything because results are stored in `generated_code_results` globally
+
+
 # if args.num_programs is not None:
 # df["programs"] = df["programs"].apply(lambda x: x[: args.num_programs])
 # df["labels"] = df["labels"].apply(lambda x: x[: args.num_programs])
@@ -154,9 +204,12 @@ requirements = read_eligibility_requirements(
 #     predictions_df = predictions_df[
 #         predictions_df["program_name"].apply(lambda x: x in args.programs)
 #     ].reset_index(drop=True)
-eligibility_requirements = requirements.set_index("program_name")[
-    "plain_language_eligibility"
-].to_dict()
+eligibility_requirements = (
+    requirements[requirements["program_name"].apply(lambda x: x in args.programs)]
+    .set_index("program_name")["plain_language_eligibility"]
+    .to_dict()
+)
+
 program_names = set(eligibility_requirements.keys())
 class_names = set(args.programs)
 bad_class_names = class_names - program_names
@@ -178,15 +231,17 @@ if args.ds_shift:
 if args.downsample_size:
     labels_df = labels_df[: args.downsample_size]
 
+labels_df = labels_df[["hh"] + args.programs]
 predictions = []
 histories = []
-per_turn_all_predictions = []
-last_turn_iteration = []
+per_turn_all_predictions = {}
+last_turn_iteration = {}
 
 num_benefits = len(args.programs)
 
 
-lm_logger = LmLogger(log_dir=output_dir)
+# lm_logger = LmLogger(log_dir=output_dir)
+lm_logger = None
 
 
 # def get_model(model_name: str) -> ChatBot:
@@ -227,177 +282,245 @@ generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
 generated_code_path = os.path.join("generated_code", generated_code_filename)
 os.makedirs("generated_code", exist_ok=True)
 
-generated_code_results = []
-for index, row in tqdm(labels_df.iterrows()):
+dialog_results = {}
+
+# lm_logger.save()
+NUM_THREADS = 1
+code_run_mode = "code" in args.chatbot_strategy
+
+
+def process_single_row(
+    index,
+    row,
+    args,
+    lm_logger,
+    eligibility_requirements,
+    generated_code_path,
+    per_turn_all_predictions,
+    last_turn_iteration,
+):
+    """
+    Process a single row of labels_df in parallel.
+    Returns a dictionary containing all relevant results for this row.
+    """
+
+    # We want to replicate the structure from your original code:
+
     chatbot = get_chatbot(args.chatbot_strategy)
-    # hh_nl_desc = row["hh_nl_desc"]
-    # hh_nl_always_include = row["hh_nl_desc_always_include"]
+    with open(generated_code_path, "w") as tf:
+        chatbot.pre_conversation(locals())
+    # generated_code_results = []
+    # SyntheticUser
     synthetic_user = SyntheticUser(
         row,
-        # hh_nl_desc,
-        # hh_nl_always_include,
         args.synthetic_user_model_name,
         use_cache=args.use_cache,
         lm_logger=lm_logger,
         top_k=args.top_k,
     )
-    # reinstantiate the model every time to dump the chat history
-    labels = row[args.programs]
-    lm_logger.add_empty_convo(labels.to_dict())
-    # Temporarily load codellama if we are using llama
-    code_run_mode = "code" in args.chatbot_strategy
-
-    ### PRE-CONVERSATION (Code Mode) ###
+    # If we are in 'code' mode, run the code block
     if code_run_mode:
-        with open(generated_code_path, "w") as tf:
-            chatbot.pre_conversation(locals())
-        ### RUN GENERATED CODE ###
-        generated_code_results.append(chatbot.run_generated_code(locals()))
 
-        predictions_log_entry = {}
-        for k, v in generated_code_results[-1].items():
-            predictions_log_entry[k] = 1 if v["eligibility"] else 0
+        generated_code_result = chatbot.run_generated_code(
+            chatbot=chatbot,
+            tf=tf,
+            args=args,
+            row=row,
+            synthetic_user=synthetic_user,
+            eligibility_requirements=eligibility_requirements,
+        )
+        # generated_code_results.append(generated_code_result)
+        # generated_code_results[index] = generated_code_result
+
+        # Convert the code results into a predictions dict if desired
+        # predictions_log_entry = {}
+        # for k, v in generated_code_result.items():
+        #     predictions_log_entry[k] = 1 if v["eligibility"] else 0
+        # Optionally log predictions
         # lm_logger.log_predictions([predictions_log_entry])
+        # return # retun nothing
+        return generated_code_result
 
-    # continue
-    if not code_run_mode:
+    # Otherwise, we are in "chat" mode
+    else:
+        # Example user / chatbot loop
+        labels = row[args.programs]
+        # lm_logger.add_empty_convo(labels.to_dict())
 
         per_turn_predictions = []
+        history = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a language model trying to help user to determine "
+                    "eligbility of user for benefits. Currently, you do not know "
+                    "anything about the user. Ask questions that will help you "
+                    "determine the eligibility of user for benefits as quickly as possible. "
+                    "Ask only one question at a time. The eligibility requirements are:\n\n"
+                    f"{eligibility_requirements}"
+                ),
+            },
+        ]
 
-        history = (
-            [
-                {
-                    "role": "system",
-                    "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
-                },
-            ]
-        )
-        print(f"Index: {index}")
-
+        labels_dict = labels.to_dict()  # ground truth label
         cur_iter_count = 0
         decision = None
 
         while True:
+            # predict benefits at each iteration
             if cur_iter_count != 0:
                 per_turn_predictions.append(
                     chatbot.predict_benefits_eligibility(history, args.programs)
                 )
             else:
-                # default to all zero prediction on 0th round
+                # default to all zero predictions on 0th round
                 default_predictions = dict([(x, 0) for x in args.programs])
                 per_turn_predictions.append(default_predictions)
-            ### break if out of dialog turns ###
+
             if cur_iter_count >= args.max_dialog_turns:
-                print(f"Max dialog turns ({args.max_dialog_turns}) reached")
-                print("==" * 20)
-                last_turn_iteration.append(cur_iter_count)
+                # Reached maximum number of dialog turns
+                # last_turn_iteration.append(cur_iter_count)
+                last_turn_iteration[index] = cur_iter_count
                 decision = per_turn_predictions[-1]
-                print(f"Decision:  {decision}")
-                print(f"label:     {labels.to_dict()}")
-                print("==" * 20)
+                # fill the remaining turns with the last decision
+                diff = args.max_dialog_turns - cur_iter_count
+                if diff > 0:
+                    per_turn_predictions.extend([decision] * diff)
                 break
-            ### break if benefits eligibility is ready ###
+
+            # If the chatbot says benefits eligibility is decided
             if (
                 cur_iter_count > 0
                 and str(chatbot.predict_benefits_ready(history)) == "True"
             ):
-                print(
-                    f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
-                )
                 decision = per_turn_predictions[-1]
-                print(f"Decision:  {decision}")
-                print(f"label:     {labels.to_dict()}")
-                print("==" * 20)
-                # fill the remaining turns with None
-                per_turn_predictions.extend(
-                    [decision] * (args.max_dialog_turns - cur_iter_count)
-                )
-                last_turn_iteration.append(cur_iter_count)
+                # fill the remaining turns with the last decision
+                diff = args.max_dialog_turns - cur_iter_count
+                if diff > 0:
+                    per_turn_predictions.extend([decision] * diff)
+                # last_turn_iteration.append(cur_iter_count)
+                last_turn_iteration[index] = cur_iter_count
                 break
-            ### otherwise, ask a question ###
+
+            # Otherwise, ask next question
             cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
             history.append({"role": "assistant", "content": cq})
             cq_answer = synthetic_user.answer_cq(cq)
             history.append({"role": "user", "content": cq_answer})
 
-            print(f"Turn Number:         {cur_iter_count}")
-            print(f"Clarifying Question: {cq}")
-            print(f"Answer:              {cq_answer}")
-            chatbot.post_answer(history)  # optional
-            print("==" * 20)
-            cur_iter_count += 1
-            # chatbot.append_chat_question_and_answer(cq, cq_answer)
-        per_turn_all_predictions.append(per_turn_predictions)
-        lm_logger.log_predictions(per_turn_predictions)
-        lm_logger.log_hh_diff(row["hh"])
-    non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
+            # Post-answer actions (if any)
+            chatbot.post_answer(history)
 
-lm_logger.save()
+            cur_iter_count += 1
+
+        # Collect final predictions
+        # per_turn_all_predictions.append(per_turn_predictions)
+        per_turn_all_predictions[index] = per_turn_predictions
+        # return {index: }
+        # Optionally log predictions
+        # lm_logger.log_predictions(per_turn_predictions)
+
+        # non_code_preds_df = pd.DataFrame([per_turn_all_predictions[i][i] for i in range(len(per_turn_all_predictions))])
+
+        # Return whatever you want for this row
+        # return  # return nothing because its stored in the global per_turn_all_predictions
+        last_turn_pred = per_turn_predictions[-1]
+        result = {}
+        for k, v in last_turn_pred.items():
+            result[k] = {
+                "eligibility": v,
+                "completed": "TODO: add completed",
+            }
+        return result
+        # return {
+        #     "index": index,
+        #     "last_decision": decision,
+        #     "labels": labels_dict,
+        #     "per_turn_predictions": per_turn_predictions,
+        #     "non_code_preds_df": non_code_preds_df,
+        # }
+
+    # return results_dict
+
+
+run_in_parallel(
+    labels_df,
+    args,
+    lm_logger,
+    eligibility_requirements,
+    generated_code_path,
+    NUM_THREADS=2,
+)
+
+# non_code_preds_df = per_turn_all_predictions
+per_turn_all_predictions
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 # convert dict of dicts to separate dfs
-if code_run_mode:
-    eligibility_li = []
-    completed_li = []
-    for i, d in enumerate(generated_code_results):
-        eligibility_line = {}
-        completed_line = {}
-        for pn, dd in d.items():
-            eligibility_line[pn] = dd["eligibility"]
-            completed_line[pn] = dd["completed"]
-        eligibility_li.append(eligibility_line)
-        completed_li.append(completed_line)
+# if code_run_mode:
 
-    eligibility_li_int = [
-        {k: (1 if v is True else 0 if v is False else v) for k, v in d.items()}
-        for d in eligibility_li
-    ]
-    predictions_df = pd.DataFrame(eligibility_li_int)
-    completed_df = pd.DataFrame(completed_li)
+### PLOT RESULTS $$$
+eligibility_d = {}
+completed_d = {}
+for i, d in dialog_results.items():
+    eligibility_line = {}
+    completed_line = {}
+    for pn, dd in d.items():
+        eligibility_line[pn] = dd["eligibility"]
+        completed_line[pn] = dd["completed"]
+    eligibility_d[i] = eligibility_line
+    completed_d[i] = completed_line
 
-    # call one final time
-    plot_code_mode_results(
-        predictions_df.astype(int),
-        labels_df[args.programs].reset_index().astype(int),
-        output_dir=output_dir,
-        experiment_params={
-            "Backbone Model": args.chat_model_id,
-            "Strategy": f"{args.estring} {args.chatbot_strategy}",
-            "Programs": ", ".join(args.programs),
-            "Max Dialog Turns": args.max_dialog_turns,
-            "Downsample Size": args.downsample_size,
-            "Top K Sentences": args.top_k,
-        },
-    )
-else:
-    plot_code_mode_results(
-        non_code_preds_df,
-        labels_df[args.programs].reset_index(),
-        output_dir=output_dir,
-        experiment_params={
-            "Backbone Model": args.chat_model_id,
-            "Strategy": f"{args.estring} {args.chatbot_strategy}",
-            "Programs": ", ".join(args.programs),
-            "Max Dialog Turns": args.max_dialog_turns,
-            "Downsample Size": args.downsample_size,
-            "Top K Sentences": args.top_k,
-        },
-    )
-    # plot_metrics_per_turn(
-    #     non_code_preds_df,
-    #     df[args.programs].reset_index(),
-    #     last_turn_iteration,
-    #     output_dir=output_dir,
-    #     experiment_params={
-    #         "Backbone Model": args.chat_model_id,
-    #         "Strategy": f"{args.estring} {args.chatbot_strategy}",
-    #         "Programs": ", ".join(args.programs),
-    #         "Max Dialog Turns": args.max_dialog_turns,
-    #         "Downsample Size": args.downsample_size,
-    #         "Top K Sentences": args.top_k,
-    #     },
-    # )
+eligibility_d_int = {
+    k: {kk: (1 if vv is True else 0 if vv is False else vv) for kk, vv in v.items()}
+    for k, v in eligibility_d.items()
+}
+predictions_df = pd.DataFrame(eligibility_d_int).T.sort_index()
+completed_df = pd.DataFrame(completed_d).T.sort_index()
+
+# call one final time
+plot_code_mode_results(
+    predictions_df.astype(int),
+    labels_df[args.programs].reset_index().astype(int),
+    output_dir=output_dir,
+    experiment_params={
+        "Backbone Model": args.chat_model_id,
+        "Strategy": f"{args.estring} {args.chatbot_strategy}",
+        "Programs": ", ".join(args.programs),
+        "Max Dialog Turns": args.max_dialog_turns,
+        "Downsample Size": args.downsample_size,
+        "Top K Sentences": args.top_k,
+    },
+)
+# else:
+#     plot_code_mode_results(
+#         non_code_preds_df,
+#         labels_df[args.programs].reset_index(),
+#         output_dir=output_dir,
+#         experiment_params={
+#             "Backbone Model": args.chat_model_id,
+#             "Strategy": f"{args.estring} {args.chatbot_strategy}",
+#             "Programs": ", ".join(args.programs),
+#             "Max Dialog Turns": args.max_dialog_turns,
+#             "Downsample Size": args.downsample_size,
+#             "Top K Sentences": args.top_k,
+#         },
+#     )
+# plot_metrics_per_turn(
+#     non_code_preds_df,
+#     df[args.programs].reset_index(),
+#     last_turn_iteration,
+#     output_dir=output_dir,
+#     experiment_params={
+#         "Backbone Model": args.chat_model_id,
+#         "Strategy": f"{args.estring} {args.chatbot_strategy}",
+#         "Programs": ", ".join(args.programs),
+#         "Max Dialog Turns": args.max_dialog_turns,
+#         "Downsample Size": args.downsample_size,
+#         "Top K Sentences": args.top_k,
+#     },
+# )
 
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")

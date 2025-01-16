@@ -15,7 +15,7 @@ import time
 from dotenv import load_dotenv
 
 
-from server_internals import ForwardRequest, forward_hf
+from server.server_internals import ForwardRequest, forward_hf
 
 """
 run with:

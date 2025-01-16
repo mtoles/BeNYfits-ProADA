@@ -5,6 +5,12 @@ from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import torch
 from server.model_client import ModelAPIClient
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+URL = os.getenv("LM_SERVER_URL")
+PORT_NO = int(os.getenv("LM_PORT_NO"))
 
 
 class SyntheticUser:
@@ -23,9 +29,11 @@ class SyntheticUser:
         """
         # self.lm_wrapper = lm_wrapper
         # self.nl_profile = hh_nl_desc
-        self.nl_profile = su_json["hh_nl_desc"]
-        self.always_included = su_json["hh_nl_desc_always_include"]
-        self.user_name = su_json["hh"].members[0]["name"]
+        hh = su_json["hh"]
+
+        self.nl_profile = hh.nl_household_profile()
+        self.always_included = hh.members[0].nl_person_profile_always_include()
+        self.user_name = hh.members[0]["name"]
         self.chat_model_id = chat_model_id
         self.use_cache = use_cache
         # Model to answer clarifying question
@@ -33,7 +41,7 @@ class SyntheticUser:
         # self.lm_backbone = LmBackboneModel(
         #     id_of_model, self.use_cache, lm_logger=lm_logger
         # )
-        self.lm_api = ModelAPIClient("http://localhost:55244", lm_logger)
+        self.lm_api = ModelAPIClient(URL, PORT_NO, lm_logger=lm_logger)
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
         self.sentence_encoder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -88,8 +96,7 @@ class SyntheticUser:
             {
                 "role": "user",
                 "content": "Use the context to answer the question. Use only the information given in context and do not add any additional information. Answer the question in the first person. If you cannot answer the question from the context, explain why you cannot answer the question. Answer concisely. Answer only 'yes' or 'no' to yes/no questions. However, if the question assumes a fact that is not true, you should correct them.\n\n"
-                + 
-                f"Question: {cq}",
+                + f"Question: {cq}",
                 # "content": cq,
             },
         ]
