@@ -2,7 +2,7 @@ import numpy as np
 from names import get_full_name
 from schema import And
 from enum import Enum
-
+import random
 
 GRADE_DICT = {
     "pk": "preschool",
@@ -69,11 +69,45 @@ class name(BasePersonAttr):
     nl_fn = lambda n, x: f"Name: {n}"
     always_include = True
 
+def sample_from_distribution(dist):
+    total_weight = sum(weight for (_, weight) in dist)
+    r = random.uniform(0, total_weight)
+
+    cumulative = 0
+    for (low_high, weight) in dist:
+        low, high = low_high 
+        if cumulative + weight >= r:
+            if isinstance(low, int) and isinstance(high, int):
+                return random.randint(low, high)
+            else:
+                return random.uniform(low, high)            
+        cumulative += weight
+    
+    last_range, _ = dist[-1]
+    low, high = last_range
+    if isinstance(low, int) and isinstance(high, int):
+        return random.randint(low, high)
+    else:
+        return random.uniform(low, high)
+
+def sample_categorical(dist):
+    total_weight = sum(weight for (_, weight) in dist)
+    r = random.uniform(0, total_weight)
+
+    cumulative = 0
+    for (label, weight) in dist:
+        if cumulative + weight >= r:
+            return label
+        cumulative += weight
+
+    return dist[-1][0]
 
 ### DEMOGRAPHICS ###
 class age(BasePersonAttr):
+    dist = [((0, 4), 5.4), ((5, 9), 5.4), ((10, 14), 5.6), ((15, 19), 5.7), ((20, 24), 7.0), ((25, 29), 9.0), ((30, 34), 8.8), ((35, 39), 7.4), ((40, 44), 6.5), ((45, 49), 6.0), ((50, 54), 6.2), ((55, 59), 6.2), ((60, 64), 5.8), ((65, 69), 4.8), ((70, 74), 3.9), ((75, 79), 2.6), ((80, 84), 1.8), ((85, 100), 1.9)]
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 80)
+    uniform = lambda: sample_from_distribution(age.dist)
     default = 20
     nl_fn = lambda n, x: f"{n} is {x} years old."
 
@@ -84,8 +118,10 @@ class SexEnum(Enum):
 
 
 class sex(BasePersonAttr):
+    dist = [("Yes", 1), ("No", 99)]
     schema = And(lambda x: x in [y.value for y in SexEnum])
     random = lambda: np.random.choice(list(SexEnum)).value
+    uniform = lambda: sample_categorical(sex.dist)
     default = SexEnum.FEMALE.value
     nl_fn = lambda n, x: f"{n} is {x}."
 
