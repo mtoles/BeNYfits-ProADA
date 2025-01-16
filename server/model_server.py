@@ -38,22 +38,41 @@ tk = None
 q = queue.Queue()
 results = {}
 
+BATCH_SIZE = 4
 
 # Define a worker function
 def worker(q, results):
     while True:
-        item, event = q.get()  # Get an item and its associated event
-        if item is None:  # Exit signal
-            break
-        print(f"Processing item: {item}")
+        items = []
+        for _ in range(BATCH_SIZE):
+            if not q.empty:
+                item, event = q.get()
+                # try:
+                #     item, event = q.get_nowait()  # Get an item and its associated event
+                # except queue.Empty:
+                #     break
+                items.append((item, event))
+
+        if not items:
+            continue
+
+        print(f"Processing items: {[str(item[0]) for item in items]}")
         # time.sleep(1)  # Simulate work
 
         # fr = ForwardRequest(item
         # )
-        r = forward_hf(item)
-        # Store the result (could be more complex in real cases)
-        results[item.json()] = r
-        event.set()  # Signal that the item has been processed
+        try:
+            rs = forward_hf(items)
+        except Exception as e:
+            print(traceback.format_exc())
+            print("Error while processing items:", e)
+            for item, event in items:
+                results[item.json()] = str(e)
+        else:
+            for (item, _), r in zip(items, rs):
+                results[item.json()] = r
+        for item, event in items:
+            event.set()  # Signal that the item has been processed
         q.task_done()  # Mark the task as done
 
 
