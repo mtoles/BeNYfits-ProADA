@@ -118,7 +118,7 @@ class SexEnum(Enum):
 
 
 class sex(BasePersonAttr):
-    dist = [("Yes", 1), ("No", 99)]
+    dist = [("Yes", 47.5), ("No", 52.5)]
     schema = And(lambda x: x in [y.value for y in SexEnum])
     random = lambda: np.random.choice(list(SexEnum)).value
     uniform = lambda: sample_categorical(sex.dist)
