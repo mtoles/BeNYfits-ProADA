@@ -102,6 +102,18 @@ class Person:
             person["relation"] = "self"
         return person
 
+    @staticmethod
+    def uniform_person(is_self=False):
+        attr_names = PersonAttributeMeta.registry.keys()
+        # person_dict = {attr: attr.random() for attr in attr_names}
+        person_dict = {
+            attr: PersonAttributeMeta.registry[attr].uniform() for attr in attr_names
+        }
+        person = Person.from_dict(person_dict)
+        if is_self:
+            person["relation"] = "self"
+        return person
+    
     # @staticmethod
     # def default_child(random_name=True):
     #     child = Person.default_unemployed(random_name=random_name)

@@ -106,6 +106,56 @@ def get_random_household_input():
     hh.validate()
     return hh
 
+def get_uniform_household_input():
+    """
+    Fetches a random household to be used for all programs.
+    """
+    members = []
+
+    has_spouse = random.choice([True, False])
+    num_children = random.randint(0, 2)
+    num_adults = random.randint(0, 1)
+
+    ### user
+    user = Person.uniform_person(is_self=True)
+    members = [user]
+    if has_spouse:
+        spouse = Person.uniform_person(is_self=False)
+        spouse["relation"] = "spouse"
+        members.append(spouse)
+    for _ in range(num_children):
+        child = Person.uniform_person(is_self=False)
+        child["age"] = random.randint(0, 18)
+        child["relation"] = np.random.choice(
+            [
+                RelationEnum.CHILD.value,
+                RelationEnum.ADOPTED_CHILD.value,
+                RelationEnum.STEPCHILD.value,
+                RelationEnum.GRANDCHILD.value,
+                RelationEnum.FOSTER_CHILD.value,
+            ]
+        )
+        members.append(child)
+    for _ in range(num_adults):
+        adult = Person.uniform_person(is_self=False)
+        adult["age"] = random.randint(18, 100)
+        adult["relation"] = np.random.choice(
+            [
+                RelationEnum.SIBLING.value,
+                RelationEnum.OTHER_FAMILY.value,
+                RelationEnum.OTHER_NON_FAMILY.value,
+            ]
+        )
+        members.append(adult)
+
+    hh = Household(members)
+    # for i in range(len(hh.members)):
+    #     for attr in user_features.BasePersonAttr.registry.keys():
+    #         cls = user_features.BasePersonAttr.registry[attr]
+    #         hh.members[i][attr] = cls.conform(cls, hh, i, hh.members[i][attr])
+    hh = hh.conform()
+    hh.validate()
+    return hh
 
 class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
     """ "
@@ -8074,6 +8124,6 @@ class SummerYouthEmploymentProgram(BaseBenefitsProgram):
             assert not result, f"SummerYouthEmploymentProgram test {i} failed"
 
 if __name__ == "__main__":
-    hh = get_random_household_input()
+    hh = get_uniform_household_input()
     print("Household:")
     print(hh)
