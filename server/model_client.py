@@ -65,16 +65,16 @@ class ModelAPIClient:
             t = threading.Thread(target=self._forward, args=(fr,))
             t.start()
             t.join()
-            response = results[fr.json()]
-            status_code = response.status_code
+            result = results[fr.json()]
+            status_code = result.status_code
 
         if status_code == 200:
-            if not isinstance(response, dict):
-                response_package = response.json()
+            if isinstance(result, str):
+                generated_text = result
             else:
-                response_package = response
+                generated_text = result.json()
 
-            generated_text = response_package["generated_text"]
+            # generated_text = response_package["generated_text"]
             if self.lm_logger is not None:
                 self.lm_logger.log_io(
                     lm_input=history, lm_output=generated_text, role=logging_role
@@ -114,14 +114,24 @@ if __name__ == "__main__":
             }
         ]
 
+    threads = []
     for i in range(2, 4):
         history = hist(i)
-        output = ModelAPIClient.forward(
-            history,
-            use_cache=True,
-            logging_role="test",
-            chat_model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        t = threading.Thread(
+            target=ModelAPIClient.forward,
+            args=(history,),
+            kwargs={
+                "use_cache": False,
+                "logging_role": "test",
+                "chat_model_id": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+            },
         )
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()
+        # print all output
+        print(results)
 
-        print(output)
     print("done")
+    print(list(results.values()))

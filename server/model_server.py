@@ -41,40 +41,62 @@ results = {}
 BATCH_SIZE = 4
 
 # Define a worker function
+# def worker(q, results):
+#     while True:
+#         items = []
+#         try:
+#             item, event = q.get()  # Get an item and its associated event
+#             if item is None:  # Exit signal
+#                 continue
+#         except queue.Empty:
+#             continue
+        
+#         print(f"Processing item: {item}")
+#         # time.sleep(1)  # Simulate work
+#         try:
+#             r = forward_hf(items)
+#         except Exception as e:
+#             print(traceback.format_exc())
+#             print("Error while processing items:", e)
+#             results[item.json()] = str(e)
+#         else:
+#             results[item.json()] = r
+#         event.set()  # Signal that the item has been processed
+#         q.task_done()  # Mark the task as done
+def process_batch(items_with_events, results):
+    """Helper to call forward_hf on the batch and record results."""
+    items = [ie[0] for ie in items_with_events]
+    events = [ie[1] for ie in items_with_events]
+    try:
+        outputs = forward_hf(items)  # Assume this returns a list of results
+        for item, event, out in zip(items, events, outputs):
+            results[item.json()] = out
+            event.set()
+    except Exception as e:
+        traceback.print_exc()
+        for item, event in items_with_events:
+            results[item.json()] = str(e)
+            event.set()
+
 def worker(q, results):
+    batch = []
     while True:
-        items = []
-        for _ in range(BATCH_SIZE):
-            if not q.empty:
-                item, event = q.get()
-                # try:
-                #     item, event = q.get_nowait()  # Get an item and its associated event
-                # except queue.Empty:
-                #     break
-                items.append((item, event))
-
-        if not items:
-            continue
-
-        print(f"Processing items: {[str(item[0]) for item in items]}")
-        # time.sleep(1)  # Simulate work
-
-        # fr = ForwardRequest(item
-        # )
         try:
-            rs = forward_hf(items)
-        except Exception as e:
-            print(traceback.format_exc())
-            print("Error while processing items:", e)
-            for item, event in items:
-                results[item.json()] = str(e)
-        else:
-            for (item, _), r in zip(items, rs):
-                results[item.json()] = r
-        for item, event in items:
-            event.set()  # Signal that the item has been processed
-        q.task_done()  # Mark the task as done
+            item, event = q.get()
+            if item is None:  # Signal to flush and exit
+                if batch:
+                    process_batch(batch, results)
+                break
+            batch.append((item, event))
+            if len(batch) == BATCH_SIZE:
+                process_batch(batch, results)
+                batch.clear()
+        except queue.Empty:
+            pass  # Continue waiting
 
+    # In case anything remains
+    if batch:
+        process_batch(batch, results)
 
 num_threads = 1
 threads = []
