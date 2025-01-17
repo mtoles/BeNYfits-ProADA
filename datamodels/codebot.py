@@ -36,20 +36,28 @@ class ImaginaryData(dict):
 
 
 class CodeBot(ChatBot):
-    gen_checker_prompt = """{attempt_no}\nEligibility Requirements:\n{eligibility_requirement}\n\nWrite a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information and determines user eligibility. All keys and values of `hh` are strings. `check_eligibility` returns a bool. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. Here is an example:
+    gen_checker_prompt = """{attempt_no}\nEligibility Requirements:\n{eligibility_requirement}\n\nWrite a python function called `check_eligibility` that takes a dictionary `hh` containing relevant information and determines user eligibility. hh is a special dictionary connected to a language model that is conversing with the user. Any time it does not contain a key, it will determine that information from the user. As a result here are some requirements for interacting with `hh`:
+    - DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhere. 
+    - Do not use default values. 
+    - Do not use any f-strings, curly brackets, or dynamically generated strings in your keys. 
+    - Use only literal strings in keys. 
+    - Do not use try-except blocks.
+     
+     `check_eligibility` returns a bool. All keys and values of `hh` are strings. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. Here is an example:
 
-def dummy_eligibility_program(hh: dict) -> bool:
-    def _helper(hh):
-        if hh["has_id"]=="yes":
-            return True
-        else:
-            return False
-    if hh["has_dependents"]=="yes":
-        if int(hh["dependent_age"]) < 18 and _helper(hh):
-            return True
-    return False
+    def dummy_eligibility_program(hh: dict) -> bool:
+        def _helper(hh):
+            if hh["has_id"]=="yes":
+                return True
+            else:
+                return False
+        if hh["has_dependents"]=="yes":
+            if int(hh["dependent_age"]) < 18 and _helper(hh):
+                return True
+        return False
 
-DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhere. Do not use default values. Do not raise any exceptions. Do not provide anything besides code in your response."""
+    Avoid using int() and use float() instead. Do not provide anything besides code in your response.
+    """
 
     get_type_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what do you expect {key} to be an integer, a float, or one choice from a set of strings? Return ONLY int, float, or choice."""
     get_choices_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible choices of {key}? Return ONLY the list of possible values."""
@@ -384,53 +392,7 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     continue
                 # elif type(e) == ValueError:
                 #     error=e
-                #     raise NotImplementedError
-                    # key_options = set(locals["hh"].keys()).intersection(
-                    #     set(relevant_val_dict.keys())
-                    # )
-                    # key = None
-                    # attempt_no = 0
-                    # while key not in relevant_val_dict.keys():
-                    #     raw_key = self.forward_generic(
-                    #         prompt=self.value_error_find_key_prompt.format(
-                    #             attempt_no=attempt_no,
-                    #             code=fn_code,
-                    #             line=line,
-                    #             traceback=str(e),
-                    #             key_options=str(key_options),
-                    #         ),
-                    #         logging_role="value_error_find_key",
-                    #     )
-                    #     key = raw_key.strip("'\"` \n.")
-                    #     attempt_no += 1
-                    # # target_type = e.args[0]
-                    # # print(e)
-                    # target_type = relevant_val_dict[key]
-                    # original_value = locals["hh"][key]
-                    # # original_value = str(e)[str(e).find('"') + 1 :].strip('"')
-                    # if type(target_type) == type:
-                    #     prompt = self.type_error_prompt.format(
-                    #         eligibility_requirements=relevant_program,
-                    #         line=line,
-                    #         value=original_value,
-                    #         target_type=[target_type],
-                    #         dialog=hist_to_str(history),
-                    #     )
-                    # else:  # type(target_type) == list[str]
-                    #     prompt = self.str_error_prompt.format(
-                    #         eligibility_requirements=relevant_program,
-                    #         line=line,
-                    #         value=original_value,
-                    #         target_options=target_type,
-                    #         dialog=hist_to_str(history),
-                    #     )
-                    # retyped_val = self.forward_generic(
-                    #     prompt=prompt,
-                    #     logging_role="type_error",
-                    # )
-                    # prev_hh = deepcopy(locals["hh"])
-                    # locals["hh"][key] = retyped_val
-                    # continue
+
                 else:
                     print(
                         f"returning None because of error in generated code. Error: {error_var}"

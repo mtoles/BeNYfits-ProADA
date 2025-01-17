@@ -408,7 +408,9 @@ if code_run_mode:
     predictions_df = pd.DataFrame(eligibility_li_int)
     completed_df = pd.DataFrame(completed_li)
 
-    # call one final time
+    # save raw data to jsonl
+
+
     plot_code_mode_results(
         predictions_df,
         df[args.programs].reset_index(),
@@ -422,6 +424,13 @@ if code_run_mode:
             "Top K Sentences": args.top_k,
         },
     )
+    predictions_df.to_json(
+        f"{output_dir}/predictions.jsonl", orient="records", lines=True
+    )
+    if completed_df:
+        completed_df.to_json(f"{output_dir}/completed.jsonl", orient="records", lines=True)
+
+    
 else:
     plot_code_mode_results(
         non_code_preds_df,
@@ -436,20 +445,13 @@ else:
             "Top K Sentences": args.top_k,
         },
     )
-    # plot_metrics_per_turn(
-    #     non_code_preds_df,
-    #     df[args.programs].reset_index(),
-    #     last_turn_iteration,
-    #     output_dir=output_dir,
-    #     experiment_params={
-    #         "Backbone Model": args.chat_model_id,
-    #         "Strategy": f"{args.estring} {args.chatbot_strategy}",
-    #         "Programs": ", ".join(args.programs),
-    #         "Max Dialog Turns": args.max_dialog_turns,
-    #         "Downsample Size": args.downsample_size,
-    #         "Top K Sentences": args.top_k,
-    #     },
-    # )
+    non_code_preds_df.to_json(
+        f"{output_dir}/predictions.jsonl", orient="records", lines=True
+    )
+df[args.programs].astype(int).to_json(
+    f"{output_dir}/labels.jsonl", orient="records", lines=True
+)
+
 
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")

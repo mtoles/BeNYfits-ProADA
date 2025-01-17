@@ -20,3 +20,4 @@ analysis/notetaker.sh
 */package-lock.json
 generated_code/
 .DS_Store
+.joblib_cache/

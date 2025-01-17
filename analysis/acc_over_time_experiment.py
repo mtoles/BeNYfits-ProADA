@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import PurePath
 from copy import deepcopy
 
+
 def plot_metrics_per_turn(
     predictions: list[list[bool]],
     labels: pd.DataFrame,
@@ -145,10 +146,10 @@ def plot_metrics_per_turn(
 #     plt.xlabel("Program")
 #     plt.ylabel("Accuracy")
 #     plt.xticks(range(len(p_names)), p_names, rotation=60, fontsize=6)
-    
+
 #     # Add additional space under the figure
 #     plt.subplots_adjust(bottom=0.3)
-    
+
 #     displayed_params = deepcopy(experiment_params)
 #     del displayed_params["Programs"]
 #     if experiment_params:
@@ -187,6 +188,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_fscore_support
 
+
 def plot_code_mode_results(
     df: pd.DataFrame,
     labels: pd.DataFrame,
@@ -197,6 +199,8 @@ def plot_code_mode_results(
     Plot results of code mode experiment with additional metrics (F1, precision, recall).
     Counts all NaN predictions as incorrect.
     """
+    df = df.astype(int)
+    labels = labels.astype(int)
     output_dir = PurePath(output_dir)
     p_names = df.columns
     n = len(df)
@@ -205,13 +209,15 @@ def plot_code_mode_results(
     for p in p_names:
         y_true = labels[p]
         y_pred = df[p].fillna(-1)
-        
+
         # Compute correctness metrics
         p_correct = (y_pred == y_true).sum() / n
         p_incorrect = (y_pred != y_true).sum() / n
 
         # Compute precision, recall, F1 (macro averaged)
-        precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true, y_pred, average="macro", zero_division=0
+        )
 
         results.append(
             pd.DataFrame(
@@ -230,7 +236,12 @@ def plot_code_mode_results(
     fig, axs = plt.subplots(4, 1, figsize=(8, 12))
     # Accuracy plot
     axs[0].bar(p_names, results_df["correct"], label="correct")
-    axs[0].bar(p_names, results_df["incorrect"], bottom=results_df["correct"], label="incorrect")
+    axs[0].bar(
+        p_names,
+        results_df["incorrect"],
+        bottom=results_df["correct"],
+        label="incorrect",
+    )
     axs[0].set_title("Accuracy Results")
     axs[0].set_xlabel("Program")
     axs[0].set_ylabel("Fraction")
@@ -296,4 +307,3 @@ def plot_code_mode_results(
         lines=True,
         orient="records",
     )
-
