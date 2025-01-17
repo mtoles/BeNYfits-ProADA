@@ -45,6 +45,7 @@ class PersonAttributeMeta(type):
             # assert type(attrs["name"]) == str
             assert type(attrs["schema"]) == And
             assert callable(attrs["random"])
+            assert callable(attrs["uniform"])
             assert callable(attrs["nl_fn"])
             # add to registry
             cls.registry[name] = new_p_attr
@@ -65,6 +66,7 @@ class BasePersonAttr(metaclass=PersonAttributeMeta):
 class name(BasePersonAttr):
     schema = And(str, len)
     random = lambda: get_full_name()
+    uniform = lambda: get_full_name()
     default = "DefaultName"
     nl_fn = lambda n, x: f"Name: {n}"
     always_include = True
@@ -118,7 +120,7 @@ class SexEnum(Enum):
 
 
 class sex(BasePersonAttr):
-    dist = [("Yes", 47.5), ("No", 52.5)]
+    dist = [("male", 47.5), ("female", 52.5)]
     schema = And(lambda x: x in [y.value for y in SexEnum])
     random = lambda: np.random.choice(list(SexEnum)).value
     uniform = lambda: sample_categorical(sex.dist)
@@ -143,6 +145,7 @@ class RelationEnum(Enum):
 class relation(BasePersonAttr):
     schema = And(lambda x: x in RelationEnum._value2member_map_)
     random = lambda: np.random.choice(list(RelationEnum)).value
+    uniform = lambda: np.random.choice(list(RelationEnum)).value
     default = RelationEnum.SELF.value
     nl_fn = lambda n, x: (
         f"You are {n}" if x == RelationEnum.SELF.value else f"{n} is your {x}"
@@ -154,6 +157,7 @@ class relation(BasePersonAttr):
 class disabled(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: f"{n} is disabled." if x else f"{n} is not disabled."
 
@@ -161,6 +165,7 @@ class disabled(BasePersonAttr):
 class has_ssn(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = True
     nl_fn = lambda n, x: (
         f"{n} has a social security number (SSN)."
@@ -180,6 +185,7 @@ class has_ssn(BasePersonAttr):
 class has_atin(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has an adoption taxpayer ID number (ATIN)."
@@ -196,6 +202,7 @@ class has_atin(BasePersonAttr):
 class has_itin(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has an individual taxpayer ID number (ITIN)."
@@ -217,6 +224,7 @@ class has_itin(BasePersonAttr):
 class can_care_for_self(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = True
     nl_fn = lambda n, x: (
         f"{n} can care for themselves." if x else f"{n} cannot care for themselves."
@@ -236,6 +244,7 @@ class PlaceOfResidenceEnum(Enum):
 class place_of_residence(BasePersonAttr):
     schema = And(lambda x: x in [y.value for y in PlaceOfResidenceEnum])
     random = lambda: np.random.choice([x.value for x in PlaceOfResidenceEnum])
+    uniform = lambda: np.random.choice([x.value for x in PlaceOfResidenceEnum])
     default = PlaceOfResidenceEnum.NYC.value
     nl_fn = lambda n, x: f"{n} lives in {x}."
 
@@ -247,6 +256,7 @@ class place_of_residence(BasePersonAttr):
 class enrolled_in_educational_training(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is enrolled in educational training."
@@ -263,6 +273,7 @@ class enrolled_in_educational_training(BasePersonAttr):
 class enrolled_in_vocational_training(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is enrolled in vocational training."
@@ -280,6 +291,11 @@ class enrolled_in_vocational_training(BasePersonAttr):
 class annual_work_income(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     def random():
+        if np.random.choice([True, False]):
+            return np.random.randint(0, 100000)
+        else:
+            return 0
+    def uniform():
         if np.random.choice([True, False]):
             return np.random.randint(0, 100000)
         else:
@@ -303,6 +319,11 @@ class annual_investment_income(BasePersonAttr):
             return np.random.randint(0, 100000)
         else:
             return 0
+    def uniform():
+        if np.random.choice([True, False]):
+            return np.random.randint(0, 100000)
+        else:
+            return 0
     default = 0
     nl_fn = lambda n, x: f"{n} makes {x} per year from investments."
 
@@ -315,6 +336,7 @@ class annual_investment_income(BasePersonAttr):
 class provides_over_half_of_own_financial_support(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = True
     nl_fn = lambda n, x: (
         f"{n} provides over half of their own financial support."
@@ -331,6 +353,7 @@ class provides_over_half_of_own_financial_support(BasePersonAttr):
 class receives_hra(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Health Reimbursement Arrangement (HRA)."
@@ -349,6 +372,7 @@ class receives_hra(BasePersonAttr):
 class receives_ssi(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Supplemental Security Income (SSI Code A)."
@@ -365,6 +389,7 @@ class receives_ssi(BasePersonAttr):
 class receives_snap(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Supplemental Nutrition Assistance Program (SNAP)."
@@ -382,6 +407,7 @@ class receives_snap(BasePersonAttr):
 class receives_ssdi(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Social Security Disability Insurance (SSDI)."
@@ -398,6 +424,7 @@ class receives_ssdi(BasePersonAttr):
 class receives_va_disability(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Veterans Affairs (VA) disability pension or compensation."
@@ -414,6 +441,7 @@ class receives_va_disability(BasePersonAttr):
 class has_received_ssi_or_ssdi(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has received Supplemental Security Income (SSI) or Social Security Disability Insurance (SSDI) in the past."
@@ -430,6 +458,7 @@ class has_received_ssi_or_ssdi(BasePersonAttr):
 class receives_disability_medicaid(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Medicaid due to disability."
@@ -484,6 +513,7 @@ class current_school_level(BasePersonAttr):
 
     schema = And(lambda x: x in [x.value for x in GradeLevelEnum])
     random = randomize
+    uniform = randomize
     default = GradeLevelEnum.NONE.value
     nl_fn = lambda n, x: (
         f"{n} is in {GRADE_DICT[x]}." if x else f"{n} is not in school."
@@ -531,6 +561,7 @@ class current_school_level(BasePersonAttr):
 class works_outside_home(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} works outside the home." if x else f"{n} does not work outside the home."
@@ -560,6 +591,7 @@ class works_outside_home(BasePersonAttr):
 class work_hours_per_week(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 60)
+    uniform = lambda: np.random.randint(0, 60)
     default = 0
     nl_fn = lambda n, x: f"{n} works {x} hours per week."
 
@@ -572,6 +604,7 @@ class work_hours_per_week(BasePersonAttr):
 class days_looking_for_work(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 365)
+    uniform = lambda: np.random.randint(0, 365)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has been looking for work for {x} days."
@@ -589,6 +622,7 @@ class days_looking_for_work(BasePersonAttr):
 class in_foster_care(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is in foster care." if x else f"{n} is not in foster care."
@@ -603,6 +637,7 @@ class in_foster_care(BasePersonAttr):
 class attending_service_for_domestic_violence(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is attending a service for domestic violence."
@@ -614,6 +649,7 @@ class attending_service_for_domestic_violence(BasePersonAttr):
 class has_paid_caregiver(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a paid caregiver." if x else f"{n} does not have a paid caregiver."
@@ -635,6 +671,7 @@ class has_paid_caregiver(BasePersonAttr):
 class name_is_on_lease(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is on the household lease."
@@ -651,6 +688,7 @@ class name_is_on_lease(BasePersonAttr):
 class monthly_rent_spending(BasePersonAttr):
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 10000)
+    uniform = lambda: np.random.randint(0, 10000)
     default = 0
     nl_fn = lambda n, x: f"{n} spends {x} per month on rent."
 
@@ -672,6 +710,7 @@ class monthly_rent_spending(BasePersonAttr):
 class lived_together_last_6_months(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = True
     nl_fn = lambda n, x: (
         f"{n} lived with you for the last 6 months."
@@ -683,6 +722,7 @@ class lived_together_last_6_months(BasePersonAttr):
 class filing_jointly(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s tax filing status is married, filing jointly."
@@ -702,6 +742,7 @@ class filing_jointly(BasePersonAttr):
 class dependent(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is your dependent." if x else f"{n} is not your dependent."
@@ -717,6 +758,7 @@ class dependent(BasePersonAttr):
 class receiving_treatment_for_substance_abuse(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is receiving treatment for substance abuse."
@@ -758,6 +800,7 @@ class HousingEnum(Enum):
 class housing_type(BasePersonAttr):
     schema = And(str, lambda x: x in [y.value for y in HousingEnum])
     random = lambda: np.random.choice(list(HousingEnum)).value
+    uniform = lambda: np.random.choice(list(HousingEnum)).value
     default = HousingEnum.HOUSE_2B.value
     nl_fn = lambda n, x: (
         f"{n} lives in a {x}. It is not any other type of government housing or development."
@@ -774,6 +817,7 @@ class housing_type(BasePersonAttr):
 class is_property_owner(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is a property owner." if x else f"{n} is not a property owner."
@@ -809,6 +853,7 @@ class is_property_owner(BasePersonAttr):
 class primary_residence(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = True
     nl_fn = lambda n, x: (
         f"{n}'s home is their primary residence."
@@ -825,6 +870,7 @@ class primary_residence(BasePersonAttr):
 class months_owned_property(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
     random = lambda: np.random.randint(0, 240)  # e.g., up to 20 years
+    uniform = lambda: np.random.randint(0, 240)  # e.g., up to 20 years
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has owned the house they live in for {x} months."
@@ -844,6 +890,7 @@ class months_owned_property(BasePersonAttr):
 class had_previous_sche(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} previously received SCHE on another property."
@@ -881,6 +928,7 @@ class had_previous_sche(BasePersonAttr):
 class propery_owner_widow(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is a widow of the property owner."
@@ -897,6 +945,7 @@ class propery_owner_widow(BasePersonAttr):
 class conflict_veteran(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} served in the US armed forces in conflict in Iraq."
@@ -916,6 +965,7 @@ class conflict_veteran(BasePersonAttr):
 class electricity_shut_off(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s electricity is shut off or in danger of being shut off."
@@ -932,6 +982,7 @@ class electricity_shut_off(BasePersonAttr):
 class heat_shut_off(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s heating system is shut off or in danger of being shut off."
@@ -950,6 +1001,7 @@ class heat_shut_off(BasePersonAttr):
 class out_of_fuel(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (f"{n} is out of fuel." if x else f"{n} is not out of fuel.")
 
@@ -962,6 +1014,7 @@ class out_of_fuel(BasePersonAttr):
 class heating_electrical_bill_in_name(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a heating and electrical bill in their name."
@@ -980,6 +1033,7 @@ class heating_electrical_bill_in_name(BasePersonAttr):
 class available_financial_resources(BasePersonAttr):
     schema = And(float)
     random = lambda: float(np.random.randint(0, 10000))
+    uniform = lambda: float(np.random.randint(0, 10000))
     default = 0.0
     nl_fn = lambda n, x: f"{n}'s household has {x} in available financial resources."
 
@@ -987,6 +1041,7 @@ class available_financial_resources(BasePersonAttr):
 class receives_temporary_assistance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives New York OTDA Temporary Assistance."
@@ -1006,6 +1061,7 @@ class receives_temporary_assistance(BasePersonAttr):
 class lost_job(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} lost their last job through no fault of their own."
@@ -1023,6 +1079,14 @@ class months_since_worked(BasePersonAttr):
     schema = And(int, lambda v: v >= -1)
     # random = lambda: np.random.randint(-1, 240)  # e.g., up to 20 years
     def random():
+        r = np.random.randint(3)
+        if r == 0:
+            return -1
+        elif r == 1:
+            return 0
+        else:
+            return np.random.randint(1, 240)
+    def uniform():
         r = np.random.randint(3)
         if r == 0:
             return -1
@@ -1052,6 +1116,7 @@ class months_since_worked(BasePersonAttr):
 class work_experience(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: f"{n} has {x} years of work experience."
 
@@ -1068,6 +1133,7 @@ class work_experience(BasePersonAttr):
 class can_work_immediately(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} can work immediately." if x else f"{n} cannot work immediately."
@@ -1082,6 +1148,7 @@ class can_work_immediately(BasePersonAttr):
 class authorized_to_work_in_us(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is authorized to work in the US and NYC."
@@ -1098,6 +1165,7 @@ class authorized_to_work_in_us(BasePersonAttr):
 class was_authorized_to_work_when_job_lost(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} was authorized to work in the US when they lost their last job."
@@ -1112,6 +1180,7 @@ class was_authorized_to_work_when_job_lost(BasePersonAttr):
 class is_parent(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (f"{n} is a parent." if x else f"{n} is not a parent.")
 
@@ -1140,6 +1209,11 @@ class months_pregnant(BasePersonAttr):
             return np.random.randint(1, 9)
         else:
             return 0
+    def uniform():
+        if np.random.choice([True, False]):
+            return np.random.randint(1, 9)
+        else:
+            return 0
     default = 0
     nl_fn = lambda n, x: (
         f"{n} is {x} months pregnant." if x else f"{n} is not pregnant."
@@ -1156,6 +1230,7 @@ class months_pregnant(BasePersonAttr):
 class breastfeeding(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} breastfeeds a baby." if x else f"{n} is not breastfeeding a baby."
@@ -1188,6 +1263,7 @@ class breastfeeding(BasePersonAttr):
 class selective_service(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is registered for selective service."
@@ -1200,6 +1276,7 @@ class selective_service(BasePersonAttr):
 class is_eligible_for_selective_service(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for selective service."
@@ -1225,6 +1302,7 @@ class is_eligible_for_selective_service(BasePersonAttr):
 class receives_cash_assistance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} qualifies for and receives cash assistance."
@@ -1241,6 +1319,7 @@ class receives_cash_assistance(BasePersonAttr):
 class is_runaway(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (f"{n} is a runaway." if x else f"{n} is not a runaway.")
 
@@ -1253,6 +1332,7 @@ class is_runaway(BasePersonAttr):
 class foster_age_out(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has aged out of foster care."
@@ -1278,6 +1358,7 @@ class CitizenshipEnum(Enum):
 class citizenship(BasePersonAttr):
     schema = And(str, lambda x: x in [c.value for c in CitizenshipEnum])
     random = lambda: np.random.choice(list(CitizenshipEnum)).value
+    uniform = lambda: np.random.choice(list(CitizenshipEnum)).value
     default = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
     nl_fn = lambda n, x: f"{n} is a {x}."
 
@@ -1285,6 +1366,7 @@ class citizenship(BasePersonAttr):
 class responsible_for_day_to_day(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is responsible all their children's day-to-day life."
@@ -1312,6 +1394,7 @@ class responsible_for_day_to_day(BasePersonAttr):
 class hiv_aids(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has been diagnosed with HIV or AIDS."
@@ -1323,6 +1406,7 @@ class hiv_aids(BasePersonAttr):
 class can_manage_self(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} can manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others."
@@ -1334,6 +1418,7 @@ class can_manage_self(BasePersonAttr):
 class has_family_to_help(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has people to help them manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others. "
@@ -1348,6 +1433,7 @@ class has_family_to_help(BasePersonAttr):
 class can_access_subway_or_bus(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} can use accessible buses or subways for some or all of their trips."
@@ -1359,6 +1445,7 @@ class can_access_subway_or_bus(BasePersonAttr):
 class recovering_from_surgery(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is recovering from surgery."
@@ -1383,6 +1470,7 @@ class EducationLevelEnum(Enum):
 class high_school_equivalent(BasePersonAttr):
     schema = And(lambda x: x in [e.value for e in EducationLevelEnum])
     random = lambda: np.random.choice([e.value for e in EducationLevelEnum])
+    uniform = lambda: np.random.choice([e.value for e in EducationLevelEnum])
     default = EducationLevelEnum.HIGH_SCHOOL_DIPLOMA.value
     nl_fn = lambda n, x: f"{n}'s education level is: {x}."
 
@@ -1412,6 +1500,7 @@ class high_school_equivalent(BasePersonAttr):
 class acs(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} gets help from Administration for Children's Services (ACS)."
@@ -1426,6 +1515,7 @@ class acs(BasePersonAttr):
 class chronic_health_condition(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a chronic health condition."
@@ -1437,6 +1527,7 @@ class chronic_health_condition(BasePersonAttr):
 class developmental_condition(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a serious developmental condition that interferes with social functions."
@@ -1448,6 +1539,7 @@ class developmental_condition(BasePersonAttr):
 class emotional_behavioral_condition(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has an serious emotional or behavioral condition that interferes with social functions."
@@ -1461,6 +1553,7 @@ class emotional_behavioral_condition(BasePersonAttr):
 class mental_health_condition(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a serious mental health condition that interferes with social functions."
@@ -1481,6 +1574,7 @@ class mental_health_condition(BasePersonAttr):
 class health_insurance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has health insurance" if x else f"{n} is not covered by health insurance."
@@ -1493,6 +1587,7 @@ class health_insurance(BasePersonAttr):
 class struggles_to_relate(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} struggles to relate to their family."
@@ -1507,6 +1602,7 @@ class struggles_to_relate(BasePersonAttr):
 class emancipated_minor(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (f"{n} is emancipated." if x else f"{n} is not emancipated.")
 
@@ -1524,6 +1620,7 @@ class emancipated_minor(BasePersonAttr):
 class accepted_to_cuny(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has completed admission requirements and is accepted to CUNY."
@@ -1540,6 +1637,7 @@ class accepted_to_cuny(BasePersonAttr):
 class eligible_for_instate_tuition(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for in-state tuition."
@@ -1551,6 +1649,7 @@ class eligible_for_instate_tuition(BasePersonAttr):
 class proficient_in_math(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is proficient in math." if x else f"{n} is not proficient in math."
@@ -1560,6 +1659,7 @@ class proficient_in_math(BasePersonAttr):
 class proficient_in_english_reading_and_writing(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is proficient in English reading and writing."
@@ -1572,6 +1672,11 @@ class college_credits(BasePersonAttr):
     schema = And(int)
     # random = lambda: np.random.randint(0, 200)
     def random():
+        if np.random.choice([True, False]):
+            return np.random.randint(1, 200)
+        else:
+            return 0
+    def uniform():
         if np.random.choice([True, False]):
             return np.random.randint(1, 200)
         else:
@@ -1592,6 +1697,7 @@ class college_credits(BasePersonAttr):
 class gpa(BasePersonAttr):
     schema = And(float)
     random = lambda: np.random.uniform(0.0, 4.0)
+    uniform = lambda: np.random.uniform(0.0, 4.0)
     default = 0.0
     nl_fn = lambda n, x: (f"{n} has a {x} GPA." if x else f"{n} does not have a GPA.")
 
@@ -1610,6 +1716,7 @@ class gpa(BasePersonAttr):
 class work_authorization(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is authorized to work in NYC and the US."
@@ -1626,6 +1733,7 @@ class work_authorization(BasePersonAttr):
 class involved_in_justice_system(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is involved in the justice system."
@@ -1649,6 +1757,7 @@ class involved_in_justice_system(BasePersonAttr):
 class work_or_volunteer_experience(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has work or volunteer experience."
@@ -1670,6 +1779,7 @@ class work_or_volunteer_experience(BasePersonAttr):
 class lives_in_jobs_plus_neighborhood(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} lives in a Jobs Plus neighborhood."
@@ -1695,6 +1805,7 @@ class lives_in_jobs_plus_neighborhood(BasePersonAttr):
 class va_healthcare(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for VA healthcare."
@@ -1714,6 +1825,7 @@ class va_healthcare(BasePersonAttr):
 class heat_exacerbated_condition(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a heat-exacerbated condition."
@@ -1725,6 +1837,7 @@ class heat_exacerbated_condition(BasePersonAttr):
 class ac(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has an air conditioning unit."
@@ -1741,6 +1854,7 @@ class ac(BasePersonAttr):
 class got_heap_ac(BasePersonAttr):
     schema = And(int)
     random = lambda: np.random.randint(0, 10)
+    uniform = lambda: np.random.randint(0, 10)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} received a HEAP air conditioning unit {x} years ago."
@@ -1755,6 +1869,7 @@ class got_heap_ac(BasePersonAttr):
 class heat_included_in_rent(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has heat included in their rent."
@@ -1769,6 +1884,7 @@ class heat_included_in_rent(BasePersonAttr):
 class qualify_for_health_insurance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} qualifies for a health care plan available in New York State"
@@ -1803,6 +1919,7 @@ class qualify_for_health_insurance(BasePersonAttr):
 class at_risk_of_homelessness(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is at risk of homelessness."
@@ -1821,6 +1938,7 @@ class at_risk_of_homelessness(BasePersonAttr):
 class transitional_job(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s job is from a transitional jobs program."
@@ -1841,6 +1959,7 @@ class transitional_job(BasePersonAttr):
 class federal_work_study(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s job is from a federal work study job"
@@ -1859,6 +1978,7 @@ class federal_work_study(BasePersonAttr):
 class scholarship(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is compensated by a qualified scholarship program."
@@ -1875,6 +1995,7 @@ class scholarship(BasePersonAttr):
 class government_job(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} works for a government agency"
@@ -1893,6 +2014,7 @@ class government_job(BasePersonAttr):
 class is_therapist(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is a physical therpaist licensed in New York State."
@@ -1911,6 +2033,7 @@ class is_therapist(BasePersonAttr):
 class contractor(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is an independent contractor."
@@ -1929,6 +2052,7 @@ class contractor(BasePersonAttr):
 class wep(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is in the Work Experience Program."
@@ -1947,6 +2071,7 @@ class wep(BasePersonAttr):
 class collective_bargaining(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is subject to a collective bargaining agreement waiving safe and sick leave."
@@ -1968,6 +2093,7 @@ class collective_bargaining(BasePersonAttr):
 class covid_funeral_expenses(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} incurred funeral expenses due to a covid death on or after January 20, 2020, and the death was attributed to COVID-19 on the death certificate."
@@ -1999,6 +2125,11 @@ class evicted_months_ago(BasePersonAttr):
             return 0
         else:
             return np.random.randint(1, 24)
+    def uniform():
+        if np.random.choice([True, False]):
+            return 0
+        else:
+            return np.random.randint(1, 24)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} was evicted {x} months ago." if x else f"{n} has never been evicted."
@@ -2008,6 +2139,7 @@ class evicted_months_ago(BasePersonAttr):
 class currently_being_evicted(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is currently being evicted."
@@ -2027,6 +2159,7 @@ class currently_being_evicted(BasePersonAttr):
 class employer_opt_in(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s private employer has opted in to paid family leave."
@@ -2045,6 +2178,7 @@ class employer_opt_in(BasePersonAttr):
 class consecutive_work_weeks(BasePersonAttr):
     schema = And(int)
     random = lambda: np.random.randint(0, 52)
+    uniform = lambda: np.random.randint(0, 52)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has worked {x} consecutive weeks at their current employer."
@@ -2063,6 +2197,7 @@ class consecutive_work_weeks(BasePersonAttr):
 class nonconsecutive_work_days(BasePersonAttr):
     schema = And(int)
     random = lambda: np.random.randint(0, 365)
+    uniform = lambda: np.random.randint(0, 365)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has worked {x} nonconsecutive weeks at their current employer."
@@ -2084,6 +2219,7 @@ class nonconsecutive_work_days(BasePersonAttr):
 class developmental_mental_day_treatment(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} attends a developmental mental day treatment program."
@@ -2095,6 +2231,14 @@ class developmental_mental_day_treatment(BasePersonAttr):
 class years_sober(BasePersonAttr):
     schema = And(int)
     def random():
+        r = np.random.randint(3)
+        if r == 0:
+            return 0
+        elif r == 1:
+            return -1
+        else:
+            return np.random.randint(1, 16)
+    def uniform():
         r = np.random.randint(3)
         if r == 0:
             return 0
@@ -2123,6 +2267,7 @@ class years_sober(BasePersonAttr):
 class medication_treatment_non_compliance(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has been non-compliant with medication and treatment."
@@ -2134,6 +2279,7 @@ class medication_treatment_non_compliance(BasePersonAttr):
 class arson(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a history of arson."
@@ -2150,6 +2296,7 @@ class arson(BasePersonAttr):
 class verbal_abuse(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a history of verbal abuse."
@@ -2166,6 +2313,7 @@ class verbal_abuse(BasePersonAttr):
 class imprisonment(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a history of imprisonment."
@@ -2185,6 +2333,7 @@ class imprisonment(BasePersonAttr):
 class first_time_home_buyer(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is a first-time home buyer."
@@ -2201,6 +2350,7 @@ class first_time_home_buyer(BasePersonAttr):
 class honorable_service(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has honorable military service and was discharged with a DD-214."
@@ -2217,6 +2367,7 @@ class honorable_service(BasePersonAttr):
 class receives_medicaid(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Medicaid." if x else f"{n} does not receive Medicaid."
@@ -2226,6 +2377,7 @@ class receives_medicaid(BasePersonAttr):
 class eligible_for_medicaid(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for Medicaid." if x else f"{n} is not eligible for Medicaid."
@@ -2240,6 +2392,7 @@ class eligible_for_medicaid(BasePersonAttr):
 class receives_fpha(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Federal Public Housing Assistance (FPHA)."
@@ -2254,6 +2407,7 @@ class receives_fpha(BasePersonAttr):
 class receives_vpsb(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Veterans Pension and Survivor Benefits (VPSB)."
@@ -2265,6 +2419,7 @@ class receives_vpsb(BasePersonAttr):
 class eligible_for_hra_shelter(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for Health Reimbursement Arrangement (HRA) shelter."
@@ -2279,6 +2434,7 @@ class eligible_for_hra_shelter(BasePersonAttr):
 class wheelchair(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is wheelchair bound." if x else f"{n} does not use a wheelchair."
@@ -2293,6 +2449,7 @@ class wheelchair(BasePersonAttr):
 class bedridden(BasePersonAttr):
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: bool(np.random.choice([True, False]))
     default = False
     nl_fn = lambda n, x: (f"{n} is bedridden." if x else f"{n} is not bedridden.")
 

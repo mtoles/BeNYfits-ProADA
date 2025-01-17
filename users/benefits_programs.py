@@ -8124,6 +8124,7 @@ class SummerYouthEmploymentProgram(BaseBenefitsProgram):
             assert not result, f"SummerYouthEmploymentProgram test {i} failed"
 
 if __name__ == "__main__":
+    # hh = get_random_household_input()
     hh = get_uniform_household_input()
     print("Household:")
     print(hh)
