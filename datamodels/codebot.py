@@ -42,18 +42,22 @@ class CodeBot(ChatBot):
     - Do not use any f-strings, curly brackets, or dynamically generated strings in your keys. 
     - Use only literal strings in keys. 
     - Do not use try-except blocks.
+    - If you need to access data for individuals (rather than the household as a whole) you can use integer indexing. hh[0] is the head of the household. 
      
      `check_eligibility` returns a bool. All keys and values of `hh` are strings. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. Here is an example:
 
     def dummy_eligibility_program(hh: dict) -> bool:
-        def _helper(hh):
-            if hh["has_id"]=="yes":
+        def _helper(individual):
+            if individual["has_id"]=="yes":
                 return True
             else:
                 return False
         if hh["has_dependents"]=="yes":
-            if int(hh["dependent_age"]) < 18 and _helper(hh):
-                return True
+            num_dependents = hh["num_dependents"]
+            for i in range(len(num_dependents)):
+            
+                if float(hh[i]["dependent_age"]) < 18 and _helper(hh[i]):
+                    return True
         return False
 
     Avoid using int() and use float() instead. Do not provide anything besides code in your response.
