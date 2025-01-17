@@ -53,7 +53,6 @@ parser.add_argument(
 )
 parser.add_argument(
     "--dataset_path",
-    # default="dataset/procedural_hh_dataset_1.0.1_annotated_50.jsonl",
     default="dataset/edge_case_dataset.jsonl",
     help="Path to the chat history or benefits description",
 )
@@ -79,7 +78,6 @@ parser.add_argument(
 parser.add_argument(
     "--programs",
     default=BenefitsProgramMeta.registry.keys(),
-    # type=str,
     help="Number of programs in the dataset",
     nargs="+",
 )
@@ -106,27 +104,17 @@ parser.add_argument(
     help="Use lmwrapper cache. Disable to allow sampling",
 )
 
-### run unit tests
-
 args = parser.parse_args()
 
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-# programs_abbreviation = "_".join(
-#     ["".join([char for char in program if char.isupper()]) for program in args.programs]
-# )
 programs_abbreviation = len(args.programs)
 
 output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 
 
-# Read the chat history from the file
 def read_eligibility_requirements(file_path, num_programs):
     with open(file_path, "r") as file:
         file_content = file.read()
-        # # strip lines at the top starting with #
-        # file_content = "\n".join(
-        #     [line for line in file_content.split("\n") if not line.startswith("#")]
-        # )
         assert len(file_content) > 0, "File is empty"
         eligibility_df = pd.read_json(file_content, lines=True)
         if num_programs is not None:
@@ -142,18 +130,9 @@ def eligibility_to_string(eligibility_df):
     return eligibility_def
 
 
-# if args.num_programs is not None:
-# df["programs"] = df["programs"].apply(lambda x: x[: args.num_programs])
-# df["labels"] = df["labels"].apply(lambda x: x[: args.num_programs])
-
-# Description about all the benefits eligbility in natural language
 predictions_df = read_eligibility_requirements(
     args.eligibility_requirements, args.num_programs
 )
-# if args.programs is not None:
-#     predictions_df = predictions_df[
-#         predictions_df["program_name"].apply(lambda x: x in args.programs)
-#     ].reset_index(drop=True)
 eligibility_requirements = predictions_df.set_index("program_name")[
     "plain_language_eligibility"
 ].to_dict()
@@ -169,7 +148,6 @@ print(f"Bad class names: {bad_class_names}")
 print(f"Bad program names: {bad_program_names}")
 assert len(bad_class_names) == 0
 
-# Load the dataset
 if os.path.exists(args.dataset_path):
     df = pd.read_json(args.dataset_path, lines=True)
 elif args.dataset_path == "unittest":
@@ -189,43 +167,48 @@ last_turn_iteration = []
 
 num_benefits = len(args.programs)
 
-
 lm_logger = LmLogger(log_dir=output_dir)
 
 
-# def get_model(model_name: str) -> ChatBot:
 def get_chatbot(
     strategy: str = args.chatbot_strategy,
     no_of_programs: str = len(args.programs),
-    eligibility_requirements: dict = args.eligibility_requirements,
+    eligibility_dict: dict = eligibility_requirements,
     use_cache: bool = args.use_cache,
     lm_logger: LmLogger = lm_logger,
-) -> ChatBot:
+    chat_model_id: str = args.chat_model_id,
+    code_model_id: Optional[str] = args.code_model_id,
+):
     if strategy == "backbone":
         return ChatBot(
-            chat_model_id=args.chat_model_id,
+            chat_model_id=chat_model_id,
             no_of_programs=no_of_programs,
-            eligibility_requirements=eligibility_requirements,
+            eligibility_requirements=eligibility_dict,
             use_cache=use_cache,
             lm_logger=lm_logger,
         )
     elif strategy == "codebot":
         return CodeBot(
-            chat_model_id=args.chat_model_id,
+            chat_model_id=chat_model_id,
             no_of_programs=no_of_programs,
-            eligibility_requirements=eligibility_requirements,
+            eligibility_requirements=eligibility_dict,
             use_cache=use_cache,
             lm_logger=lm_logger,
-            code_model_id=args.code_model_id,
+            code_model_id=code_model_id,
         )
     else:
         raise NotImplementedError(f"Invalid chatbot strategy: {strategy}")
 
 
-chatbot = get_chatbot()
-
-
-# synthetic_user_model_wrapper = load_lm(args.synthetic_user_model_name)
+chatbot = get_chatbot(
+    strategy=args.chatbot_strategy,
+    no_of_programs=len(args.programs),
+    eligibility_dict=eligibility_requirements,
+    use_cache=args.use_cache,
+    lm_logger=lm_logger,
+    chat_model_id=args.chat_model_id,
+    code_model_id=args.code_model_id,
+)
 
 generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
 generated_code_path = os.path.join("generated_code", generated_code_filename)
@@ -233,150 +216,127 @@ os.makedirs("generated_code", exist_ok=True)
 
 generated_code_results = []
 for index, row in tqdm(df.iterrows()):
-    chatbot = get_chatbot(args.chatbot_strategy)
-    # hh_nl_desc = row["hh_nl_desc"]
-    # hh_nl_always_include = row["hh_nl_desc_always_include"]
+    chatbot = get_chatbot(
+        strategy=args.chatbot_strategy,
+        no_of_programs=len(args.programs),
+        eligibility_dict=eligibility_requirements,
+        use_cache=args.use_cache,
+        lm_logger=lm_logger,
+        chat_model_id=args.chat_model_id,
+        code_model_id=args.code_model_id,
+    )
     synthetic_user = SyntheticUser(
         row,
-        # hh_nl_desc,
-        # hh_nl_always_include,
         args.synthetic_user_model_name,
         use_cache=args.use_cache,
         lm_logger=lm_logger,
         top_k=args.top_k,
     )
-    # reinstantiate the model every time to dump the chat history
     labels = row[args.programs]
     lm_logger.add_empty_convo(labels.to_dict())
-    # Temporarily load codellama if we are using llama
-    code_run_mode = "code" in args.chatbot_strategy
-    # secondary_code_model_mode = (
-    #     "meta-llama/Meta-Llama-3-" in chatbot.lm_backbone.lm_wrapper.hf_name
-    # ) and "code" in args.chatbot_strategy
 
-    ### PRE-CONVERSATION (codellama and code gen) ###
+    code_run_mode = "code" in args.chatbot_strategy
     if code_run_mode:
         with open(generated_code_path, "w") as tf:
-            chatbot.pre_conversation(locals())
-            #     tf = open(generated_code_path, "w")
-            #     chatbot.pre_conversation(locals())
-            # finally:
-            #     tf.close()
-            # os.remove("generated_code.py")
+            chatbot.pre_conversation(
+                code_file_handle=tf,
+                eligibility_requirements=eligibility_requirements,
+                code_model_id=args.code_model_id,
+                use_cache=args.use_cache,
+            )
 
-        # run generated code
-        # chatbot = get_chatbot(args.chatbot_strategy)
-        generated_code_results.append(chatbot.run_generated_code(locals()))
+        code_results = chatbot.run_generated_code(
+            code_file_path=generated_code_path,
+            synthetic_user=synthetic_user,
+            eligibility_requirements=eligibility_requirements,
+            program_names=args.programs,
+        )
+        generated_code_results.append(code_results)
 
-        # code_hh = generated_code_result["hh"]
-        # code_mode_predictions = generated_code_result["eligibility"]
-        # code_history = generated_code_result["history"]
-        # code_passed = code_mode_predictions is not None
-
-        # TODO: compute dialog turns correctly
-        # per_turn_all_predictions.append([code_mode_predictions] * args.max_dialog_turns)
-        # lm_logger.log_predictions(per_turn_all_predictions)
-
-        code_passed = True
         predictions_log_entry = {}
-        for k, v in generated_code_results[-1].items():
+        for k, v in code_results.items():
             predictions_log_entry[k] = 1 if v["eligibility"] else 0
         lm_logger.log_predictions([predictions_log_entry])
 
-    # continue
-    if not code_run_mode or not code_passed:
+        code_passed = True
+        # We skip the "fallback" conversation if code was run
+        # but if you wish to fallback on error, you'd add logic here
+        non_code_preds_df = pd.DataFrame([predictions_log_entry])
+        continue
 
-        per_turn_predictions = []
-        ### -------- ###
+    # If not code mode or fallback:
+    per_turn_predictions = []
+    history = [
+        {
+            "role": "system",
+            "content": (
+                f"You are a language model trying to help user to determine "
+                f"eligbility of user for benefits. Currently, you do not know "
+                f"anything about the user. Ask questions that will help you determine "
+                f"the eligibility of user for benefits as quickly as possible. "
+                f"Ask only one question at a time. The eligibility requirements "
+                f"are as follows:\n\n{eligibility_requirements}"
+            ),
+        }
+    ]
+    print(f"Index: {index}")
 
-        history = (
-            # code_history
-            # if "code_history" in locals()
-            # else
-            [
-                {
-                    "role": "system",
-                    "content": f"You are a language model trying to help user to determine eligbility of user for benefits. Currently, you do not know anything about the user. Ask questions that will help you determine the eligibility of user for benefits as quickly as possible. Ask only one question at a time. The eligibility requirements are as follows:\n\n{eligibility_requirements}",
-                },
-            ]
-        )
-        print(f"Index: {index}")
+    cur_iter_count = 0
+    decision = None
 
-        cur_iter_count = 0
-        decision = None
+    while True:
+        if cur_iter_count != 0:
+            per_turn_predictions.append(
+                chatbot.predict_benefits_eligibility(history, args.programs)
+            )
+        else:
+            default_predictions = dict([(x, 0) for x in args.programs])
+            per_turn_predictions.append(default_predictions)
 
-        # try:
-        # save the chat history no matter what
-        while True:
-            if cur_iter_count != 0:
-                per_turn_predictions.append(
-                    chatbot.predict_benefits_eligibility(history, args.programs)
-                )
-            else:
-                # default to all zero prediction on 0th round
-                default_predictions = dict([(x, 0) for x in args.programs])
-                per_turn_predictions.append(default_predictions)
-            ### break if out of dialog turns ###
-            if cur_iter_count >= args.max_dialog_turns:
-                print(f"Max dialog turns ({args.max_dialog_turns}) reached")
-                print("==" * 20)
-                last_turn_iteration.append(cur_iter_count)
-                decision = per_turn_predictions[-1]
-                print(f"Decision:  {decision}")
-                print(f"label:     {labels.to_dict()}")
-                print("==" * 20)
-                break
-            ### break if benefits eligibility is ready ###
-            if (
-                cur_iter_count > 0
-                and str(chatbot.predict_benefits_ready(history)) == "True"
-            ):
-                print(
-                    f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
-                )
-                decision = per_turn_predictions[-1]
-                print(f"Decision:  {decision}")
-                print(f"label:     {labels.to_dict()}")
-                print("==" * 20)
-                # fill the remaining turns with None
-                per_turn_predictions.extend(
-                    [decision] * (args.max_dialog_turns - cur_iter_count)
-                )
-                last_turn_iteration.append(cur_iter_count)
-                break
-            ### otherwise, ask a question ###
-            cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
-            history.append({"role": "assistant", "content": cq})
-            cq_answer = synthetic_user.answer_cq(cq)
-            history.append({"role": "user", "content": cq_answer})
-
-            print(f"Turn Number:         {cur_iter_count}")
-            print(f"Clarifying Question: {cq}")
-            print(f"Answer:              {cq_answer}")
-            chatbot.post_answer(history)  # optional
+        if cur_iter_count >= args.max_dialog_turns:
+            print(f"Max dialog turns ({args.max_dialog_turns}) reached")
             print("==" * 20)
-            cur_iter_count += 1
-            # chatbot.append_chat_question_and_answer(cq, cq_answer)
-        per_turn_all_predictions.append(per_turn_predictions)
-        lm_logger.log_predictions(per_turn_predictions)
-        lm_logger.log_hh_diff(row["hh"])
-        # except Exception as e:
-        #     # write the exception and the last attempted lm call to a log file
-        #     with open(f"{output_dir}/exceptions.log", "a") as f:
-        #         f.write(f"Index: {index}\n")
-        #         f.write(f"Exception: {e}\n")
-        #         f.write(f"LM Call: {lm_logger.latest_input}\n")
-        #         f.write("\n\n==========\n\n")
-        #         print(e)
-        # finally:
-        #     # delete the tempfile
-        #     lm_logger.save()
-    non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
+            last_turn_iteration.append(cur_iter_count)
+            decision = per_turn_predictions[-1]
+            print(f"Decision:  {decision}")
+            print(f"label:     {labels.to_dict()}")
+            print("==" * 20)
+            break
+
+        if (
+            cur_iter_count > 0
+            and str(chatbot.predict_benefits_ready(history)) == "True"
+        ):
+            print(f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}")
+            decision = per_turn_predictions[-1]
+            print(f"Decision:  {decision}")
+            print(f"label:     {labels.to_dict()}")
+            print("==" * 20)
+            per_turn_predictions.extend(
+                [decision] * (args.max_dialog_turns - cur_iter_count)
+            )
+            last_turn_iteration.append(cur_iter_count)
+            break
+
+        cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
+        history.append({"role": "assistant", "content": cq})
+        cq_answer = synthetic_user.answer_cq(cq)
+        history.append({"role": "user", "content": cq_answer})
+
+        print(f"Turn Number:         {cur_iter_count}")
+        print(f"Clarifying Question: {cq}")
+        print(f"Answer:              {cq_answer}")
+        chatbot.post_answer(history)
+        print("==" * 20)
+        cur_iter_count += 1
+
+    per_turn_all_predictions.append(per_turn_predictions)
+    lm_logger.log_predictions(per_turn_predictions)
+    lm_logger.log_hh_diff(row["hh"])
 
 lm_logger.save()
 
 turns = []
-# turns = [len(x) - 1 for x in per_turn_all_predictions] # turns taken in each dialog
 for log in lm_logger.log:
     count = 0
     dialog = log["dialog"]
@@ -385,14 +345,14 @@ for log in lm_logger.log:
             count += 1
     turns.append(count)
 
-
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-# convert dict of dicts to separate dfs
+
 if code_run_mode:
     eligibility_li = []
     completed_li = []
     for i, d in enumerate(generated_code_results):
+        # d is a dict: { program_name: { 'eligibility': bool, 'completed': bool, ...}, ...}
         eligibility_line = {}
         completed_line = {}
         for pn, dd in d.items():
@@ -407,9 +367,6 @@ if code_run_mode:
     ]
     predictions_df = pd.DataFrame(eligibility_li_int)
     completed_df = pd.DataFrame(completed_li)
-
-    # save raw data to jsonl
-
 
     plot_code_mode_results(
         predictions_df,
@@ -427,11 +384,11 @@ if code_run_mode:
     predictions_df.to_json(
         f"{output_dir}/predictions.jsonl", orient="records", lines=True
     )
-    if completed_df:
+    if not completed_df.empty:
         completed_df.to_json(f"{output_dir}/completed.jsonl", orient="records", lines=True)
 
-    
 else:
+    non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
     plot_code_mode_results(
         non_code_preds_df,
         df[args.programs].reset_index(),
@@ -448,10 +405,10 @@ else:
     non_code_preds_df.to_json(
         f"{output_dir}/predictions.jsonl", orient="records", lines=True
     )
+
 df[args.programs].astype(int).to_json(
     f"{output_dir}/labels.jsonl", orient="records", lines=True
 )
-
 
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
