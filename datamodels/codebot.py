@@ -2,7 +2,6 @@ import re
 import sys
 import importlib.util
 import traceback
-import inspect
 import json
 import ast
 
@@ -14,11 +13,10 @@ from enum import Enum
 from pydantic import BaseModel
 
 from utils import extract_function_definitions, remove_raise_statements
-from datamodels.template import SchemaError
 from datamodels.chatbot import ChatBot
 from utils import hist_to_str
-from datamodels.template import SchemaError
 from typing import Optional
+from copy import deepcopy
 
 np.random.seed(0)
 list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
@@ -35,9 +33,41 @@ class ConstraintType:
     none = "none"
 
 
-class ImaginaryData(dict):
+class ImaginaryData:
+    def __init__(self, index=None):
+        super().__init__()
+        self.members = {}
+        self.tl_data = {}  # top level data i.e. household data
+        self.index = index  # index of the current member
+
     def get(self, key, default=None):
-        raise KeyError
+        return self._get(key)
+
+    def _get(self, key):
+        if isinstance(key, int):
+            if key in self.members:
+                return self.members[key]
+            else:
+                self.members[key] = ImaginaryData(key, index=key)
+                return self.members[key]
+        elif key in self.tl_data:
+            return self.tl_data[key]
+        else:
+            raise KeyError(key, self.index)
+
+    def __setitem__(self, key, value):
+        self.tl_data[key] = value
+
+    def __getitem__(self, key):
+        return self._get(key)
+
+    def __eq__(self, other):
+        if not isinstance(other, ImaginaryData):
+            return False
+        return self.tl_data == other.tl_data and self.members == other.members
+
+    # def __len__(self):
+    # raise KeyError("nuber of family members")
 
 
 class CodeBot(ChatBot):
@@ -188,9 +218,7 @@ class CodeBot(ChatBot):
                 except Exception:
                     pass
 
-            this_program_used_keys = re.findall(
-                r'hh\["(.*?)"\]', clean_checker_output
-            )
+            this_program_used_keys = re.findall(r'hh\["(.*?)"\]', clean_checker_output)
             self.used_keys.extend(this_program_used_keys)
             this_program_key_types = {}
 
@@ -328,13 +356,14 @@ class CodeBot(ChatBot):
 
         while True:
             if hh == prev_hh:
-                return {
-                    "program_name": program_name,
-                    "hh": hh,
-                    "history": history,
-                    "eligibility": None,
-                    "completed": False,
-                }
+                # return {
+                #     "program_name": program_name,
+                #     "hh": hh,
+                #     "history": history,
+                #     "eligibility": None,
+                #     "completed": False,
+                # }
+                print(f"warning: no progress for {program_name}")
 
             try:
                 p_fn = generated_code.calls[program_name]
@@ -342,9 +371,10 @@ class CodeBot(ChatBot):
                 break
             except Exception as e:
                 error_var = e
-                line = "\n".join(traceback.format_exc().split("\n")[-3:-2])
                 fn_name = program_name
                 if fn_name not in eligibility_requirements.keys():
+                    print("why is this here? should never happen")
+                    raise NotImplementedError
                     return {
                         "program_name": program_name,
                         "hh": hh,
@@ -356,6 +386,13 @@ class CodeBot(ChatBot):
 
                 if isinstance(e, KeyError):
                     key = error_var.args[0]
+                    member_idx = error_var.args[1]
+                    # line = [x for x in traceback.format_exc().split("\n") if key in x][0]
+                    line = self.find_line(
+                        traceback.extract_tb(error_var.__traceback__),
+                        key,
+                        generated_code.__file__,
+                    )
                     cq = self.forward_generic(
                         prompt=self.key_error_prompt.format(
                             eligibility_requirements=relevant_program,
@@ -394,8 +431,11 @@ class CodeBot(ChatBot):
                         constraints=constraint,
                     )
                     history.append({"role": "assistant", "content": new_hh_value})
-                    prev_hh = dict(hh)
-                    hh[key] = new_hh_value
+                    prev_hh = deepcopy(hh)
+                    if member_idx is None:
+                        hh[key] = new_hh_value
+                    else:
+                        hh[member_idx][key] = new_hh_value
                     continue
                 else:
                     return {
@@ -413,6 +453,13 @@ class CodeBot(ChatBot):
             "eligibility": eligibility,
             "completed": True,
         }
+
+    def find_line(self, fe, key, filename):
+        for frame in fe[::-1]:
+            if frame.filename == filename:
+                if key in frame.line:
+                    return frame.line
+        raise Exception(f"Key {key} not found in traceback")
 
     def forward_generic(
         self,

@@ -62,6 +62,9 @@ class ModelAPIClient:
         self.lm_logger.log_io(
             lm_input=history, lm_output=generated_text, role=logging_role
         )
+        print(f"prompt: {history[-1]['content']}")
+        print(f"response: {generated_text}")
+        print("==================================")
         return generated_text
 
     @memory.cache
