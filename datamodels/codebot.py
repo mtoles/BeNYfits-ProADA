@@ -140,8 +140,8 @@ class CodeBot(ChatBot):
         )
         self.code_model_id = code_model_id
         self.used_keys = []
-        self.key_types = {}
-        self.choices = {}
+        self.key_types = {name: {} for name, desc in eligibility_requirements.items()}
+        self.choices = {name: {} for name, desc in eligibility_requirements.items()}
 
     def pre_conversation(
         self,
@@ -167,6 +167,83 @@ class CodeBot(ChatBot):
         ]
         # Optional code using edge_case_prompt would go here
 
+    def _update_key_types_and_choices(
+        self, desc, clean_checker_output, code_model_id, use_cache
+    ):
+        # Identify keys used in the eligibility checker
+        this_program_used_keys = re.findall(r'hh\["(.*?)"\]', clean_checker_output)
+        self.used_keys.extend(this_program_used_keys)
+
+        # Infer key types
+        this_program_key_types = {}
+        for key in this_program_used_keys:
+            key_type_prompt = [
+                {
+                    "role": "user",
+                    "content": self.get_type_prompt.format(
+                        eligibility_requirements=desc,
+                        code=clean_checker_output,
+                        key=key,
+                    ),
+                }
+            ]
+            guessed_type = self.lm_api.forward(
+                key_type_prompt,
+                chat_model_id=code_model_id,
+                use_cache=use_cache,
+                logging_role="type_gen",
+                constraints=["int", "float", "choice"],
+                constraint_type="choice",
+            ).strip()
+            this_program_key_types[key] = guessed_type
+
+        # Determine possible choices
+        new_choices = {
+            k: {} for k, v in this_program_key_types.items() if v == "choice"
+        }
+        for c in new_choices:
+            if code_model_id and code_model_id.startswith("gpt"):
+                response_dict_raw = self.lm_api.forward(
+                    [
+                        {
+                            "role": "user",
+                            "content": self.get_choices_prompt.format(
+                                eligibility_requirements=desc,
+                                code=clean_checker_output,
+                                key=c,
+                            ),
+                        }
+                    ],
+                    chat_model_id=code_model_id,
+                    use_cache=use_cache,
+                    logging_role="choice_gen",
+                    openai_response_format=Options,
+                )
+                response_dict = json.loads(response_dict_raw)
+                choices = response_dict.get("options", [])
+            else:
+                choices = self.lm_api.forward(
+                    [
+                        {
+                            "role": "user",
+                            "content": self.get_choices_prompt.format(
+                                eligibility_requirements=desc,
+                                code=clean_checker_output,
+                                key=c,
+                            ),
+                        }
+                    ],
+                    chat_model_id=code_model_id,
+                    use_cache=use_cache,
+                    logging_role="choice_gen",
+                    constraints=list_regex,
+                    constraint_type="regex",
+                ).strip()
+                choices = ast.literal_eval(choices)
+            new_choices[c] = choices
+
+        return this_program_key_types, new_choices
+
     def make_program(
         self,
         code_file_handle,
@@ -174,12 +251,13 @@ class CodeBot(ChatBot):
         code_model_id,
         use_cache,
     ):
+        self.clean_checker_outputs = {}
         generated_checker_text = {}
         generated_val_text = {}
 
         for name, desc in tqdm(eligibility_requirements.items()):
             checker_attempt_no = -1
-            clean_checker_output = ""
+            # clean_checker_output = ""
             while True:
                 checker_attempt_no += 1
                 checker_gen_prompt = [
@@ -212,84 +290,24 @@ class CodeBot(ChatBot):
                         mode=black.FileMode(),
                     )
                     exec(func_def)
-                    clean_checker_output = func_def
-                    generated_checker_text[name] = clean_checker_output
+                    self.clean_checker_outputs[name] = func_def
+                    generated_checker_text[name] = self.clean_checker_outputs[name]
                     break
-                except Exception:
+                except Exception as e:
+                    error_var = e
+                    print(error_var)
+                    if checker_attempt_no > 5:
+                        raise Exception(
+                            f"Failed to generate checker for {name} after {checker_attempt_no} attempts"
+                        )
                     pass
 
-            this_program_used_keys = re.findall(r'hh\["(.*?)"\]', clean_checker_output)
-            self.used_keys.extend(this_program_used_keys)
-            this_program_key_types = {}
-
-            for key in this_program_used_keys:
-                key_type_prompt = [
-                    {
-                        "role": "user",
-                        "content": self.get_type_prompt.format(
-                            eligibility_requirements=desc,
-                            code=clean_checker_output,
-                            key=key,
-                        ),
-                    },
-                ]
-                guessed_type = self.lm_api.forward(
-                    key_type_prompt,
-                    chat_model_id=code_model_id,
-                    use_cache=use_cache,
-                    logging_role="type_gen",
-                    constraints=["int", "float", "choice"],
-                    constraint_type="choice",
-                ).strip()
-                this_program_key_types[key] = guessed_type
-
-            new_choices = {
-                k: {} for k, v in this_program_key_types.items() if v == "choice"
-            }
-
-            for c in new_choices:
-                if code_model_id and code_model_id.startswith("gpt"):
-                    response_dict_raw = self.lm_api.forward(
-                        [
-                            {
-                                "role": "user",
-                                "content": self.get_choices_prompt.format(
-                                    eligibility_requirements=desc,
-                                    code=clean_checker_output,
-                                    key=c,
-                                ),
-                            }
-                        ],
-                        chat_model_id=code_model_id,
-                        use_cache=use_cache,
-                        logging_role="choice_gen",
-                        openai_response_format=Options,
-                    )
-                    response_dict = json.loads(response_dict_raw)
-                    choices = response_dict.get("options", [])
-                else:
-                    choices = self.lm_api.forward(
-                        [
-                            {
-                                "role": "user",
-                                "content": self.get_choices_prompt.format(
-                                    eligibility_requirements=desc,
-                                    code=clean_checker_output,
-                                    key=c,
-                                ),
-                            }
-                        ],
-                        chat_model_id=code_model_id,
-                        use_cache=use_cache,
-                        logging_role="choice_gen",
-                        constraints=list_regex,
-                        constraint_type="regex",
-                    ).strip()
-                    choices = ast.literal_eval(choices)
-                new_choices[c] = choices
-
-            self.key_types.update(this_program_key_types)
-            self.choices.update(new_choices)
+            # Moved key-types and choices logic to a helper method
+            this_program_key_types, new_choices = self._update_key_types_and_choices(
+                desc, self.clean_checker_outputs[name], code_model_id, use_cache
+            )
+            self.key_types[name].update(this_program_key_types)
+            self.choices[name].update(new_choices)
 
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
@@ -299,7 +317,7 @@ class CodeBot(ChatBot):
             [f"'{k}':{k}" for k in generated_checker_text.keys()]
         )
         val_definition_block = "\n\n".join(generated_val_text.values())
-        val_call_block = ",".join([])  # no actual code validators in this example
+        val_call_block = ",".join([])  # no validators in this example
 
         program = template.replace(
             "### ELIGIBILITY PROGRAMS PLACEHOLDER ###", eligibility_definition_block
@@ -393,6 +411,24 @@ class CodeBot(ChatBot):
                         key,
                         generated_code.__file__,
                     )
+                    if line is None:
+                        # sometimes the key is not a literal string so it's not caught in the first pass
+                        self._update_key_types_and_choices(
+                            eligibility_requirements[program_name],
+                            self.clean_checker_outputs[program_name],
+                            self.code_model_id,
+                            self.use_cache,
+                        )
+                        line = "\n".join(
+                            [
+                                x.line
+                                for x in list(
+                                    traceback.extract_tb(error_var.__traceback__)
+                                )[2:-2]
+                            ]
+                        )
+                        assert line
+                        print
                     cq = self.forward_generic(
                         prompt=self.key_error_prompt.format(
                             eligibility_requirements=relevant_program,
@@ -405,10 +441,10 @@ class CodeBot(ChatBot):
                     ca = synthetic_user.answer_cq(cq)
                     history.append({"role": "user", "content": ca})
 
-                    key_type = self.key_types.get(key, "any")
+                    key_type = self.key_types[program_name].get(key, "any")
                     if key_type == ConstraintType.choice:
                         constraint_type = ConstraintType.choice
-                        constraint = self.choices[key]
+                        constraint = self.choices[program_name][key]
                     elif key_type in ["int", "float"]:
                         constraint_type = ConstraintType.types
                         constraint = [eval(key_type)]
@@ -459,7 +495,8 @@ class CodeBot(ChatBot):
             if frame.filename == filename:
                 if key in frame.line:
                     return frame.line
-        raise Exception(f"Key {key} not found in traceback")
+        return None
+        # raise Exception(f"Key {key} not found in traceback")
 
     def forward_generic(
         self,

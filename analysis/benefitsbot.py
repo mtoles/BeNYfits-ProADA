@@ -149,16 +149,16 @@ print(f"Bad program names: {bad_program_names}")
 assert len(bad_class_names) == 0
 
 if os.path.exists(args.dataset_path):
-    df = pd.read_json(args.dataset_path, lines=True)
+    labels_df = pd.read_json(args.dataset_path, lines=True)
 elif args.dataset_path == "unittest":
-    df = unit_test_dataset()
-df["hh"] = df["hh"].apply(
+    labels_df = unit_test_dataset()
+labels_df["hh"] = labels_df["hh"].apply(
     lambda hh: Household.from_dict(hh) if isinstance(hh, dict) else hh
 )
 if args.ds_shift:
-    df = df.iloc[args.ds_shift :]
+    labels_df = labels_df.iloc[args.ds_shift :]
 if args.downsample_size:
-    df = df[: args.downsample_size]
+    labels_df = labels_df[: args.downsample_size]
 
 predictions = []
 histories = []
@@ -215,7 +215,7 @@ generated_code_path = os.path.join("generated_code", generated_code_filename)
 os.makedirs("generated_code", exist_ok=True)
 
 generated_code_results = []
-for index, row in tqdm(df.iterrows()):
+for index, row in tqdm(labels_df.iterrows()):
     chatbot = get_chatbot(
         strategy=args.chatbot_strategy,
         no_of_programs=len(args.programs),
@@ -370,7 +370,7 @@ if code_run_mode:
 
     plot_code_mode_results(
         predictions_df,
-        df[args.programs].reset_index(),
+        labels_df[args.programs].reset_index(),
         output_dir=output_dir,
         experiment_params={
             "Backbone Model": args.chat_model_id,
@@ -391,7 +391,7 @@ else:
     non_code_preds_df = pd.DataFrame([x[-1] for x in per_turn_all_predictions])
     plot_code_mode_results(
         non_code_preds_df,
-        df[args.programs].reset_index(),
+        labels_df[args.programs].reset_index(),
         output_dir=output_dir,
         experiment_params={
             "Backbone Model": args.chat_model_id,
@@ -406,7 +406,7 @@ else:
         f"{output_dir}/predictions.jsonl", orient="records", lines=True
     )
 
-df[args.programs].astype(int).to_json(
+labels_df[args.programs].astype(int).to_json(
     f"{output_dir}/labels.jsonl", orient="records", lines=True
 )
 
