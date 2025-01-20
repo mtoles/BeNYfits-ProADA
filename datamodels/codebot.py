@@ -33,6 +33,10 @@ class ConstraintType:
     none = "none"
 
 
+class ImaginaryDataKeyError(Exception):
+    pass
+
+
 class ImaginaryData:
     def __init__(self, index=None):
         super().__init__()
@@ -44,16 +48,17 @@ class ImaginaryData:
         return self._get(key)
 
     def _get(self, key):
-        if isinstance(key, int):
-            if key in self.members:
-                return self.members[key]
+        if isinstance(key, int) or (isinstance(key, str) and key.isdigit()):
+            int_key = int(key)
+            if int_key in self.members:
+                return self.members[int_key]
             else:
-                self.members[key] = ImaginaryData(key, index=key)
-                return self.members[key]
+                self.members[int_key] = ImaginaryData(index=int_key)
+                return self.members[int_key]
         elif key in self.tl_data:
             return self.tl_data[key]
         else:
-            raise KeyError(key, self.index)
+            raise ImaginaryDataKeyError(key, self.index)
 
     def __setitem__(self, key, value):
         self.tl_data[key] = value
@@ -66,8 +71,14 @@ class ImaginaryData:
             return False
         return self.tl_data == other.tl_data and self.members == other.members
 
+    def __contains__(self, item):
+        return item in self.tl_data or item in self.members
+
+    def __len__(self):
+        return int(self.get("number of household members"))
+
     # def __len__(self):
-    # raise KeyError("nuber of family members")
+    # raise KeyError("number of family members")
 
 
 class CodeBot(ChatBot):
@@ -79,23 +90,22 @@ class CodeBot(ChatBot):
     - Do not use try-except blocks.
     - If you need to access data for individuals (rather than the household as a whole) you can use integer indexing. hh[0] is the head of the household. 
      
-     `check_eligibility` returns a bool. All keys and values of `hh` are strings. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. Here is an example:
+     `check_eligibility` returns a bool. All keys and values of `hh` are strings. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. After each new lookup in `hh`, write a comment suggesting a question to ask. Here is an example:
 
     def dummy_eligibility_program(hh: dict) -> bool:
         def _helper(individual):
-            if individual["has_id"]=="yes":
+            if individual["has_id"]=="yes": # "Does the individual have an ID?"
                 return True
             else:
                 return False
-        if hh["has_dependents"]=="yes":
+        if hh["has_dependents"]=="yes": # "How many dependents does the household have?"
             num_dependents = hh["num_dependents"]
             for i in range(len(num_dependents)):
-            
-                if float(hh[i]["dependent_age"]) < 18 and _helper(hh[i]):
+                if float(hh[i]["dependent_age"]) < 18 and _helper(hh[i]): # "Is the first dependent under 18?"
                     return True
         return False
 
-    Avoid using int() and use float() instead. Do not provide anything besides code in your response.
+    Avoid using int() and use float() instead. Do not provide anything besides code in your response. Do not use `input` for user input.
     """
 
     get_type_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what do you expect {key} to be an integer, a float, or one choice from a set of strings? Return ONLY int, float, or choice."""
@@ -168,15 +178,17 @@ class CodeBot(ChatBot):
         # Optional code using edge_case_prompt would go here
 
     def _update_key_types_and_choices(
-        self, desc, clean_checker_output, code_model_id, use_cache
+        self, input_keys, desc, clean_checker_output, code_model_id, use_cache
     ):
         # Identify keys used in the eligibility checker
-        this_program_used_keys = re.findall(r'hh\["(.*?)"\]', clean_checker_output)
-        self.used_keys.extend(this_program_used_keys)
+        # this_program_used_keys = re.findall(r'hh\["(.*?)"\]', clean_checker_output)
+
+        # drop hh to handle imaginary data not called hh
+        input_keys = input_keys
 
         # Infer key types
         this_program_key_types = {}
-        for key in this_program_used_keys:
+        for key in input_keys:
             key_type_prompt = [
                 {
                     "role": "user",
@@ -303,8 +315,17 @@ class CodeBot(ChatBot):
                     pass
 
             # Moved key-types and choices logic to a helper method
+            this_program_used_keys = re.findall(
+                r'\["(.*?)"\]', self.clean_checker_outputs[name]
+            )
+
+            self.used_keys.extend(this_program_used_keys)
             this_program_key_types, new_choices = self._update_key_types_and_choices(
-                desc, self.clean_checker_outputs[name], code_model_id, use_cache
+                this_program_used_keys,
+                desc,
+                self.clean_checker_outputs[name],
+                code_model_id,
+                use_cache,
             )
             self.key_types[name].update(this_program_key_types)
             self.choices[name].update(new_choices)
@@ -387,7 +408,7 @@ class CodeBot(ChatBot):
                 p_fn = generated_code.calls[program_name]
                 eligibility = p_fn(hh=hh)
                 break
-            except Exception as e:
+            except ImaginaryDataKeyError as e:
                 error_var = e
                 fn_name = program_name
                 if fn_name not in eligibility_requirements.keys():
@@ -402,85 +423,89 @@ class CodeBot(ChatBot):
                     }
                 relevant_program = eligibility_requirements[fn_name]
 
-                if isinstance(e, KeyError):
-                    key = error_var.args[0]
-                    member_idx = error_var.args[1]
-                    # line = [x for x in traceback.format_exc().split("\n") if key in x][0]
-                    line = self.find_line(
-                        traceback.extract_tb(error_var.__traceback__),
-                        key,
-                        generated_code.__file__,
+                # if isinstance(e, ImaginaryDataKeyError):
+                key = error_var.args[0]
+                member_idx = error_var.args[1]
+                # line = [x for x in traceback.format_exc().split("\n") if key in x][0]
+                line = self.find_line(
+                    traceback.extract_tb(error_var.__traceback__),
+                    key,
+                    generated_code.__file__,
+                )
+                if line is None:
+                    # sometimes the key is not a literal string so it's not caught in the first pass
+                    self._update_key_types_and_choices(
+                        [key],
+                        eligibility_requirements[program_name],
+                        self.clean_checker_outputs[program_name],
+                        self.code_model_id,
+                        self.use_cache,
                     )
-                    if line is None:
-                        # sometimes the key is not a literal string so it's not caught in the first pass
-                        self._update_key_types_and_choices(
-                            eligibility_requirements[program_name],
-                            self.clean_checker_outputs[program_name],
-                            self.code_model_id,
-                            self.use_cache,
-                        )
-                        line = "\n".join(
-                            [
-                                x.line
-                                for x in list(
-                                    traceback.extract_tb(error_var.__traceback__)
-                                )[2:-2]
-                            ]
-                        )
-                        assert line
-                        print
-                    cq = self.forward_generic(
-                        prompt=self.key_error_prompt.format(
-                            eligibility_requirements=relevant_program,
-                            line=line,
-                            key=key,
-                        ),
-                        logging_role="key_error",
+                    line = "\n".join(
+                        [
+                            x.line
+                            for x in list(
+                                traceback.extract_tb(error_var.__traceback__)
+                            )[2:-2]
+                        ]
                     )
-                    history.append({"role": "assistant", "content": cq})
-                    ca = synthetic_user.answer_cq(cq)
-                    history.append({"role": "user", "content": ca})
+                    assert line
+                    print
+                cq = self.forward_generic(
+                    prompt=self.key_error_prompt.format(
+                        eligibility_requirements=relevant_program,
+                        line=line,
+                        key=key,
+                    ),
+                    logging_role="key_error",
+                )
+                history.append({"role": "assistant", "content": cq})
+                ca = synthetic_user.answer_cq(cq)
+                history.append({"role": "user", "content": ca})
 
-                    key_type = self.key_types[program_name].get(key, "any")
-                    if key_type == ConstraintType.choice:
-                        constraint_type = ConstraintType.choice
-                        constraint = self.choices[program_name][key]
-                    elif key_type in ["int", "float"]:
-                        constraint_type = ConstraintType.types
-                        constraint = [eval(key_type)]
-                    elif key_type == "any":
-                        constraint_type = ConstraintType.none
-                        constraint = None
-                    else:
-                        raise NotImplementedError
-
-                    new_hh_value = self.forward_generic(
-                        prompt=self.extract_value_from_ans_prompt.format(
-                            eligibility_requirements=relevant_program,
-                            line=line,
-                            key=key,
-                            cq=cq,
-                            answer=ca,
-                        ),
-                        logging_role="extract_value_from_ans",
-                        constraint_type=constraint_type,
-                        constraints=constraint,
-                    )
-                    history.append({"role": "assistant", "content": new_hh_value})
-                    prev_hh = deepcopy(hh)
-                    if member_idx is None:
-                        hh[key] = new_hh_value
-                    else:
-                        hh[member_idx][key] = new_hh_value
-                    continue
+                key_type = self.key_types[program_name].get(key, "any")
+                if key_type == ConstraintType.choice:
+                    constraint_type = ConstraintType.choice
+                    constraint = self.choices[program_name][key]
+                elif key_type in ["int", "float"]:
+                    constraint_type = ConstraintType.types
+                    constraint = [eval(key_type)]
+                elif key_type == "any":
+                    constraint_type = ConstraintType.none
+                    constraint = None
                 else:
-                    return {
-                        "program_name": program_name,
-                        "hh": hh,
-                        "history": history,
-                        "eligibility": np.random.choice([True, False]),
-                        "completed": False,
-                    }
+                    raise NotImplementedError
+
+                new_hh_value = self.forward_generic(
+                    prompt=self.extract_value_from_ans_prompt.format(
+                        eligibility_requirements=relevant_program,
+                        line=line,
+                        key=key,
+                        cq=cq,
+                        answer=ca,
+                    ),
+                    logging_role="extract_value_from_ans",
+                    constraint_type=constraint_type,
+                    constraints=constraint,
+                )
+                history.append({"role": "assistant", "content": new_hh_value})
+                prev_hh = deepcopy(hh)
+                if member_idx is None:
+                    hh[key] = new_hh_value
+                else:
+                    hh[member_idx][key] = new_hh_value
+                continue
+                # else:
+                # except Exception as e:
+            except Exception as e:
+                print(e)
+                return {
+                    "program_name": program_name,
+                    "hh": hh,
+                    "history": history,
+                    "eligibility": np.random.choice([True, False]),
+                    "completed": False,
+                }
 
         return {
             "program_name": program_name,
