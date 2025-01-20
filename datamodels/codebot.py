@@ -1,3 +1,5 @@
+from users import user_features
+from users.user_features import PersonAttributeMeta
 from .chatbot import *
 from tqdm import tqdm
 import re
@@ -12,8 +14,10 @@ import black
 from enum import Enum
 from pydantic import BaseModel
 import json
+from schema import And
 
 import numpy as np
+
 
 np.random.seed(0)
 list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
@@ -66,14 +70,18 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
     schema_error_prompt = """Attempt: {attempt_no}\nContext:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
 
     generate_edge_cases_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the edge cases that will fail the code? Return ONLY the edge cases as a JSON in the form ["The first case", "The second case", ...]"""
-    make_unit_tests_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what is the test case that will fail the code? Return ONLY the test case as JSON in the form:
-{
-    "hh": {
-        "key": "value"
-    },
-    "expected": "value"
-}
+    generate_corrected_code_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nThe given code fails for {failed_test_case}. Please correct it. Return ONLY the code."""
+    make_unit_tests_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the test cases that will fail the code? Return ONLY five test cases as JSON list in the form:
     """
+    example_unit_test = """[
+    {
+        "hh": {
+            "key": "value"
+        },
+        "expected": "value"
+    }
+]
+"""
 
     def __init__(
         self,
@@ -92,16 +100,10 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
         self.choices = {}
 
     def pre_conversation(self, local_scope: dict):
+
         code = self.make_program(local_scope)
-        edge_case_prompt = [
-            {
-                "role": "user",
-                "content": self.generate_edge_cases_prompt.format(
-                    eligibility_requirements=local_scope["eligibility_requirements"],
-                    code=code,
-                ),
-            }
-        ]
+
+
         # edge_cases_str = self.lm_api.forward(
         #     edge_case_prompt,
         #     chat_model_id=local_scope["args"].code_model_id,
@@ -120,27 +122,53 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
         generated_checker_text = {}
         generated_val_text = {}
         for name, desc in tqdm(eligibility_requirements.items()):
+            
+            failed_test_case = None
+            failed_code = None
+
             checker_attempt_no = -1
             while True:
                 checker_attempt_no += 1
                 print(f"attempting to generate checker, attempt {checker_attempt_no}")
-                checker_gen_prompt = [
-                    {
-                        "role": "user",
-                        "content": self.gen_checker_prompt.format(
-                            attempt_no=checker_attempt_no, eligibility_requirement=desc
-                        ),
-                    }
-                ]
+                
+                if failed_test_case == None:
+                    checker_gen_prompt = [
+                        {
+                            "role": "user",
+                            "content": self.gen_checker_prompt.format(
+                                attempt_no=checker_attempt_no, eligibility_requirement=desc
+                            ),
+                        }
+                    ]
 
-                dirty_checker_output = self.lm_api.forward(
-                    checker_gen_prompt,
-                    chat_model_id=local_scope["args"].code_model_id,
-                    use_cache=local_scope["args"].use_cache,
-                    logging_role="code_gen",
-                    # constraints=r"(?!.*\.get\().*", # prevent dict.get()
-                    # constraint_type="regex",
-                ).strip("`")
+                    dirty_checker_output = self.lm_api.forward(
+                        checker_gen_prompt,
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
+                        logging_role="code_gen",
+                        # constraints=r"(?!.*\.get\().*", # prevent dict.get()
+                        # constraint_type="regex",
+                    ).strip("`")
+                else:
+                    checker_gen_prompt = [
+                        {
+                            "role": "user",
+                            "content": self.generate_corrected_code_prompt.format(
+                                eligibility_requirements=desc, code=failed_code, failed_test_case=failed_test_case
+                            ),
+                        }
+                    ]
+
+                    dirty_checker_output = self.lm_api.forward(
+                        checker_gen_prompt,
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
+                        logging_role="code_gen",
+                        # constraints=r"(?!.*\.get\().*", # prevent dict.get()
+                        # constraint_type="regex",
+                    ).strip("`")
+                    failed_test_case = None
+                    failed_code = None
                 try:
                     clean_checker_output = extract_function_definitions(
                         dirty_checker_output
@@ -159,6 +187,47 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
                     # check if the code is a valid python function
                     exec(clean_checker_output)
                     generated_checker_text[name] = clean_checker_output
+                    
+                    edge_case_prompt = [
+                        {
+                            "role": "user",
+                            "content": self.make_unit_tests_prompt.format(
+                                eligibility_requirements=local_scope["eligibility_requirements"],
+                                code=clean_checker_output,
+                            ) + self.example_unit_test,
+                        }
+                    ]
+
+                    edge_case_output = self.lm_api.forward(
+                        edge_case_prompt,
+                        chat_model_id=local_scope["args"].code_model_id,
+                        use_cache=local_scope["args"].use_cache,
+                        logging_role="code_gen",
+                    ).strip("`").strip("json\n")
+                    
+                    edge_case_outputs = json.loads(edge_case_output)
+
+                    matches = True
+
+                    for edge_case_output in edge_case_outputs:
+                        hh = edge_case_output["hh"]
+                        expected = edge_case_output["expected"]
+
+                        result = locals()[name](hh)
+
+                        if result != expected:
+                            # New attempt
+                            matches = False
+                            failed_test_case = edge_case_output
+                            failed_code = clean_checker_output
+                            # print(failed_code, failed_test_case)
+                            break
+                    
+                    if not matches:
+                        continue
+
+
+
                     break
                 except Exception as e:
                     pass
@@ -241,6 +310,8 @@ DO NOT use `dict.get()` anywhere in the code. Key errors will be handled elsewhe
 
             self.key_types.update(this_program_key_types)
             self.choices.update(new_choices)
+
+
             print
 
         with open("datamodels/template.py", "r") as template_file:

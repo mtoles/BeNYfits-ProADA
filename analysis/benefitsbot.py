@@ -118,7 +118,6 @@ programs_abbreviation = len(args.programs)
 
 output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
 
-
 # Read the chat history from the file
 def read_eligibility_requirements(file_path, num_programs):
     with open(file_path, "r") as file:
@@ -240,7 +239,7 @@ for index, row in tqdm(df.iterrows()):
         row,
         # hh_nl_desc,
         # hh_nl_always_include,
-        args.synthetic_user_model_name,
+        args.synthetic_user_model_name,     
         use_cache=args.use_cache,
         lm_logger=lm_logger,
         top_k=args.top_k,
