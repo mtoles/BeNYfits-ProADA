@@ -1,8 +1,8 @@
 import random
 from names import get_full_name
-from users.users import Household, Person, nuclear_family
-from users import user_features
-from users.user_features import (
+from users import Household, Person, nuclear_family
+# from users import user_features
+from user_features import (
     HousingEnum,
     RelationEnum,
     SexEnum,

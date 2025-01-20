@@ -3,7 +3,7 @@ from names import get_full_name
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
-from users.user_features import (
+from user_features import (
     PersonAttributeMeta,
     HousingEnum,
     RelationEnum,
@@ -11,10 +11,10 @@ from users.user_features import (
     PlaceOfResidenceEnum,
     CitizenshipEnum,
     EducationLevelEnum,
-    GradeLevelEnum,
+    GradeLevelEnum
 )
-from users import user_features
 
+import user_features
 
 np.random.seed(0)
 
