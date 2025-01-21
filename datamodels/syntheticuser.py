@@ -4,6 +4,8 @@ from models.lm_logging import LmLogger
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import torch
+from dotenv import load_dotenv
+import os
 from server.model_client import ModelAPIClient
 
 
@@ -33,7 +35,9 @@ class SyntheticUser:
         # self.lm_backbone = LmBackboneModel(
         #     id_of_model, self.use_cache, lm_logger=lm_logger
         # )
-        self.lm_api = ModelAPIClient("http://localhost:55244", lm_logger)
+        load_dotenv()
+        port = os.getenv('LM_PORT')
+        self.lm_api = ModelAPIClient(f"http://localhost:{port}", lm_logger)
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
         self.sentence_encoder = SentenceTransformer("all-MiniLM-L6-v2")

@@ -6,13 +6,19 @@ from openai import OpenAI, NotGiven
 from joblib import Memory
 from fastapi import HTTPException
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
 
 memory = Memory(".joblib_cache", verbose=0)
+
+load_dotenv()  # Load environment variables from a .env file
+
+port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
 
 
 class ModelAPIClient:
     def __init__(self, api_url, lm_logger=None):
-        self.api_url = api_url
+        self.api_url = os.getenv("LM_SERVER_URL")
         self.lm_logger = lm_logger
 
     def forward(
@@ -50,9 +56,7 @@ class ModelAPIClient:
             # )
             # return response
         else:
-            response_package = requests.post(
-                f"{self.api_url}/forward", json=vars(fr)
-            )
+            response_package = requests.post(f"{self.api_url}:{port}/forward", json=vars(fr))
             status_code = response_package.status_code
             response = response_package.json()
             if status_code != 200:

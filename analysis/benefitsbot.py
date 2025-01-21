@@ -196,6 +196,14 @@ def get_chatbot(
             lm_logger=lm_logger,
             code_model_id=code_model_id,
         )
+    elif strategy == "cot":
+        return CotChatBot(
+            chat_model_id=chat_model_id,
+            no_of_programs=no_of_programs,
+            eligibility_requirements=eligibility_dict,
+            use_cache=use_cache,
+            lm_logger=lm_logger,
+        )
     else:
         raise NotImplementedError(f"Invalid chatbot strategy: {strategy}")
 
