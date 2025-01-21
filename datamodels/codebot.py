@@ -105,6 +105,10 @@ class CodeBot(ChatBot):
                     return True
         return False
 
+    The following is a set of preexisting keys and values in the `hh` dictionary; take care not to duplicate them.
+
+    {preexisting_keys}
+
     Avoid using int() and use float() instead. Do not provide anything besides code in your response. Do not use `input` for user input.
     """
 
@@ -149,9 +153,11 @@ class CodeBot(ChatBot):
             lm_logger=lm_logger,
         )
         self.code_model_id = code_model_id
-        self.used_keys = []
-        self.key_types = {name: {} for name, desc in eligibility_requirements.items()}
-        self.choices = {name: {} for name, desc in eligibility_requirements.items()}
+        # self.used_keys = []
+        # self.key_types = {name: {} for name, desc in eligibility_requirements.items()} # per-program key types
+        self.key_types = {} # merged key types
+        # self.choices = {name: {} for name, desc in eligibility_requirements.items()} # per-program choices
+        self.choices = {} # merged choices
 
     def pre_conversation(
         self,
@@ -272,12 +278,24 @@ class CodeBot(ChatBot):
             # clean_checker_output = ""
             while True:
                 checker_attempt_no += 1
+                # describe all the preexisting keys and values
+                pek = {}
+                for k, v in self.key_types.items():
+                    if k in self.choices:
+                        val = self.choices[k]
+                    else:
+                        val = str(v)
+                    pek[k] = val
+                # convert pek to a pretty string
+                pek_str = "\n".join([f"{k}: {v}" for k, v in pek.items()])
+
                 checker_gen_prompt = [
                     {
                         "role": "user",
                         "content": self.gen_checker_prompt.format(
                             attempt_no=checker_attempt_no,
                             eligibility_requirement=desc,
+                            preexisting_keys=pek_str,
                         ),
                     }
                 ]
@@ -319,7 +337,7 @@ class CodeBot(ChatBot):
                 r'\["(.*?)"\]', self.clean_checker_outputs[name]
             )
 
-            self.used_keys.extend(this_program_used_keys)
+            # self.used_keys.extend(this_program_used_keys)
             this_program_key_types, new_choices = self._update_key_types_and_choices(
                 this_program_used_keys,
                 desc,
@@ -327,8 +345,9 @@ class CodeBot(ChatBot):
                 code_model_id,
                 use_cache,
             )
-            self.key_types[name].update(this_program_key_types)
-            self.choices[name].update(new_choices)
+            self.key_types.update(this_program_key_types)
+            # self.choices.update(new_choices)
+            self.update_choices(new_choices)
 
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
@@ -434,13 +453,16 @@ class CodeBot(ChatBot):
                 )
                 if line is None:
                     # sometimes the key is not a literal string so it's not caught in the first pass
-                    self._update_key_types_and_choices(
+                    new_key_types, new_choices = self._update_key_types_and_choices(
                         [key],
                         eligibility_requirements[program_name],
                         self.clean_checker_outputs[program_name],
                         self.code_model_id,
                         self.use_cache,
                     )
+                    self.key_types.update(new_key_types)
+                    # self.choices.update(new_choices)
+                    self.update_choices(new_choices)
                     line = "\n".join(
                         [
                             x.line
@@ -463,10 +485,10 @@ class CodeBot(ChatBot):
                 ca = synthetic_user.answer_cq(cq)
                 history.append({"role": "user", "content": ca})
 
-                key_type = self.key_types[program_name].get(key, "any")
+                key_type = self.key_types.get(key, "any")
                 if key_type == ConstraintType.choice:
                     constraint_type = ConstraintType.choice
-                    constraint = self.choices[program_name][key]
+                    constraint = self.choices[key]
                 elif key_type in ["int", "float"]:
                     constraint_type = ConstraintType.types
                     constraint = [eval(key_type)]
@@ -548,3 +570,12 @@ class CodeBot(ChatBot):
             if lm_output.startswith(c) and lm_output.endswith(c):
                 lm_output = lm_output.strip(c)
         return lm_output
+    def update_choices(self, new_choices: dict):
+        for k, v in new_choices.items():
+            if k in self.choices:
+                new = [c for c in v if c not in self.choices[k]]
+                if new:
+                    print(f"updating choices for {k}.\noriginal: {self.choices[k]}\nnew: {new}")
+                    self.choices[k].extend(new)
+            else:
+                self.choices[k] = v
