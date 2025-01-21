@@ -11,6 +11,9 @@ import ast
 import traceback
 from openai import OpenAI
 import uvicorn
+from dotenv import load_dotenv
+
+load_dotenv()
 
 """
 run with:
@@ -155,4 +158,7 @@ def forward(request: ForwardRequest):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=55244)
+
+    load_dotenv()
+    port = int(os.getenv("LM_PORT_NO"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

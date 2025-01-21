@@ -1,15 +1,16 @@
-# from models.model_utils import LanguageModelWrapper
 from models.lm_backbone import LmBackboneModel
 from typing import List, Optional
 from copy import deepcopy
 import re
 import ast
 import numpy as np
-import re
 from models.lm_logging import LmLogger
 from inspect import currentframe
 from server.model_client import ModelAPIClient
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 np.random.seed(42)
 
 benefits_ready_prompt = {
@@ -62,11 +63,9 @@ class ChatBot:
         }
         self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
-        # self.lm_wrapper = lm_wrapper
         self.use_cache = use_cache
         self.lm_api = ModelAPIClient(
-            # "http://localhost:8000",
-            "http://localhost:55244",
+            f"http://localhost:{os.getenv('LM_PORT_NO')}",
             lm_logger=lm_logger,
         )
         self.num_programs = no_of_programs
@@ -189,18 +188,29 @@ class CotChatBot(ChatBot):
         self,
         chat_model_id: str,
         no_of_programs: str,
-        eligibility_requirements: str,
+        eligibility_requirements,
+        use_cache: bool,
         lm_logger: Optional[LmLogger] = None,
+        code_model_id: Optional[str] = None,
     ):
         super().__init__(
-            chat_model_id, no_of_programs, eligibility_requirements, lm_logger
+            chat_model_id=chat_model_id,
+            no_of_programs=no_of_programs,
+            eligibility_requirements=eligibility_requirements,
+            use_cache=use_cache,
+            lm_logger=lm_logger,
         )
         self.benefits_ready_prompt = {
             "role": "system",
             "content": "Is the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False.",
         }
         self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Think through your reasoning out loud, then output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
-        self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
+        self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
+
+    def predict_cq(self, history, chat_model_id) -> str:
+        cq = super().predict_cq(history, chat_model_id)
+        parts = cq.split(":")
+        return parts[-1].strip()
 
 
 class CodeRefChatBot(ChatBot):

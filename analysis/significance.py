@@ -1,42 +1,53 @@
-import pandas as pd
-import numpy as np
-from scipy import stats
-import os
-import seaborn as sns
+# import pandas as pd
+# import numpy as np
+# from scipy import stats
+# import os
+# import seaborn as sns
+# from statsmodels.stats.proportion import proportions_ztest
 
-# df1 = pd.read_json(
-#     "results/2024-07-01-00:05:35_cq-meta-llama-Meta-Llama-3-8B-Instruct_or-meta-llama-Meta-Llama-3-8B-Instruct_pm-meta-llama-Meta-Llama-3-8B-Instruct_n=200.json"
+
+# exp_dir = "results/paper/2025-01-19_20:55:54_82_4o"
+# ctl_dir = "results/paper/2025-01-17_13:02:35_82_backbone"
+
+# exp_df = pd.read_json(os.path.join(exp_dir, "predictions.jsonl"), lines=True)
+# ctrl_df = pd.read_json(os.path.join(ctl_dir, "predictions.jsonl"), lines=True)
+# exp_df = exp_df.astype(int)
+# ctrl_df = ctrl_df.astype(int)
+# ctrl_labels = pd.read_json(os.path.join(ctl_dir, "labels.jsonl"), lines=True)
+# exp_labels = pd.read_json(os.path.join(exp_dir, "labels.jsonl"), lines=True)
+
+# ctrl_correct = (exp_df.to_numpy().flatten() == ctrl_df.to_numpy().flatten()).astype(int)
+# exp_correct = (exp_df.to_numpy().flatten() == exp_labels.to_numpy().flatten()).astype(
+#     int
 # )
-# df2 = pd.read_json(
-#     "results/2024-07-01-13:33:24_cq-imaginellama:meta-llama-Meta-Llama-3-8B-Instruct_or-meta-llama-Meta-Llama-3-8B-Instruct_pm-meta-llama-Meta-Llama-3-8B-Instruct_n=200.json"
-# )
 
-# wins1 = df1["pref_bm"] == "ex"
-# wins2 = df2["pref_bm"] == "ex"
+# n = len(exp_correct)
+# # chi squared test
 
-# # calculate statistical significance with a 1 tailed t-test
-# t_stat, p_val = stats.ttest_ind(wins2, wins1, alternative="greater")
-# print(f"t-statistic: {t_stat}, p-value: {p_val}")
+# # Example binary data
+# # Group 1: 20 successes out of 50 trials
+# success1, n1 = ctrl_correct.sum(), n
 
-### load data ##
-e_dir0 = "results/e1"
-e_dir1 = "results/e4"
-# labels_df = pd.read_json("dataset/procedural_hh_dataset_1.0.1_annotated_50.jsonl", lines=True)[top_8_programs]
+# # Group 2: 15 successes out of 40 trials
+# success2, n2 = exp_correct.sum(), n
 
-pred_dfs = [{}, {}]
+# # Perform z-test for proportions
+# count = [success1, success2]
+# nobs = [n1, n2]
+# z_stat, p_value = proportions_ztest(count, nobs)
 
-for i, dir in enumerate([e_dir0, e_dir1]):
-    for subdir in os.listdir(dir):
-        program_abbrev = subdir.split("_")[-1]
-        if os.path.isdir(os.path.join(dir, subdir)):
-            for filepath in os.listdir(os.path.join(dir, subdir)):
-                if filepath.endswith(".jsonl"):
-                    df1 = pd.read_json(os.path.join(dir, subdir, filepath), lines=True).mean()
-                    pred_dfs[i][program_abbrev] = df1
-pass
+# print(f"control accuracy: {ctrl_correct.mean()}")
+# print(f"experiment accuracy: {exp_correct.mean()}")
+# print("Z-statistic:", z_stat)
+# print("p-value:", p_value)
+# print
 
-for key in pred_dfs[0].keys():
-    print(key)
-    print(f"Backbone:  {pred_dfs[0][key]['f1'].mean()}")
-    print(f"Notebook:  {pred_dfs[1][key]['f1'].mean()}")
-    print(f"winner:    " + ("Backbone" if pred_dfs[0][key]['f1'].mean() > pred_dfs[1][key]['f1'].mean() else "Notebook"))
+# control_acc = ctrl_correct.mean()
+# experiment_acc = exp_correct.mean()
+# print(f"control accuracy: {control_acc}")
+# print(f"experiment accuracy: {experiment_acc}")
+# print
+
+# control_f1 = 
+
+print("all wrong cuz you mixed up the control with the gt!!!")
