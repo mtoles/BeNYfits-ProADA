@@ -50,6 +50,16 @@ class PersonAttributeMeta(type):
             # add to registry
             cls.registry[name] = new_p_attr
         return new_p_attr
+    
+    @staticmethod
+    def attribute_distribution():
+        attr_names = PersonAttributeMeta.registry.keys()
+        attributes_dict = {
+            attr: PersonAttributeMeta.registry[attr].distribution
+            for attr in attr_names
+            if hasattr(PersonAttributeMeta.registry[attr], 'distribution')
+        }
+        return attributes_dict
 
 
 class BasePersonAttr(metaclass=PersonAttributeMeta):
@@ -106,10 +116,10 @@ def sample_categorical(dist):
 
 ### DEMOGRAPHICS ###
 class age(BasePersonAttr):
-    dist = [((0, 4), 5.4), ((5, 9), 5.4), ((10, 14), 5.6), ((15, 19), 5.7), ((20, 24), 7.0), ((25, 29), 9.0), ((30, 34), 8.8), ((35, 39), 7.4), ((40, 44), 6.5), ((45, 49), 6.0), ((50, 54), 6.2), ((55, 59), 6.2), ((60, 64), 5.8), ((65, 69), 4.8), ((70, 74), 3.9), ((75, 79), 2.6), ((80, 84), 1.8), ((85, 100), 1.9)]
+    distribution = [((0, 4), 5.4), ((5, 9), 5.4), ((10, 14), 5.6), ((15, 19), 5.7), ((20, 24), 7.0), ((25, 29), 9.0), ((30, 34), 8.8), ((35, 39), 7.4), ((40, 44), 6.5), ((45, 49), 6.0), ((50, 54), 6.2), ((55, 59), 6.2), ((60, 64), 5.8), ((65, 69), 4.8), ((70, 74), 3.9), ((75, 79), 2.6), ((80, 84), 1.8), ((85, 100), 1.9)]
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 80)
-    uniform = lambda: sample_from_distribution(age.dist)
+    uniform = lambda: sample_from_distribution(age.distribution)
     default = 20
     nl_fn = lambda n, x: f"{n} is {x} years old."
 
@@ -120,10 +130,10 @@ class SexEnum(Enum):
 
 
 class sex(BasePersonAttr):
-    dist = [("male", 47.5), ("female", 52.5)]
+    distribution = [("male", 47.5), ("female", 52.5)]
     schema = And(lambda x: x in [y.value for y in SexEnum])
     random = lambda: np.random.choice(list(SexEnum)).value
-    uniform = lambda: sample_categorical(sex.dist)
+    uniform = lambda: sample_categorical(sex.distribution)
     default = SexEnum.FEMALE.value
     nl_fn = lambda n, x: f"{n} is {x}."
 
