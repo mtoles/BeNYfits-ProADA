@@ -149,4 +149,4 @@ def sample_and_plot_distributions(num_samples=10, output_dir="./users/output"):
 if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
-    sample_and_plot_distributions(num_samples=10)
+    sample_and_plot_distributions(num_samples=1000)
