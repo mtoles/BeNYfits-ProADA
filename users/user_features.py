@@ -368,9 +368,10 @@ class annual_investment_income(BasePersonAttr):
 
 
 class provides_over_half_of_own_financial_support(BasePersonAttr):
+    distribution = [("Yes", 0.12), ("No", 99.88)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(provides_over_half_of_own_financial_support.distribution))
     default = True
     nl_fn = lambda n, x: (
         f"{n} provides over half of their own financial support."
@@ -385,9 +386,10 @@ class provides_over_half_of_own_financial_support(BasePersonAttr):
 
 
 class receives_hra(BasePersonAttr):
+    distribution = [("Yes", 3.05), ("No", 96.95)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_hra.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Health Reimbursement Arrangement (HRA)."
@@ -404,9 +406,10 @@ class receives_hra(BasePersonAttr):
 
 
 class receives_ssi(BasePersonAttr):
+    distribution = [("Yes", 2.94), ("No", 97.06)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_ssi.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Supplemental Security Income (SSI Code A)."
@@ -421,9 +424,10 @@ class receives_ssi(BasePersonAttr):
 
 
 class receives_snap(BasePersonAttr):
+    distribution = [("Yes", 11.48), ("No", 88.52)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_snap.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Supplemental Nutrition Assistance Program (SNAP)."
@@ -439,9 +443,10 @@ class receives_snap(BasePersonAttr):
 
 
 class receives_ssdi(BasePersonAttr):
+    distribution = [("Yes", 2.69), ("No", 97.31)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_ssdi.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Social Security Disability Insurance (SSDI)."
@@ -456,9 +461,10 @@ class receives_ssdi(BasePersonAttr):
 
 
 class receives_va_disability(BasePersonAttr):
+    distribution = [("Yes", 0.65), ("No", 99.35)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_va_disability.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Veterans Affairs (VA) disability pension or compensation."
@@ -473,9 +479,10 @@ class receives_va_disability(BasePersonAttr):
 
 
 class has_received_ssi_or_ssdi(BasePersonAttr):
+    distribution = [("Yes", 4.29), ("No", 95.71)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(has_received_ssi_or_ssdi.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has received Supplemental Security Income (SSI) or Social Security Disability Insurance (SSDI) in the past."
@@ -490,9 +497,10 @@ class has_received_ssi_or_ssdi(BasePersonAttr):
 
 
 class receives_disability_medicaid(BasePersonAttr):
+    distribution = [("Yes", 57.4), ("No", 42.6)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_disability_medicaid.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Medicaid due to disability."
@@ -593,9 +601,10 @@ class current_school_level(BasePersonAttr):
 
 # Work Info
 class works_outside_home(BasePersonAttr):
+    distribution = [("Yes", 87.8), ("No", 12.2)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(works_outside_home.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} works outside the home." if x else f"{n} does not work outside the home."
@@ -636,9 +645,10 @@ class work_hours_per_week(BasePersonAttr):
 
 
 class days_looking_for_work(BasePersonAttr):
+    distribution = [((0, 4), 31.2), ((5, 14), 28.9), ((15, 26), 17.5), ((27, 1000), 22.4)]
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 365)
-    uniform = lambda: np.random.randint(0, 365)
+    uniform = lambda: sample_from_distribution(days_looking_for_work.distribution)
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has been looking for work for {x} days."
