@@ -50,6 +50,7 @@ class ChatBot:
         no_of_programs: str,
         eligibility_requirements: str,
         use_cache: bool,
+        random_seed: int,
         lm_logger: Optional[LmLogger] = None,
         code_model_id: Optional[str] = None,
     ):
@@ -64,8 +65,10 @@ class ChatBot:
         self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
         self.use_cache = use_cache
+        self.random_seed = random_seed
         self.lm_api = ModelAPIClient(
             f"http://localhost:{os.getenv('LM_PORT_NO')}",
+            random_seed=self.random_seed,
             lm_logger=lm_logger,
         )
         self.num_programs = no_of_programs
@@ -190,6 +193,7 @@ class CotChatBot(ChatBot):
         no_of_programs: str,
         eligibility_requirements,
         use_cache: bool,
+        random_seed: int,
         lm_logger: Optional[LmLogger] = None,
         code_model_id: Optional[str] = None,
     ):

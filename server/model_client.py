@@ -14,12 +14,14 @@ memory = Memory(".joblib_cache", verbose=0)
 load_dotenv()  # Load environment variables from a .env file
 
 port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
+url = os.getenv("LM_SERVER_URL")
 
 
 class ModelAPIClient:
-    def __init__(self, api_url, lm_logger=None):
-        self.api_url = os.getenv("LM_SERVER_URL")
+    def __init__(self, api_url, random_seed, lm_logger=None):
+        self.api_url = url
         self.lm_logger = lm_logger
+        self.random_seed = random_seed
 
     def forward(
         self,
@@ -48,6 +50,7 @@ class ModelAPIClient:
             constraints=constraints,
             constraint_type=constraint_type,
             response_format=openai_response_format,
+            random_seed=self.random_seed,
         )
         if fr.name_of_model.startswith("gpt"):
             response = self.forward_gpt(fr)
@@ -56,16 +59,19 @@ class ModelAPIClient:
             # )
             # return response
         else:
-            response_package = requests.post(f"{self.api_url}:{port}/forward", json=vars(fr))
+            response_package = requests.post(
+                f"{self.api_url}:{port}/forward", json=vars(fr)
+            )
             status_code = response_package.status_code
             response = response_package.json()
             if status_code != 200:
                 raise Exception(f"Prediction error: {response.json()['detail']}")
 
         generated_text = response["generated_text"]
-        self.lm_logger.log_io(
-            lm_input=history, lm_output=generated_text, role=logging_role
-        )
+        if self.lm_logger:
+            self.lm_logger.log_io(
+                lm_input=history, lm_output=generated_text, role=logging_role
+            )
         print(f"prompt: {history[-1]['content']}")
         print(f"response: {generated_text}")
         print("==================================")
@@ -101,7 +107,8 @@ class ModelAPIClient:
 
 
 if __name__ == "__main__":
-    ModelAPIClient = ModelAPIClient("http://coffee.cs.columbia.edu:55244")
+
+    ModelAPIClient = ModelAPIClient(f"{url}:{port}", lm_logger=None)
     # ModelAPIClient = ModelAPIClient("http://localhost:55244")
     # ModelAPIClient = ModelAPIClient("http://localhost:8000")
 
@@ -127,7 +134,7 @@ if __name__ == "__main__":
         history,
         use_cache=True,
         logging_role="test",
-        chat_model_id="Qwen/Qwen2.5-Coder-7B-Instruct",
+        chat_model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
     )
 
     print(output)

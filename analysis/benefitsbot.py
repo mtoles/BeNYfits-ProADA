@@ -109,6 +109,12 @@ parser.add_argument(
     ),
     help="Use lmwrapper cache. Disable to allow sampling",
 )
+parser.add_argument(
+    "--random_seed",
+    default=0,
+    type=int,
+    help="Random seed to use",
+)
 
 args = parser.parse_args()
 
@@ -186,6 +192,7 @@ def get_chatbot(
     lm_logger: LmLogger = lm_logger,
     chat_model_id: str = args.chat_model_id,
     code_model_id: Optional[str] = args.code_model_id,
+    random_seed: int = args.random_seed,
 ):
     if strategy == "backbone":
         return ChatBot(
@@ -194,6 +201,7 @@ def get_chatbot(
             eligibility_requirements=eligibility_dict,
             use_cache=use_cache,
             lm_logger=lm_logger,
+            random_seed=random_seed,
         )
     elif strategy == "codebot":
         return CodeBot(
@@ -202,6 +210,7 @@ def get_chatbot(
             eligibility_requirements=eligibility_dict,
             use_cache=use_cache,
             lm_logger=lm_logger,
+            random_seed=random_seed,
             code_model_id=code_model_id,
             max_code_gen_attempts=args.max_code_gen_attempts,
         )
@@ -212,6 +221,7 @@ def get_chatbot(
             eligibility_requirements=eligibility_dict,
             use_cache=use_cache,
             lm_logger=lm_logger,
+            random_seed=random_seed,
         )
     else:
         raise NotImplementedError(f"Invalid chatbot strategy: {strategy}")
@@ -248,6 +258,7 @@ for index, row in tqdm(labels_df.iterrows()):
         # hh_nl_always_include,
         args.synthetic_user_model_name,
         use_cache=args.use_cache,
+        random_seed=args.random_seed,
         lm_logger=lm_logger,
         top_k=args.top_k,
     )

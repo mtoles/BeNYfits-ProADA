@@ -7,9 +7,7 @@ from fastapi import FastAPI, HTTPException
 from joblib import Memory
 from typing import Union, Optional, Any
 import outlines
-import ast
 import traceback
-from openai import OpenAI
 import uvicorn
 from dotenv import load_dotenv
 
@@ -26,6 +24,7 @@ app = FastAPI()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+sampler = outlines.samplers.multinomial(temperature=0.7)
 
 class ForwardRequest(BaseModel):
     name_of_model: str
@@ -35,6 +34,7 @@ class ForwardRequest(BaseModel):
     # constraints: Optional[Union[list[str], str]]
     constraint_type: Optional[str]
     response_format: Any
+    random_seed: int
 
 
 current_name_of_model = None
@@ -118,14 +118,14 @@ def forward_hf(request: ForwardRequest):
             add_generation_prompt=True,
         )
         if request.constraint_type == "none":
-            generator = outlines.generate.text(model)
+            generator = outlines.generate.text(model, sampler=sampler)
         elif request.constraint_type == "choice":
-            generator = outlines.generate.choice(model, request.constraints)
+            generator = outlines.generate.choice(model, request.constraints, sampler=sampler)
         elif request.constraint_type == "types":
             assert len(constraints) == 1
-            generator = outlines.generate.format(model, constraints[0])
+            generator = outlines.generate.format(model, constraints[0], sampler=sampler)
         elif request.constraint_type == "regex":
-            generator = outlines.generate.regex(model, request.constraints)
+            generator = outlines.generate.regex(model, request.constraints, sampler=sampler)
         else:
             print(f"Unknown constraints: {request.constraints}")
             raise NotImplementedError
@@ -144,12 +144,8 @@ def forward_hf(request: ForwardRequest):
 @app.post("/forward")
 def forward(request: ForwardRequest):
     try:
-        print("at /forward")
-        if request.name_of_model.startswith("gpt"):
-            raise NotImplementedError  # gpt moved to client side
-            # output = forward_gpt(request)
-        else:
-            output = forward_hf(request)
+        assert not request.name_of_model.startswith("gpt"), "gpt moved to client side"
+        output = forward_hf(request)
         return output
     except Exception as e:
         raise HTTPException(
@@ -158,7 +154,6 @@ def forward(request: ForwardRequest):
 
 
 if __name__ == "__main__":
-
     load_dotenv()
     port = int(os.getenv("LM_PORT_NO"))
     uvicorn.run(app, host="0.0.0.0", port=port)

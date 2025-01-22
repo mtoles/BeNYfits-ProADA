@@ -39,6 +39,7 @@ class LmBackboneModel:
             history=history,
             use_cache=self.use_cache,
             constraints=None,
+            random_seed=self.client.random_seed,
         )
         output = self.client.forward(forward_request)
 

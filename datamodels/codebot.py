@@ -157,6 +157,7 @@ class CodeBot(ChatBot):
         no_of_programs: str,
         eligibility_requirements: str,
         use_cache: bool,
+        random_seed: int,
         lm_logger=None,
         code_model_id: Optional[str] = None,
         max_code_gen_attempts: int = 1,
@@ -165,15 +166,16 @@ class CodeBot(ChatBot):
             chat_model_id=chat_model_id,
             no_of_programs=no_of_programs,
             eligibility_requirements=eligibility_requirements,
+            random_seed=random_seed,
             use_cache=use_cache,
             lm_logger=lm_logger,
         )
         self.code_model_id = code_model_id
         # self.used_keys = []
         # self.key_types = {name: {} for name, desc in eligibility_requirements.items()} # per-program key types
-        self.key_types = {} # merged key types
+        self.key_types = {}  # merged key types
         # self.choices = {name: {} for name, desc in eligibility_requirements.items()} # per-program choices
-        self.choices = {} # merged choices
+        self.choices = {}  # merged choices
         self.max_code_gen_attempts = max_code_gen_attempts
 
     def pre_conversation(
@@ -350,12 +352,16 @@ class CodeBot(ChatBot):
                         }
                     ]
 
-                    edge_case_output = self.lm_api.forward(
-                        edge_case_prompt,
-                        chat_model_id=code_model_id,
-                        use_cache=use_cache,
-                        logging_role="code_gen",
-                    ).strip("`").strip("json\n")
+                    edge_case_output = (
+                        self.lm_api.forward(
+                            edge_case_prompt,
+                            chat_model_id=code_model_id,
+                            use_cache=use_cache,
+                            logging_role="code_gen",
+                        )
+                        .strip("`")
+                        .strip("json\n")
+                    )
 
                     edge_case_outputs = json.loads(edge_case_output)
                     matches = True
@@ -383,7 +389,9 @@ class CodeBot(ChatBot):
 
             # If we exceeded attempts, skip this requirement
             if checker_attempt_no >= self.max_code_gen_attempts:
-                print(f"Failed to generate checker for {name} after {checker_attempt_no} attempts.")
+                print(
+                    f"Failed to generate checker for {name} after {checker_attempt_no} attempts."
+                )
                 continue
 
             this_program_used_keys = re.findall(
@@ -427,7 +435,6 @@ class CodeBot(ChatBot):
 
         sys.path.append(code_file_handle.name)
         return program
-
 
     def run_generated_code(
         self,
@@ -624,17 +631,21 @@ class CodeBot(ChatBot):
             if lm_output.startswith(c) and lm_output.endswith(c):
                 lm_output = lm_output.strip(c)
         return lm_output
+
     def update_choices(self, new_choices: dict):
         for k, v in new_choices.items():
             if k in self.choices:
                 new = [c for c in v if c not in self.choices[k]]
                 if new:
-                    print(f"updating choices for {k}.\noriginal: {self.choices[k]}\nnew: {new}")
+                    print(
+                        f"updating choices for {k}.\noriginal: {self.choices[k]}\nnew: {new}"
+                    )
                     self.choices[k].extend(new)
             else:
                 self.choices[k] = v
+
     def get_pek_str(self):
-        """Preexisting keys"""        
+        """Preexisting keys"""
         pek = {}
         for k, v in self.key_types.items():
             val = self.choices.get(k, str(v))

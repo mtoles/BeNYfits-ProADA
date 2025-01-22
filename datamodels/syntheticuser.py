@@ -17,6 +17,7 @@ class SyntheticUser:
         su_json: dict,
         chat_model_id: str,
         use_cache: bool,
+        random_seed: int,
         lm_logger: LmLogger,
         top_k: int = 25,
     ):
@@ -30,6 +31,7 @@ class SyntheticUser:
         self.user_name = su_json["hh"].members[0]["name"]
         self.chat_model_id = chat_model_id
         self.use_cache = use_cache
+        self.random_seed = random_seed
         # Model to answer clarifying question
         # self.oracle_model = BaseOracleModel(self.lm_wrapper, 1)
         # self.lm_backbone = LmBackboneModel(
@@ -37,7 +39,7 @@ class SyntheticUser:
         # )
         load_dotenv()
         port = os.getenv('LM_PORT')
-        self.lm_api = ModelAPIClient(f"http://localhost:{port}", lm_logger)
+        self.lm_api = ModelAPIClient(f"http://localhost:{port}", random_seed=self.random_seed, lm_logger=lm_logger)
 
         # Initialize the sentence encoder model (e.g., SentenceTransformer)
         self.sentence_encoder = SentenceTransformer("all-MiniLM-L6-v2")
