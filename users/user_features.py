@@ -114,6 +114,9 @@ def sample_categorical(dist):
 
     return dist[-1][0]
 
+def yes_no_to_bool_map(yes_or_no_string):
+    return yes_or_no_string.lower() == "yes"
+
 ### DEMOGRAPHICS ###
 class age(BasePersonAttr):
     distribution = [((0, 4), 5.4), ((5, 9), 5.4), ((10, 14), 5.6), ((15, 19), 5.7), ((20, 24), 7.0), ((25, 29), 9.0), ((30, 34), 8.8), ((35, 39), 7.4), ((40, 44), 6.5), ((45, 49), 6.0), ((50, 54), 6.2), ((55, 59), 6.2), ((60, 64), 5.8), ((65, 69), 4.8), ((70, 74), 3.9), ((75, 79), 2.6), ((80, 84), 1.8), ((85, 100), 1.9)]
@@ -153,9 +156,10 @@ class RelationEnum(Enum):
 
 
 class relation(BasePersonAttr):
+    distribution = [("self", 0), ("spouse", 13.8), ("child", 27.6), ("stepchild", 2.075), ("grandchild", 2.5), ("foster child", 2.65), ("adopted child", 13.8), ("sibling", 2.075), ("niece_nephew", 2.075), ("other_family", 2.075), ("other_non_family", 2.65)]
     schema = And(lambda x: x in RelationEnum._value2member_map_)
     random = lambda: np.random.choice(list(RelationEnum)).value
-    uniform = lambda: np.random.choice(list(RelationEnum)).value
+    uniform = lambda: sample_categorical(relation.distribution)
     default = RelationEnum.SELF.value
     nl_fn = lambda n, x: (
         f"You are {n}" if x == RelationEnum.SELF.value else f"{n} is your {x}"
@@ -165,17 +169,19 @@ class relation(BasePersonAttr):
 
 
 class disabled(BasePersonAttr):
+    distribution = [("Yes", 11), ("No", 89)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(disabled.distribution))
     default = False
     nl_fn = lambda n, x: f"{n} is disabled." if x else f"{n} is not disabled."
 
 
 class has_ssn(BasePersonAttr):
+    distribution = [("Yes", 96.83), ("No", 3.17)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(has_ssn.distribution))
     default = True
     nl_fn = lambda n, x: (
         f"{n} has a social security number (SSN)."
@@ -193,9 +199,10 @@ class has_ssn(BasePersonAttr):
 
 
 class has_atin(BasePersonAttr):
+    distribution = [("Yes", 4.0), ("No", 96.0)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(has_atin.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has an adoption taxpayer ID number (ATIN)."
@@ -210,9 +217,10 @@ class has_atin(BasePersonAttr):
 
 
 class has_itin(BasePersonAttr):
+    distribution = [("Yes", 0.74), ("No", 99.26)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(has_itin.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has an individual taxpayer ID number (ITIN)."
@@ -232,9 +240,10 @@ class has_itin(BasePersonAttr):
 
 
 class can_care_for_self(BasePersonAttr):
+    distribution = [("Yes", 3.69), ("No", 96.31)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(can_care_for_self.distribution))
     default = True
     nl_fn = lambda n, x: (
         f"{n} can care for themselves." if x else f"{n} cannot care for themselves."
@@ -252,9 +261,10 @@ class PlaceOfResidenceEnum(Enum):
 
 
 class place_of_residence(BasePersonAttr):
+    distribution = [("New York City", 47.1), ("Jersey", 52.9)]
     schema = And(lambda x: x in [y.value for y in PlaceOfResidenceEnum])
     random = lambda: np.random.choice([x.value for x in PlaceOfResidenceEnum])
-    uniform = lambda: np.random.choice([x.value for x in PlaceOfResidenceEnum])
+    uniform = lambda: sample_categorical(place_of_residence.distribution)
     default = PlaceOfResidenceEnum.NYC.value
     nl_fn = lambda n, x: f"{n} lives in {x}."
 
@@ -264,9 +274,10 @@ class place_of_residence(BasePersonAttr):
 
 # Training Info
 class enrolled_in_educational_training(BasePersonAttr):
+    distribution = [("Yes", 53.8), ("No", 56.2)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(enrolled_in_educational_training.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is enrolled in educational training."
@@ -281,9 +292,10 @@ class enrolled_in_educational_training(BasePersonAttr):
 
 
 class enrolled_in_vocational_training(BasePersonAttr):
+    distribution = [("Yes", 10.0), ("No", 90.0)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(enrolled_in_vocational_training.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is enrolled in vocational training."
@@ -299,17 +311,29 @@ class enrolled_in_vocational_training(BasePersonAttr):
 
 # Financial Info
 class annual_work_income(BasePersonAttr):
+    distribution = [
+        ((0, 9999), 5.3),
+        ((10000, 14999), 3.5),
+        ((15000, 24999), 6.4),
+        ((25000, 34999), 6.8),
+        ((35000, 49999), 10.3),
+        ((50000, 74999), 16.1),
+        ((75000, 99999), 12.7),
+        ((100000, 149999), 17.4),
+        ((150000, 199999), 9.1),
+        ((200000, 999999), 12.4)
+    ]
+
     schema = And(int, lambda n: n >= 0)
     def random():
         if np.random.choice([True, False]):
             return np.random.randint(0, 100000)
         else:
             return 0
+        
     def uniform():
-        if np.random.choice([True, False]):
-            return np.random.randint(0, 100000)
-        else:
-            return 0
+        return sample_from_distribution(annual_work_income.distribution)
+    
     default = 0
     nl_fn = lambda n, x: (
         f"{n} makes {x} per year working." if x else f"{n} does not work."
