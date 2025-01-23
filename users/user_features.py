@@ -547,6 +547,8 @@ GRADE_DICT = {x.value: x.name for x in GradeLevelEnum}
 
 
 class current_school_level(BasePersonAttr):
+    # Rattan - Mixed distribution with string and int type
+    distribution = [("none", 0), ("pk", 6.4), ("k", 5.2), (1, 4.8375), (2, 4.8375), (3, 4.8375), (4, 4.8375), (5, 4.8375), (6, 4.8375), (7, 4.8375), (8, 4.8375), (9, 4.9), (10, 4.9), (11, 4.9), (12, 4.9), ("college", 30.1)]
     def randomize():
         r = np.random.choice([x.value for x in GradeLevelEnum])
         if r.isdigit():
@@ -555,7 +557,7 @@ class current_school_level(BasePersonAttr):
 
     schema = And(lambda x: x in [x.value for x in GradeLevelEnum])
     random = randomize
-    uniform = randomize
+    uniform = lambda: sample_categorical(current_school_level.distribution)
     default = GradeLevelEnum.NONE.value
     nl_fn = lambda n, x: (
         f"{n} is in {GRADE_DICT[x]}." if x else f"{n} is not in school."
@@ -632,9 +634,10 @@ class works_outside_home(BasePersonAttr):
 
 
 class work_hours_per_week(BasePersonAttr):
+    distribution = [((0, 20), 8.3), ((21, 30), 7.5), ((31,40), 57.2), ((41, 50), 16), ((51, 60), 7.6), ((61, 80), 3.4)]
     schema = And(int, lambda n: n >= 0)
     random = lambda: np.random.randint(0, 60)
-    uniform = lambda: np.random.randint(0, 60)
+    uniform = lambda: sample_from_distribution(work_hours_per_week.distribution)
     default = 0
     nl_fn = lambda n, x: f"{n} works {x} hours per week."
 
@@ -1307,9 +1310,10 @@ class months_pregnant(BasePersonAttr):
 
 
 class breastfeeding(BasePersonAttr):
+    distribution = [("Yes", 2.9), ("No", 97.1)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(breastfeeding.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} breastfeeds a baby." if x else f"{n} is not breastfeeding a baby."
@@ -1340,9 +1344,10 @@ class breastfeeding(BasePersonAttr):
 
 ### Learn & Earn
 class selective_service(BasePersonAttr):
+    distribution = [("Yes", 84), ("No", 16)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(selective_service.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is registered for selective service."
@@ -1353,9 +1358,10 @@ class selective_service(BasePersonAttr):
 
 
 class is_eligible_for_selective_service(BasePersonAttr):
+    distribution = [("Yes", 5.27), ("No", 94.73)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(is_eligible_for_selective_service.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for selective service."
@@ -1379,9 +1385,10 @@ class is_eligible_for_selective_service(BasePersonAttr):
 
 
 class receives_cash_assistance(BasePersonAttr):
+    distribution = [("Yes", 9.3), ("No", 80.7)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_cash_assistance.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} qualifies for and receives cash assistance."
@@ -1396,9 +1403,10 @@ class receives_cash_assistance(BasePersonAttr):
 
 
 class is_runaway(BasePersonAttr):
+    distribution = [("Yes", 6.93), ("No", 93.07)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(is_runaway.distribution))
     default = False
     nl_fn = lambda n, x: (f"{n} is a runaway." if x else f"{n} is not a runaway.")
 
@@ -1409,9 +1417,10 @@ class is_runaway(BasePersonAttr):
 
 
 class foster_age_out(BasePersonAttr):
+    distribution = [("Yes", 6.04), ("No", 93.96)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(foster_age_out.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has aged out of foster care."
@@ -1435,17 +1444,19 @@ class CitizenshipEnum(Enum):
 
 
 class citizenship(BasePersonAttr):
+    distribution = [("citizen_or_national",  73.7), ("lawful_resident", 23), ("unlawful_resident", 3.3)]
     schema = And(str, lambda x: x in [c.value for c in CitizenshipEnum])
     random = lambda: np.random.choice(list(CitizenshipEnum)).value
-    uniform = lambda: np.random.choice(list(CitizenshipEnum)).value
+    uniform = lambda: sample_categorical(citizenship.distribution)
     default = CitizenshipEnum.CITIZEN_OR_NATIONAL.value
     nl_fn = lambda n, x: f"{n} is a {x}."
 
 
 class responsible_for_day_to_day(BasePersonAttr):
+    distribution = [("Yes", 8.1), ("No", 91.9)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(responsible_for_day_to_day.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is responsible all their children's day-to-day life."
@@ -1471,9 +1482,10 @@ class responsible_for_day_to_day(BasePersonAttr):
 
 
 class hiv_aids(BasePersonAttr):
+    distribution = [("Yes", 0.36), ("No", 99.64)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(hiv_aids.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has been diagnosed with HIV or AIDS."
@@ -1495,9 +1507,10 @@ class can_manage_self(BasePersonAttr):
 
 
 class has_family_to_help(BasePersonAttr):
+    distribution = [("Yes", 58.7), ("No", 41.3)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(has_family_to_help.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has people to help them manage their own resources, carry out daily activities, and protect themself from dangerous situations without help from others. "
@@ -1510,9 +1523,10 @@ class has_family_to_help(BasePersonAttr):
 
 
 class can_access_subway_or_bus(BasePersonAttr):
+    distribution = [("Yes", 1.1), ("No", 98.9)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(can_access_subway_or_bus.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} can use accessible buses or subways for some or all of their trips."
@@ -1522,9 +1536,10 @@ class can_access_subway_or_bus(BasePersonAttr):
 
 
 class recovering_from_surgery(BasePersonAttr):
+    distribution = [("Yes", 11.3), ("No", 88.7)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(recovering_from_surgery.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is recovering from surgery."
@@ -1547,9 +1562,14 @@ class EducationLevelEnum(Enum):
 
 
 class high_school_equivalent(BasePersonAttr):
+    distribution = [("high school diploma",  78.11), 
+        ("HSE diploma", 2.295), 
+        ("GED", 2.295), 
+        ("no high school diploma equivalent", 17.3)]
+    
     schema = And(lambda x: x in [e.value for e in EducationLevelEnum])
     random = lambda: np.random.choice([e.value for e in EducationLevelEnum])
-    uniform = lambda: np.random.choice([e.value for e in EducationLevelEnum])
+    uniform = lambda: sample_categorical(high_school_equivalent.distribution)
     default = EducationLevelEnum.HIGH_SCHOOL_DIPLOMA.value
     nl_fn = lambda n, x: f"{n}'s education level is: {x}."
 
@@ -1697,9 +1717,10 @@ class emancipated_minor(BasePersonAttr):
 
 
 class accepted_to_cuny(BasePersonAttr):
+    distribution = [("Yes", 64), ("No", 36)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(accepted_to_cuny.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has completed admission requirements and is accepted to CUNY."
@@ -1714,9 +1735,10 @@ class accepted_to_cuny(BasePersonAttr):
 
 
 class eligible_for_instate_tuition(BasePersonAttr):
+    distribution = [("Yes", 50), ("No", 50)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(eligible_for_instate_tuition.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for in-state tuition."
@@ -1726,9 +1748,10 @@ class eligible_for_instate_tuition(BasePersonAttr):
 
 
 class proficient_in_math(BasePersonAttr):
+    distribution = [("Yes", 28), ("No", 72)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(proficient_in_math.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is proficient in math." if x else f"{n} is not proficient in math."
@@ -1736,9 +1759,10 @@ class proficient_in_math(BasePersonAttr):
 
 
 class proficient_in_english_reading_and_writing(BasePersonAttr):
+    distribution = [("Yes", 33), ("No", 67)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(proficient_in_english_reading_and_writing.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is proficient in English reading and writing."
@@ -1793,9 +1817,10 @@ class gpa(BasePersonAttr):
 
 ### Advance & Earn
 class work_authorization(BasePersonAttr):
+    distribution = [("Yes", 44.3), ("No", 55.7)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(work_authorization.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is authorized to work in NYC and the US."
@@ -1810,9 +1835,10 @@ class work_authorization(BasePersonAttr):
 
 
 class involved_in_justice_system(BasePersonAttr):
+    distribution = [("Yes", 2.1), ("No", 97.9)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(involved_in_justice_system.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is involved in the justice system."
@@ -1834,9 +1860,10 @@ class involved_in_justice_system(BasePersonAttr):
 
 
 class work_or_volunteer_experience(BasePersonAttr):
+    distribution = [("Yes", 25), ("No", 75)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(work_or_volunteer_experience.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has work or volunteer experience."
@@ -1856,9 +1883,10 @@ class work_or_volunteer_experience(BasePersonAttr):
 
 
 class lives_in_jobs_plus_neighborhood(BasePersonAttr):
+    distribution = [("Yes", 10.10), ("No", 89.9)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(lives_in_jobs_plus_neighborhood.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} lives in a Jobs Plus neighborhood."
@@ -1882,9 +1910,10 @@ class lives_in_jobs_plus_neighborhood(BasePersonAttr):
 
 
 class va_healthcare(BasePersonAttr):
+    distribution = [("Yes", 39), ("No", 61)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(va_healthcare.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for VA healthcare."
@@ -1946,9 +1975,10 @@ class got_heap_ac(BasePersonAttr):
 
 
 class heat_included_in_rent(BasePersonAttr):
+    distribution = [("Yes", 34), ("No", 66)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(heat_included_in_rent.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has heat included in their rent."
@@ -1961,9 +1991,10 @@ class heat_included_in_rent(BasePersonAttr):
 
 
 class qualify_for_health_insurance(BasePersonAttr):
+    distribution = [("Yes", 0.016), ("No", 99.984)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(qualify_for_health_insurance.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} qualifies for a health care plan available in New York State"
@@ -1996,9 +2027,10 @@ class qualify_for_health_insurance(BasePersonAttr):
 
 
 class at_risk_of_homelessness(BasePersonAttr):
+    distribution = [("Yes", 3.31), ("No", 96.69)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(at_risk_of_homelessness.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is at risk of homelessness."
@@ -2015,9 +2047,10 @@ class at_risk_of_homelessness(BasePersonAttr):
 
 
 class transitional_job(BasePersonAttr):
+    distribution = [("Yes", 0.33), ("No", 99.67)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(transitional_job.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s job is from a transitional jobs program."
@@ -2036,9 +2069,10 @@ class transitional_job(BasePersonAttr):
 
 
 class federal_work_study(BasePersonAttr):
+    distribution = [("Yes", 0.2), ("No", 99.8)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(federal_work_study.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s job is from a federal work study job"
@@ -2055,9 +2089,10 @@ class federal_work_study(BasePersonAttr):
 
 
 class scholarship(BasePersonAttr):
+    distribution = [("Yes", 25), ("No", 75)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(scholarship.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is compensated by a qualified scholarship program."
@@ -2072,9 +2107,10 @@ class scholarship(BasePersonAttr):
 
 
 class government_job(BasePersonAttr):
+    distribution = [("Yes", 3.8), ("No", 96.2)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(government_job.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} works for a government agency"
@@ -2091,9 +2127,10 @@ class government_job(BasePersonAttr):
 
 
 class is_therapist(BasePersonAttr):
+    distribution = [("Yes", 0.12), ("No", 99.88)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(is_therapist.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is a physical therpaist licensed in New York State."
@@ -2110,9 +2147,10 @@ class is_therapist(BasePersonAttr):
 
 
 class contractor(BasePersonAttr):
+    distribution = [("Yes", 6.9), ("No", 93.1)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(contractor.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is an independent contractor."
@@ -2129,9 +2167,10 @@ class contractor(BasePersonAttr):
 
 
 class wep(BasePersonAttr):
+    distribution = [("Yes", 3), ("No", 97)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(wep.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is in the Work Experience Program."
@@ -2148,9 +2187,10 @@ class wep(BasePersonAttr):
 
 
 class collective_bargaining(BasePersonAttr):
+    distribution = [("Yes", 10.10), ("No", 89.9)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(collective_bargaining.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is subject to a collective bargaining agreement waiving safe and sick leave."
@@ -2170,9 +2210,10 @@ class collective_bargaining(BasePersonAttr):
 
 
 class covid_funeral_expenses(BasePersonAttr):
+    distribution = [("Yes", 1.13), ("No", 98.87)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(covid_funeral_expenses.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} incurred funeral expenses due to a covid death on or after January 20, 2020, and the death was attributed to COVID-19 on the death certificate."
@@ -2216,9 +2257,10 @@ class evicted_months_ago(BasePersonAttr):
 
 
 class currently_being_evicted(BasePersonAttr):
+    distribution = [("Yes", 5), ("No", 95)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(currently_being_evicted.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is currently being evicted."
@@ -2236,9 +2278,10 @@ class currently_being_evicted(BasePersonAttr):
 
 
 class employer_opt_in(BasePersonAttr):
+    distribution = [("Yes", 14), ("No", 86)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(employer_opt_in.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n}'s private employer has opted in to paid family leave."
@@ -2296,9 +2339,10 @@ class nonconsecutive_work_days(BasePersonAttr):
 
 
 class developmental_mental_day_treatment(BasePersonAttr):
+    distribution = [("Yes", 34.19), ("No", 65.81)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(developmental_mental_day_treatment.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} attends a developmental mental day treatment program."
@@ -2344,9 +2388,10 @@ class years_sober(BasePersonAttr):
 
 
 class medication_treatment_non_compliance(BasePersonAttr):
+    distribution = [("Yes", 12.3), ("No", 87.7)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(medication_treatment_non_compliance.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has been non-compliant with medication and treatment."
@@ -2356,9 +2401,10 @@ class medication_treatment_non_compliance(BasePersonAttr):
 
 
 class arson(BasePersonAttr):
+    distribution = [("Yes", 0.0109), ("No", 99.9891)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(arson.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a history of arson."
@@ -2373,9 +2419,10 @@ class arson(BasePersonAttr):
 
 
 class verbal_abuse(BasePersonAttr):
+    distribution = [("Yes", 0.147), ("No", 99.853)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(verbal_abuse.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a history of verbal abuse."
@@ -2390,9 +2437,10 @@ class verbal_abuse(BasePersonAttr):
 
 
 class imprisonment(BasePersonAttr):
+    distribution = [("Yes", 2.7), ("No", 97.3)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(imprisonment.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has a history of imprisonment."
@@ -2410,9 +2458,10 @@ class imprisonment(BasePersonAttr):
 
 
 class first_time_home_buyer(BasePersonAttr):
+    distribution = [("Yes", 24), ("No", 76)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(first_time_home_buyer.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is a first-time home buyer."
@@ -2427,9 +2476,10 @@ class first_time_home_buyer(BasePersonAttr):
 
 
 class honorable_service(BasePersonAttr):
+    distribution = [("Yes", 3.32), ("No", 96.68)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(honorable_service.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} has honorable military service and was discharged with a DD-214."
@@ -2444,9 +2494,10 @@ class honorable_service(BasePersonAttr):
 
 
 class receives_medicaid(BasePersonAttr):
+    distribution = [("Yes", 48.8), ("No", 51.2)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_medicaid.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Medicaid." if x else f"{n} does not receive Medicaid."
@@ -2454,9 +2505,10 @@ class receives_medicaid(BasePersonAttr):
 
 
 class eligible_for_medicaid(BasePersonAttr):
+    distribution = [("Yes", 22), ("No", 88)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(eligible_for_medicaid.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for Medicaid." if x else f"{n} is not eligible for Medicaid."
@@ -2469,9 +2521,10 @@ class eligible_for_medicaid(BasePersonAttr):
 
 
 class receives_fpha(BasePersonAttr):
+    distribution = [("Yes", 2.8), ("No", 97.2)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_fpha.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Federal Public Housing Assistance (FPHA)."
@@ -2484,9 +2537,10 @@ class receives_fpha(BasePersonAttr):
 
 
 class receives_vpsb(BasePersonAttr):
+    distribution = [("Yes", 0.35), ("No", 99.65)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(receives_vpsb.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} receives Veterans Pension and Survivor Benefits (VPSB)."
@@ -2496,9 +2550,10 @@ class receives_vpsb(BasePersonAttr):
 
 
 class eligible_for_hra_shelter(BasePersonAttr):
+    distribution = [("Yes", 0.527), ("No", 99.473)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(eligible_for_hra_shelter.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is eligible for Health Reimbursement Arrangement (HRA) shelter."
@@ -2511,9 +2566,10 @@ class eligible_for_hra_shelter(BasePersonAttr):
 
 
 class wheelchair(BasePersonAttr):
+    distribution = [("Yes", 8.5), ("No", 91.5)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(wheelchair.distribution))
     default = False
     nl_fn = lambda n, x: (
         f"{n} is wheelchair bound." if x else f"{n} does not use a wheelchair."
@@ -2526,9 +2582,10 @@ class wheelchair(BasePersonAttr):
 
 
 class bedridden(BasePersonAttr):
+    distribution = [("Yes", 1.1), ("No", 98.9)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
-    uniform = lambda: bool(np.random.choice([True, False]))
+    uniform = lambda: yes_no_to_bool_map(sample_categorical(bedridden.distribution))
     default = False
     nl_fn = lambda n, x: (f"{n} is bedridden." if x else f"{n} is not bedridden.")
 
