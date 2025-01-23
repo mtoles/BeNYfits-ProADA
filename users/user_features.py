@@ -1269,6 +1269,19 @@ class is_parent(BasePersonAttr):
 
 
 class months_pregnant(BasePersonAttr):
+    distribution = [
+        (0, 96),
+        (1, 0.5),
+        (2, 0.5),
+        (3, 0.5),
+        (4, 0.5),
+        (5, 0.5),
+        (6, 0.5),
+        (7, 0.5),
+        (8, 0.5),
+        (9, 0.5)
+    ]
+
     schema = And(int, lambda v: v >= 0)
     # random = lambda: np.random.randint(0, 9)
     def random():
@@ -1276,11 +1289,10 @@ class months_pregnant(BasePersonAttr):
             return np.random.randint(1, 9)
         else:
             return 0
+        
     def uniform():
-        if np.random.choice([True, False]):
-            return np.random.randint(1, 9)
-        else:
-            return 0
+        return sample_categorical(months_pregnant.distribution)
+    
     default = 0
     nl_fn = lambda n, x: (
         f"{n} is {x} months pregnant." if x else f"{n} is not pregnant."
