@@ -283,6 +283,14 @@ for index, row in tqdm(labels_df.iterrows()):
         )
         generated_code_results.append(code_results)
 
+        for p_name, p_res in code_results.items():
+            label = labels[p_name]
+            # print labela nd pred
+            print(f"Program: {p_name}")
+            print(f"Label: {label}")
+            print(f"Eligibility: {p_res['eligibility']}")
+            print("\n")
+
         predictions_log_entry = {}
         for k, v in code_results.items():
             predictions_log_entry[k] = 1 if v["eligibility"] else 0

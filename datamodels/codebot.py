@@ -297,7 +297,7 @@ class CodeBot(ChatBot):
             failed_code = None
 
             checker_attempt_no = 0
-            self.max_code_gen_attempts = 5
+            self.max_code_gen_attempts = self.max_code_gen_attempts
             while checker_attempt_no < self.max_code_gen_attempts:
                 print(f"attempting to generate checker, attempt {checker_attempt_no}")
 

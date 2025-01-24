@@ -99,9 +99,9 @@ class RelationEnum(Enum):
     FOSTER_CHILD = "foster child"
     ADOPTED_CHILD = "adopted child"
     SIBLING = "sibling"
-    NIECE_NEPHEW = "niece_nephew"
-    OTHER_FAMILY = "other_family"
-    OTHER_NON_FAMILY = "other_non_family"
+    NIECE_NEPHEW = "niece or nephew"
+    OTHER_FAMILY = "cousin"
+    OTHER_NON_FAMILY = "friend"
 
 
 class relation(BasePersonAttr):
@@ -545,6 +545,10 @@ class days_looking_for_work(BasePersonAttr):
 
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
+            return 0
+        if hh.members[person_idx]["work_hours_per_week"] > 0:
+            return 0
+        if hh.members[person_idx]["annual_work_income"] > 0:
             return 0
         return original_value
 

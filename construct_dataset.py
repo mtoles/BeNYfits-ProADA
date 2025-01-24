@@ -40,9 +40,10 @@ with open(args.output, "w") as fout:
 
         household_dict["hh_nl_desc"] = hh.nl_household_profile()
         # household_dict["hh_nl_desc_always_include"] = hh.nl_household_profile_always_include()
-        household_dict["hh_nl_desc_always_include"] = hh.members[
-            0
-        ].nl_person_profile_always_include()
+        # household_dict["hh_nl_desc_always_include"] = hh.members[
+        #     0
+        # ].nl_person_profile_always_include()
+        household_dict["hh_nl_always_include"] = "\n".join([x.nl_person_profile_always_include() for x in hh.members])
         household_dict["note"] = ""
 
         for program in benefits_classes.values():

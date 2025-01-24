@@ -27,7 +27,7 @@ class SyntheticUser:
         # self.lm_wrapper = lm_wrapper
         # self.nl_profile = hh_nl_desc
         self.nl_profile = su_json["hh_nl_desc"]
-        self.always_included = su_json["hh_nl_desc_always_include"]
+        self.always_included = su_json["hh_nl_always_include"]
         self.user_name = su_json["hh"].members[0]["name"]
         self.chat_model_id = chat_model_id
         self.use_cache = use_cache

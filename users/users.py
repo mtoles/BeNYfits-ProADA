@@ -137,9 +137,10 @@ class Person:
 
     def nl_person_profile_always_include(self) -> str:
         name = self.features["name"]
-        sentences = [f"You are {name}"]
+        # sentences = [f"You are {name}"]
+        sentences = []
         for f, v in self.features.items():
-            if not PersonAttributeMeta.registry[f].always_include:
+            if PersonAttributeMeta.registry[f].always_include: # fixed
                 sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
             # sentences.append(fn(name, person[field]))
         return "\n".join(sentences).strip()
