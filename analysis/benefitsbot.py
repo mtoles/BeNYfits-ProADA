@@ -16,6 +16,7 @@ from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
 from users.benefits_programs import BenefitsProgramMeta
+from utils import RoleEnum
 
 start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
@@ -117,7 +118,8 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-
+if args.synthetic_user_model_name == "same":
+    args.synthetic_user_model_name = args.chat_model_id
 now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 programs_abbreviation = len(args.programs)
 
@@ -359,9 +361,9 @@ for index, row in tqdm(labels_df.iterrows()):
             break
 
         cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
-        history.append({"role": "assistant", "content": cq})
+        history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
         cq_answer = synthetic_user.answer_cq(cq)
-        history.append({"role": "user", "content": cq_answer})
+        history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": cq_answer})
 
         print(f"Turn Number:         {cur_iter_count}")
         print(f"Clarifying Question: {cq}")

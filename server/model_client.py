@@ -11,7 +11,7 @@ import os
 
 memory = Memory(".joblib_cache", verbose=0)
 
-load_dotenv()  # Load environment variables from a .env file
+load_dotenv(override=False)  # Load environment variables from a .env file
 
 port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
 url = os.getenv("LM_SERVER_URL")
@@ -65,7 +65,7 @@ class ModelAPIClient:
             status_code = response_package.status_code
             response = response_package.json()
             if status_code != 200:
-                raise Exception(f"Prediction error: {response.json()['detail']}")
+                raise Exception(f"Prediction error: {response['detail']}")
 
         generated_text = response["generated_text"]
         if self.lm_logger:
@@ -108,7 +108,7 @@ class ModelAPIClient:
 
 if __name__ == "__main__":
 
-    ModelAPIClient = ModelAPIClient(f"{url}:{port}", lm_logger=None)
+    ModelAPIClient = ModelAPIClient(f"{url}:{port}", lm_logger=None, random_seed=0)
     # ModelAPIClient = ModelAPIClient("http://localhost:55244")
     # ModelAPIClient = ModelAPIClient("http://localhost:8000")
 
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         history,
         use_cache=True,
         logging_role="test",
-        chat_model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        chat_model_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
     )
 
     print(output)

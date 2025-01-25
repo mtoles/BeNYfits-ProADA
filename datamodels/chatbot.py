@@ -10,7 +10,7 @@ from server.model_client import ModelAPIClient
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv(override=False)
 np.random.seed(42)
 
 benefits_ready_prompt = {

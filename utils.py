@@ -11,9 +11,10 @@ import ast
 import re
 import importlib
 import inspect
+from enum import Enum
 
 
-load_dotenv()
+load_dotenv(override=False)
 
 cache_filename = "shelved_cache/shelved_cache"
 pc = PersistentCache(LRUCache, cache_filename, maxsize=10000)
@@ -216,3 +217,11 @@ def import_all_classes(module_name):
     except ModuleNotFoundError:
         print(f"Module '{module_name}' not found.")
         return {}
+    
+
+class RoleEnum(Enum):
+    CQ_MODEL = "CQ_MODEL"
+    SYNTHETIC_USER = "SYNTHETIC_USER"
+    SYSTEM = "SYSTEM"
+
+def 

@@ -16,12 +16,11 @@ from tqdm import tqdm
 from pydantic import BaseModel
 import json
 
-from utils import extract_function_definitions, remove_raise_statements
+from utils import extract_function_definitions, remove_raise_statements, RoleEnum
 from datamodels.chatbot import ChatBot
 from utils import hist_to_str
 from typing import Optional
 from copy import deepcopy
-
 
 np.random.seed(0)
 list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
@@ -491,16 +490,7 @@ class CodeBot(ChatBot):
             except ImaginaryDataKeyError as e:
                 error_var = e
                 fn_name = program_name
-                if fn_name not in eligibility_requirements.keys():
-                    print("why is this here? should never happen")
-                    raise NotImplementedError
-                    return {
-                        "program_name": program_name,
-                        "hh": hh,
-                        "history": history,
-                        "eligibility": None,
-                        "completed": False,
-                    }
+                assert fn_name in eligibility_requirements
                 relevant_program = eligibility_requirements[fn_name]
 
                 # if isinstance(e, ImaginaryDataKeyError):
@@ -542,9 +532,9 @@ class CodeBot(ChatBot):
                     ),
                     logging_role="key_error",
                 )
-                history.append({"role": "assistant", "content": cq})
-                ca = synthetic_user.answer_cq(cq)
-                history.append({"role": "user", "content": ca})
+                history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
+                ca = synthetic_user.answer_cq(cq=cq, history=history)
+                history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": ca})
 
                 key_type = self.key_types.get(key, "any")
                 if key_type == ConstraintType.choice:
@@ -571,7 +561,7 @@ class CodeBot(ChatBot):
                     constraint_type=constraint_type,
                     constraints=constraint,
                 )
-                history.append({"role": "assistant", "content": new_hh_value})
+                # history.append({"role": "assistant", "content": new_hh_value})
                 prev_hh = deepcopy(hh)
                 if member_idx is None:
                     hh[key] = new_hh_value

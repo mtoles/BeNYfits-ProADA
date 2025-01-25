@@ -11,7 +11,7 @@ import traceback
 import uvicorn
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=False)
 
 """
 run with:
@@ -99,8 +99,8 @@ def forward_hf(request: ForwardRequest):
                 print(f"- {torch.cuda.get_device_name(i)}")
             # model = outlines.models.transformers(name_of_model, device="cuda", kwargs={"torch_dtype": torch.bfloat16})
             raw_model = AutoModelForCausalLM.from_pretrained(
-                name_of_model, torch_dtype=torch.bfloat16
-            ).to("cuda")
+                name_of_model, torch_dtype=torch.bfloat16, load_in_8bit=True, device_map={"": "cuda:0"}
+            )
             # if torch.cuda.device_count() > 1:
             # raw_model = torch.nn.DataParallel(raw_model)
             model = outlines.models.Transformers(raw_model, tk)
@@ -154,6 +154,6 @@ def forward(request: ForwardRequest):
 
 
 if __name__ == "__main__":
-    load_dotenv()
+    load_dotenv(override=False)
     port = int(os.getenv("LM_PORT_NO"))
     uvicorn.run(app, host="0.0.0.0", port=port)
