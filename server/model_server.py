@@ -10,6 +10,8 @@ import outlines
 import traceback
 import uvicorn
 from dotenv import load_dotenv
+import time
+import threading
 
 load_dotenv(override=False)
 
@@ -26,6 +28,29 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 sampler = outlines.samplers.multinomial(temperature=0.7)
 
+last_request_time = time.time()
+request_in_progress = False
+
+def watch_inactivity():
+    global model, tk, current_name_of_model
+    while True:
+        time.sleep(5)  # check every 5 seconds
+        if time.time() - last_request_time > 60*60 and not request_in_progress:
+            print("flushing model")
+            # flush model
+            if model is not None:
+                del model
+                model = None
+            if tk is not None:
+                del tk
+                tk = None
+            torch.cuda.empty_cache()
+            current_name_of_model = None
+        else:
+            print("model preserved")
+
+threading.Thread(target=watch_inactivity, daemon=True).start()
+
 class ForwardRequest(BaseModel):
     name_of_model: str
     history: list[dict]
@@ -35,6 +60,7 @@ class ForwardRequest(BaseModel):
     constraint_type: Optional[str]
     response_format: Any
     random_seed: int
+    # prefix: Optional[list[dict]]
 
 
 current_name_of_model = None
@@ -57,22 +83,6 @@ def forward_hf(request: ForwardRequest):
     name_of_model = request.name_of_model
     history = request.history
     print(f"hf Received: {history}")
-
-    # constraint = None
-    # if request.constraints == "int":
-    #     constraint = int
-    # elif request.constraints == "float":
-    #     constraint = float
-    # elif type(request.constraints) == list:
-    #     constraint = request.constraints
-    # elif request.constraints is None:
-    #     constraint = None
-    # else:
-    # #     constraint = ast.literal_eval(request.constraints)  # list of options
-    #     raise NotImplementedError
-    #     # assert type(constraint) == list
-    #     # assert set([type(x) == str for x in constraint]) == set([str])
-
     if request.constraint_type == "types":
         constraints = [_str_to_type(x) for x in request.constraints]
     elif request.constraint_type == "choice":
@@ -99,7 +109,10 @@ def forward_hf(request: ForwardRequest):
                 print(f"- {torch.cuda.get_device_name(i)}")
             # model = outlines.models.transformers(name_of_model, device="cuda", kwargs={"torch_dtype": torch.bfloat16})
             raw_model = AutoModelForCausalLM.from_pretrained(
-                name_of_model, torch_dtype=torch.bfloat16, load_in_8bit=True, device_map={"": "cuda:0"}
+                name_of_model,
+                torch_dtype=torch.bfloat16,
+                load_in_4bit=True,
+                device_map={"": "cuda:0"},
             )
             # if torch.cuda.device_count() > 1:
             # raw_model = torch.nn.DataParallel(raw_model)
@@ -120,12 +133,16 @@ def forward_hf(request: ForwardRequest):
         if request.constraint_type == "none":
             generator = outlines.generate.text(model, sampler=sampler)
         elif request.constraint_type == "choice":
-            generator = outlines.generate.choice(model, request.constraints, sampler=sampler)
+            generator = outlines.generate.choice(
+                model, request.constraints, sampler=sampler
+            )
         elif request.constraint_type == "types":
             assert len(constraints) == 1
             generator = outlines.generate.format(model, constraints[0], sampler=sampler)
         elif request.constraint_type == "regex":
-            generator = outlines.generate.regex(model, request.constraints, sampler=sampler)
+            generator = outlines.generate.regex(
+                model, request.constraints, sampler=sampler
+            )
         else:
             print(f"Unknown constraints: {request.constraints}")
             raise NotImplementedError
@@ -143,6 +160,9 @@ def forward_hf(request: ForwardRequest):
 
 @app.post("/forward")
 def forward(request: ForwardRequest):
+    global last_request_time, request_in_progress
+    request_in_progress = True
+    last_request_time = time.time()  # update on every request
     try:
         assert not request.name_of_model.startswith("gpt"), "gpt moved to client side"
         output = forward_hf(request)
@@ -151,9 +171,11 @@ def forward(request: ForwardRequest):
         raise HTTPException(
             status_code=500, detail=f"traceback:\n{traceback.format_exc()}"
         )
+    finally:
+        request_in_progress = False
 
 
 if __name__ == "__main__":
-    load_dotenv(override=False)
+    load_dotenv()
     port = int(os.getenv("LM_PORT_NO"))
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -8,7 +8,7 @@ import torch
 from dotenv import load_dotenv
 import os
 from server.model_client import ModelAPIClient
-from utils import RoleEnum
+from utils import RoleEnum, rename_roles
 from copy import deepcopy
 
 
@@ -98,16 +98,8 @@ class SyntheticUser:
             "content": f"Your instructions are to play the role of a person trying to determine their eligibility for certain government programs. This is some information about my household:\n{self.nl_profile}",
         }
         # invert labels on history
-        h_ = deepcopy(history)
-        for i in range(len(h_)):
-            if history[i]["role"] == RoleEnum.SYNTHETIC_USER.value:
-                h_[i]["role"] = "assistant"
-            elif history[i]["role"] == RoleEnum.CQ_MODEL.value:
-                h_[i]["role"] = "user"
-            elif history[i]["role"] == RoleEnum.SYSTEM.value:
-                h_[i]["role"] = RoleEnum.SYSTEM.value
-            else:
-                raise ValueError(f"Unexpected role: {history[i]['role']}")
+
+        h_ = rename_roles(history)
 
         h2 = [relevant_sentences] + h_
 

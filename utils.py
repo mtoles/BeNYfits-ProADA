@@ -12,6 +12,7 @@ import re
 import importlib
 import inspect
 from enum import Enum
+from copy import deepcopy
 
 
 load_dotenv(override=False)
@@ -176,7 +177,9 @@ def extract_function_definitions(code: str):
 def hist_to_str(history):
     return "\n".join([f"{turn['role']}: {turn['content']}" for turn in history])
 
+
 import ast
+
 
 def remove_raise_statements(code: str) -> str:
     """
@@ -188,19 +191,21 @@ def remove_raise_statements(code: str) -> str:
     Returns:
         str: The modified Python code without `raise` statements.
     """
+
     class RaiseRemover(ast.NodeTransformer):
         def visit_Raise(self, node):
             return ast.Pass()  # Remove raise statements
-    
+
     # Parse the code into an AST
     tree = ast.parse(code)
-    
+
     # Transform the AST to remove raise statements
     transformer = RaiseRemover()
     modified_tree = transformer.visit(tree)
-    
+
     # Convert the modified AST back to source code
     return ast.unparse(modified_tree)
+
 
 def import_all_classes(module_name):
     try:
@@ -217,11 +222,23 @@ def import_all_classes(module_name):
     except ModuleNotFoundError:
         print(f"Module '{module_name}' not found.")
         return {}
-    
+
 
 class RoleEnum(Enum):
     CQ_MODEL = "CQ_MODEL"
     SYNTHETIC_USER = "SYNTHETIC_USER"
     SYSTEM = "SYSTEM"
 
-def 
+
+def rename_roles(history):
+    h_ = deepcopy(history[1:])  # drop the cq model prompt
+    for i in range(len(h_)):
+        if history[i]["role"] == RoleEnum.SYNTHETIC_USER.value:
+            h_[i]["role"] = "assistant"
+        elif history[i]["role"] == RoleEnum.CQ_MODEL.value:
+            h_[i]["role"] = "user"
+        elif history[i]["role"] == RoleEnum.SYSTEM.value:
+            h_[i]["role"] = "system"
+        else:
+            raise ValueError(f"Unexpected role: {history[i]['role']}")
+    return h_

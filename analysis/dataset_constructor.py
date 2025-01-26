@@ -22,6 +22,8 @@ module_name = "users.benefits_programs"
 classes = import_all_classes(module_name)
 
 benefits_classes = {}
+min_line_nos = {}
+max_line_nos = {}
 
 for class_name, cls in classes.items():
     if class_name not in ["BaseBenefitsProgram", "BenefitsProgramMeta"]:
@@ -84,6 +86,8 @@ class DatasetConstructor:
                         class_name.__call__, hh
                     ).values()
                 )[0]
+                # min_line_nos[class_name.__name__] = min(source_lines + [min_line_nos[class_name.__name__]])
+                # max_line_nos[class_name.__name__] = max(source_lines + [max_line_nos[class_name.__name__]])
 
                 for line in source_lines:
                     new_vector[int(line)] = 1
@@ -129,32 +133,3 @@ class DatasetConstructor:
 
         hh_cover = [hhs[i] for i in indices]
         return hh_cover
-        # greedily add vectors to cover
-
-        # percent_lines_hit_by_medoids = (medoids.mean(axis=0)==0).float().mean()
-        # print
-
-        #         # Compute the Manhattan distance (cityblock distance) between vector and new_vector
-        #         distance = cityblock(vector, new_vector)
-
-        #         # Update the maximum distance, vector, and household input if applicable
-        #         if distance > max_distance:
-        #             max_distance = distance
-        #             max_new_vector = new_vector
-        #             max_hh = hh
-
-        #     # Increment iteration count
-        #     iteration_count += 1
-
-        #     # Update the vector using an incremental average to maintain linear complexity
-        #     vector = [
-        #         (vector[i] * (iteration_count - 1) + max_new_vector[i])
-        #         / iteration_count
-        #         for i in range(n_source_lines)
-        #     ]
-
-        #     # Append the maximally distant household input to the output list
-        #     output.append(max_hh)
-
-        # # Return the output list
-        # return output

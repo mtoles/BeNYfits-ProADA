@@ -11,7 +11,7 @@ import os
 
 memory = Memory(".joblib_cache", verbose=0)
 
-load_dotenv(override=False)  # Load environment variables from a .env file
+# load_dotenv(override=False)  # Load environment variables from a .env file
 
 port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
 url = os.getenv("LM_SERVER_URL")
@@ -79,6 +79,7 @@ class ModelAPIClient:
 
     @memory.cache
     def forward_gpt(request: ForwardRequest):
+        # assert request.prefix is None
         client = OpenAI()
         # try:
         # if request.constraints is not None and request.constraint_type=="openai":

@@ -308,7 +308,7 @@ for index, row in tqdm(labels_df.iterrows()):
     per_turn_predictions = []
     history = [
         {
-            "role": "system",
+            "role": RoleEnum.SYSTEM.value,
             "content": (
                 f"You are a language model trying to help user to determine "
                 f"eligbility of user for benefits. Currently, you do not know "
@@ -325,32 +325,27 @@ for index, row in tqdm(labels_df.iterrows()):
     decision = None
 
     while True:
-        if cur_iter_count != 0:
-            per_turn_predictions.append(
-                chatbot.predict_benefits_eligibility(history, args.programs)
-            )
-        else:
-            default_predictions = dict([(x, 0) for x in args.programs])
-            per_turn_predictions.append(default_predictions)
+        # if cur_iter_count != 0 :
+        #     per_turn_predictions.append(
+        #         chatbot.predict_benefits_eligibility(history, args.programs)
+        #     )
+        # else:
+        # default_predictions = dict([(x, 0) for x in args.programs])
+        # per_turn_predictions.append(default_predictions)
 
-        if cur_iter_count >= args.max_dialog_turns:
-            print(f"Max dialog turns ({args.max_dialog_turns}) reached")
-            print("==" * 20)
-            last_turn_iteration.append(cur_iter_count)
-            decision = per_turn_predictions[-1]
-            print(f"Decision:  {decision}")
-            print(f"label:     {labels.to_dict()}")
-            print("==" * 20)
-            break
+
 
         if (
-            cur_iter_count > 0
-            and str(chatbot.predict_benefits_ready(history)) == "True"
+            (cur_iter_count > 0
+            and str(chatbot.predict_benefits_ready(history)) == "True") or 
+            cur_iter_count == args.max_dialog_turns
         ):
             print(
                 f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
             )
-            decision = per_turn_predictions[-1]
+            # decision = per_turn_predictions[-1]
+            decision = chatbot.predict_benefits_eligibility(history, args.programs)
+            per_turn_predictions.append(decision)
             print(f"Decision:  {decision}")
             print(f"label:     {labels.to_dict()}")
             print("==" * 20)
@@ -359,10 +354,18 @@ for index, row in tqdm(labels_df.iterrows()):
             )
             last_turn_iteration.append(cur_iter_count)
             break
-
+        # if cur_iter_count >= args.max_dialog_turns:
+        #     print(f"Max dialog turns ({args.max_dialog_turns}) reached")
+        #     print("==" * 20)
+        #     last_turn_iteration.append(cur_iter_count)
+        #     decision = per_turn_predictions[-1]
+        #     print(f"Decision:  {decision}")
+        #     print(f"label:     {labels.to_dict()}")
+        #     print("==" * 20)
+        #     break
         cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
         history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
-        cq_answer = synthetic_user.answer_cq(cq)
+        cq_answer = synthetic_user.answer_cq(history=history, cq=cq)
         history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": cq_answer})
 
         print(f"Turn Number:         {cur_iter_count}")
