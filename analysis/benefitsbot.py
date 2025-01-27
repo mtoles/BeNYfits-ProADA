@@ -168,6 +168,8 @@ if os.path.exists(args.dataset_path):
     labels_df = pd.read_json(args.dataset_path, lines=True)
 elif args.dataset_path == "unittest":
     labels_df = unit_test_dataset()
+else:
+    raise ValueError(f"Invalid dataset path: {args.dataset_path}")
 labels_df["hh"] = labels_df["hh"].apply(
     lambda hh: Household.from_dict(hh) if isinstance(hh, dict) else hh
 )

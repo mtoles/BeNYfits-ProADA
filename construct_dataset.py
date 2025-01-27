@@ -27,7 +27,9 @@ parser.add_argument("-t", "--trials", type=int, default=10000, help="The number 
 parser.add_argument("-o", "--output", type=str, default="edge_case_dataset.jsonl", help="Output path to save the dataset to")
 args = parser.parse_args()
 
-households = [hh for hh in DatasetConstructor.fuzz(limit=args.limit, trials=args.trials)]
+ds_df = DatasetConstructor.fuzz(limit=args.limit, trials=args.trials)
+# households = [hh for hh in ]
+households = ds_df["hh"].tolist()
 households_members = [eval(str(hh)) for hh in households]
 
 with open(args.output, "w") as fout:
