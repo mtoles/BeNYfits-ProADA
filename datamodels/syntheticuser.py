@@ -99,12 +99,12 @@ class SyntheticUser:
         }
         # invert labels on history
 
-        h_ = rename_roles(history)
+        h_ = rename_roles(history, invert=False)
 
-        h2 = [relevant_sentences] + h_
+        h2 = [relevant_sentences] + h_[:-1]
 
         prompt = (
-            h2[:-1]
+            h2
             + [
                 {
                     "role": "user",

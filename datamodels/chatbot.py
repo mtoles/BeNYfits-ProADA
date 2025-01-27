@@ -213,7 +213,8 @@ class CotChatBot(ChatBot):
             "role": "system",
             "content": "Is the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False.",
         }
-        self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Think through your reasoning out loud, then output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
+        self.predict_benefits_reasoning_prompt = "Predict the programs for which the user is eligible. Think through your reasoning out loud, then output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
+        self.predict_benefits_constrained_prompt = "Using the reasoning above, predict the programs for which the user is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Ask a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
 
     def predict_cq(self, history, chat_model_id) -> str:
@@ -221,45 +222,64 @@ class CotChatBot(ChatBot):
         parts = cq.split(":")
         return parts[-1].strip()
 
-    # def predict_benefits_ready(self, history) -> bool:
-    #     """
-    #     Check whether chatbot history has sufficient information to determine eligbility of all benenfits
-    #     """
-    #     raw_lm_output = self.lm_api.forward(
-    #         history + [self.benefits_ready_prompt],
-    #         chat_model_id=self.chat_model_id,
-    #         use_cache=self.use_cache,
-    #         logging_role="predict_benefits_ready",
-    #     )
-    #     lm_output = get_last_bool_in_str(str(raw_lm_output))
-    #     return lm_output
+    def predict_benefits_ready(self, history) -> bool:
+        """
+        Check whether chatbot history has sufficient information to determine eligbility of all benenfits
+        """
+        raw_lm_output = self.lm_api.forward(
+            history + [self.benefits_ready_prompt],
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
+            logging_role="predict_benefits_ready",
+        )
+        lm_output = get_last_bool_in_str(str(raw_lm_output))
+        return lm_output
 
-    # def predict_benefits_eligibility(self, history, programs) -> List[bool]:
-    #     """
-    #     Predict what all benefits user or its household is eligible for.
-    #     Return a boolean array of length equal to number of benefits.
-    #     """
-    #     prompt = {
-    #         "role": "system",
-    #         "content": self.benefits_prediction_prompt.format(
-    #             num_programs=self.num_programs,
-    #             example_array=example_array(self.num_programs),
-    #         ),
-    #     }
-    #     lm_output = self.lm_api.forward(
-    #         history + [prompt],
-    #         logging_role="predict_benefits_eligibility",
-    #         chat_model_id=self.chat_model_id,
-    #         use_cache=self.use_cache,
-    #         constraint_type="regex",
-    #         constraints=rf".*(True|False)(,(True|False)){{{len(programs)-1}}}",
-    #     )
-    #     # TODO - Ensure output is a list of boolean
-    #     # lm_output = self.extract_prediction(lm_output, programs)
-    #     processed_output = ast.literal_eval(f"[{lm_output}]")
-    #     assert len(processed_output) == len(programs)
-    #     output_dict = dict(zip(programs, processed_output))
-    #     return output_dict
+    def predict_benefits_eligibility(self, history, programs) -> List[bool]:
+        """
+        Predict what all benefits user or its household is eligible for.
+        Return a boolean array of length equal to number of benefits.
+        """
+        reasoning_prompt = {
+            "role": "system",
+            "content": self.predict_benefits_reasoning_prompt.format(
+                num_programs=self.num_programs,
+                example_array=example_array(self.num_programs),
+            ),
+        }
+        reasoning = self.lm_api.forward(
+            history + [reasoning_prompt],
+            logging_role="predict_benefits_eligibility",
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
+            # constraint_type="regex",
+            # constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
+        )
+        reasoning_turn = {
+            "role": "system",
+            "content": reasoning,
+        }
+        decision_turn = {
+            "role": "system",
+            "content": self.predict_benefits_constrained_prompt.format(
+                num_programs=self.num_programs,
+                example_array=example_array(self.num_programs),
+            ),
+        }
+        decision = self.lm_api.forward(
+            history + [reasoning_turn, decision_turn],
+            logging_role="predict_benefits_eligibility",
+            chat_model_id=self.chat_model_id,
+            use_cache=self.use_cache,
+            constraint_type="regex",
+            constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
+        )
+        # TODO - Ensure output is a list of boolean
+        # lm_output = self.extract_prediction(lm_output, programs)
+        processed_output = ast.literal_eval(f"[{decision}]")
+        assert len(processed_output) == len(programs)
+        output_dict = dict(zip(programs, processed_output))
+        return output_dict
 
 
 class CodeRefChatBot(ChatBot):

@@ -32,10 +32,11 @@ last_request_time = time.time()
 request_in_progress = False
 
 def watch_inactivity():
+    T = 60*60
     global model, tk, current_name_of_model
     while True:
-        time.sleep(5)  # check every 5 seconds
-        if time.time() - last_request_time > 60*60 and not request_in_progress:
+        time.sleep(T/4)  
+        if time.time() - last_request_time > T and not request_in_progress:
             print("flushing model")
             # flush model
             if model is not None:
@@ -178,4 +179,5 @@ def forward(request: ForwardRequest):
 if __name__ == "__main__":
     load_dotenv()
     port = int(os.getenv("LM_PORT_NO"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    url = os.getenv("LM_SERVER_URL")
+    uvicorn.run(app, host=url, port=port)

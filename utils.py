@@ -230,15 +230,26 @@ class RoleEnum(Enum):
     SYSTEM = "SYSTEM"
 
 
-def rename_roles(history):
-    h_ = deepcopy(history[1:])  # drop the cq model prompt
-    for i in range(len(h_)):
-        if history[i]["role"] == RoleEnum.SYNTHETIC_USER.value:
-            h_[i]["role"] = "assistant"
-        elif history[i]["role"] == RoleEnum.CQ_MODEL.value:
-            h_[i]["role"] = "user"
-        elif history[i]["role"] == RoleEnum.SYSTEM.value:
-            h_[i]["role"] = "system"
-        else:
-            raise ValueError(f"Unexpected role: {history[i]['role']}")
+def rename_roles(history, invert: bool = False):
+    h_ = deepcopy(history)  # drop the cq model prompt
+    if invert:
+        for i in range(len(h_)):
+            if history[i]["role"] == RoleEnum.SYNTHETIC_USER.value:
+                h_[i]["role"] = "user"
+            elif history[i]["role"] == RoleEnum.CQ_MODEL.value:
+                h_[i]["role"] = "assistant"
+            elif history[i]["role"] == RoleEnum.SYSTEM.value:
+                h_[i]["role"] = "system"
+            else:
+                raise ValueError(f"Unexpected role: {history[i]['role']}")
+    else:
+        for i in range(len(h_)):
+            if history[i]["role"] == RoleEnum.SYNTHETIC_USER.value:
+                h_[i]["role"] = "assistant"
+            elif history[i]["role"] == RoleEnum.CQ_MODEL.value:
+                h_[i]["role"] = "user"
+            elif history[i]["role"] == RoleEnum.SYSTEM.value:
+                h_[i]["role"] = "system"
+            else:
+                raise ValueError(f"Unexpected role: {history[i]['role']}")
     return h_

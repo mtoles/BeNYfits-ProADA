@@ -176,6 +176,8 @@ class CodeBot(ChatBot):
         # self.choices = {name: {} for name, desc in eligibility_requirements.items()} # per-program choices
         self.choices = {}  # merged choices
         self.max_code_gen_attempts = max_code_gen_attempts
+        self.total_questions = 0
+        self.total_programs_completed = 0
 
     def pre_conversation(
         self,
@@ -454,6 +456,7 @@ class CodeBot(ChatBot):
             del spo["history"]
             del spo["hh"]
             program_outputs[spo["program_name"]] = spo
+            self.total_programs_completed += 1
         return program_outputs
 
     def run_single_program(
@@ -471,6 +474,7 @@ class CodeBot(ChatBot):
         hh = ImaginaryData()
         attempt_no = 0
         prev_hh = None
+        this_program_questions = 0
 
         while True:
             if hh == prev_hh:
@@ -519,7 +523,7 @@ class CodeBot(ChatBot):
                             x.line
                             for x in list(
                                 traceback.extract_tb(error_var.__traceback__)
-                            )[2:-2]
+                            )
                         ]
                     )
                     assert line
@@ -532,6 +536,10 @@ class CodeBot(ChatBot):
                     ),
                     logging_role="key_error",
                 )
+                this_program_questions += 1
+                self.total_questions += 1
+                print(f"{this_program_questions} questions on program {program_name}")
+                print(f"{self.total_questions} total questions on {self.total_programs_completed} programs")
                 history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
                 ca = synthetic_user.answer_cq(cq=cq, history=history)
                 history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": ca})
