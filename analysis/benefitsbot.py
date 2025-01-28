@@ -231,15 +231,15 @@ def get_chatbot(
         raise NotImplementedError(f"Invalid chatbot strategy: {strategy}")
 
 
-chatbot = get_chatbot(
-    strategy=args.chatbot_strategy,
-    no_of_programs=len(args.programs),
-    eligibility_dict=all_eligibility_requirements,
-    use_cache=args.use_cache,
-    lm_logger=lm_logger,
-    chat_model_id=args.chat_model_id,
-    code_model_id=args.code_model_id,
-)
+# chatbot = get_chatbot(
+#     strategy=args.chatbot_strategy,
+#     no_of_programs=len(args.programs),
+#     eligibility_dict=all_eligibility_requirements,
+#     use_cache=args.use_cache,
+#     lm_logger=lm_logger,
+#     chat_model_id=args.chat_model_id,
+#     code_model_id=args.code_model_id,
+# )
 
 generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
 generated_code_path = os.path.join("generated_code", generated_code_filename)
@@ -254,7 +254,7 @@ for index, row in tqdm(labels_df.iterrows()):
 
     chatbot = get_chatbot(
         strategy=args.chatbot_strategy,
-        no_of_programs=target_programs,
+        no_of_programs=len(target_programs),
         eligibility_dict=eligibility_requirements,
         use_cache=args.use_cache,
         lm_logger=lm_logger,
@@ -314,17 +314,17 @@ for index, row in tqdm(labels_df.iterrows()):
     # If not code mode or fallback:
     per_turn_predictions = []
     history = [
-        {
-            "role": RoleEnum.SYSTEM.value,
-            "content": (
-                f"You are a language model trying to help user to determine "
-                f"eligbility of user for benefits. Currently, you do not know "
-                f"anything about the user. Ask questions that will help you determine "
-                f"the eligibility of user for benefits as quickly as possible. "
-                f"Ask only one question at a time. The eligibility requirements "
-                f"are as follows:\n\n{eligibility_requirements}"
-            ),
-        }
+        # {
+        #     "role": RoleEnum.SYSTEM.value,
+        #     "content": (
+        #         f"You are a language model trying to help user to determine "
+        #         f"eligbility of user for benefits. Currently, you do not know "
+        #         f"anything about the user. Ask questions that will help you determine "
+        #         f"the eligibility of user for benefits as quickly as possible. "
+        #         f"Ask only one question at a time. The eligibility requirements "
+        #         f"are as follows:\n\n{eligibility_requirements}"
+        #     ),
+        # }
     ]
     print(f"Index: {index}")
 
