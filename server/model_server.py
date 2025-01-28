@@ -83,6 +83,7 @@ def forward_hf(request: ForwardRequest):
     global current_name_of_model, model, tk
     name_of_model = request.name_of_model
     history = request.history
+    assert history[-1]["role"] == "user"
     print(f"hf Received: {history}")
     if request.constraint_type == "types":
         constraints = [_str_to_type(x) for x in request.constraints]
@@ -131,6 +132,7 @@ def forward_hf(request: ForwardRequest):
             tokenize=False,
             add_generation_prompt=True,
         )
+        print(f"prompt: {prompt}")
         if request.constraint_type == "none":
             generator = outlines.generate.text(model, sampler=sampler)
         elif request.constraint_type == "choice":

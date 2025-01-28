@@ -214,5 +214,6 @@ class DatasetConstructor:
         assert final_used_lines_set(df) == final_used_lines_set(original_df)
 
         df = df[df["programs"].apply(lambda x: len(x) > 0)]
+        df["programs"] = df["programs"].apply(lambda x: list(x))
         return df
         # return hh_cover
