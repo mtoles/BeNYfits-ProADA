@@ -59,11 +59,12 @@ class ChatBot:
         ChatBot class for keeping the history of user chat and other functions to determine eligbility for benefits
         """
         self.chat_model_id = chat_model_id
-        self.benefits_ready_prompt = {
-            "role": "user",
-            "content": "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False.",
-        }
-        self.benefits_prediction_prompt = "Predict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
+        # self.benefits_ready_prompt = {
+        #     "role": "user",
+        #     "content": "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False.",
+        # }
+        self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine eligibility of all programs? Answer only in one word True or False."
+        self.benefits_prediction_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
         self.use_cache = use_cache
         self.random_seed = random_seed
@@ -80,8 +81,14 @@ class ChatBot:
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
         history_ = rename_roles(history)
+        prompt = {
+            "role": "user",
+            "content": self.benefits_ready_prompt.format(
+                eligibility_requirements=self.eligibility_requirements
+            ),
+        }
         raw_lm_output = self.lm_api.forward(
-            history_ + [self.benefits_ready_prompt],
+            history_ + [prompt],
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
             logging_role="predict_benefits_ready",
@@ -97,6 +104,7 @@ class ChatBot:
         prompt = {
             "role": "user",
             "content": self.benefits_prediction_prompt.format(
+                eligibility_requirements=self.eligibility_requirements,
                 num_programs=self.num_programs,
                 example_array=example_array(self.num_programs),
             ),
@@ -221,12 +229,13 @@ class CotChatBot(ChatBot):
             lm_logger=lm_logger,
             random_seed=random_seed,
         )
-        self.benefits_ready_prompt = {
-            "role": "system",
-            "content": "Is the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False.",
-        }
-        self.predict_benefits_reasoning_prompt = "Predict the programs for which the user is eligible. Think through your reasoning out loud, then output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
-        self.predict_benefits_constrained_prompt = "Using the reasoning above, predict the programs for which the user is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
+        # self.benefits_ready_prompt = {
+        #     "role": "user",
+        #     "content": "Is the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False.",
+        # }
+        self.benefits_ready_prompt =  "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False."
+        self.predict_benefits_reasoning_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nPredict the programs for which the user is eligible. Think through your reasoning out loud, then output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
+        self.predict_benefits_constrained_prompt = "Reasoning: {reasoning}. \n\nUsing the reasoning above, predict the programs for which the user is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Eligibility requirements: {eligibility_requirements}.\n\nAsk a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
 
     def predict_cq(self, history, chat_model_id) -> str:
@@ -238,8 +247,12 @@ class CotChatBot(ChatBot):
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
+        prompt = {
+            "role": "user",
+            "content": self.benefits_ready_prompt.format(eligibility_requirements=self.eligibility_requirements)
+        }
         raw_lm_output = self.lm_api.forward(
-            history + [self.benefits_ready_prompt],
+            history + [prompt],
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
             logging_role="predict_benefits_ready",
@@ -253,8 +266,9 @@ class CotChatBot(ChatBot):
         Return a boolean array of length equal to number of benefits.
         """
         reasoning_prompt = {
-            "role": "system",
+            "role": "user",
             "content": self.predict_benefits_reasoning_prompt.format(
+                eligibility_requirements=self.eligibility_requirements,
                 num_programs=self.num_programs,
                 example_array=example_array(self.num_programs),
             ),
@@ -267,19 +281,20 @@ class CotChatBot(ChatBot):
             # constraint_type="regex",
             # constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
         )
-        reasoning_turn = {
-            "role": "system",
-            "content": reasoning,
-        }
+        # reasoning_turn = {
+        #     "role": "user",
+        #     "content": reasoning,
+        # }
         decision_turn = {
-            "role": "system",
+            "role": "user",
             "content": self.predict_benefits_constrained_prompt.format(
+                reasoning=reasoning,
                 num_programs=self.num_programs,
                 example_array=example_array(self.num_programs),
             ),
         }
         decision = self.lm_api.forward(
-            history + [reasoning_turn, decision_turn],
+            history + [decision_turn],
             logging_role="predict_benefits_eligibility",
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
