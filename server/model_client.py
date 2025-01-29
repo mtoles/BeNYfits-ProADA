@@ -135,7 +135,7 @@ if __name__ == "__main__":
         history,
         use_cache=True,
         logging_role="test",
-        chat_model_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
+        chat_model_id="meta-llama/Meta-Llama-3-8B-Instruct",
     )
 
     print(output)

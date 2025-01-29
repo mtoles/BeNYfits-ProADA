@@ -105,7 +105,7 @@ def forward_hf(request: ForwardRequest):
             del tk
             torch.cuda.empty_cache()
         try:
-            tk = AutoTokenizer.from_pretrained(name_of_model, use_fast=False)
+            tk = AutoTokenizer.from_pretrained(name_of_model)
             print("CUDA devices available:")
             for i in range(torch.cuda.device_count()):
                 print(f"- {torch.cuda.get_device_name(i)}")
