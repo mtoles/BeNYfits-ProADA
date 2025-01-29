@@ -135,20 +135,13 @@ class ChatBot:
         #     }
         # ]
 
-        prompt = rename_roles(history)
-        prompt += [
+        prompt = history + [
             {
-<<<<<<< Updated upstream
-                "role": "user",
-                "content": self.predict_cq_prompt.format(
-                    eligibility_requirements=self.eligibility_requirements
-                ),
-=======
                 "role": RoleEnum.CQ_MODEL.value,
                 "content": self.predict_cq_prompt,
->>>>>>> Stashed changes
             }
         ]
+        prompt = rename_roles(prompt)
         cq = self.lm_api.forward(
             prompt,
             chat_model_id=chat_model_id,
