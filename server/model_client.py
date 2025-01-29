@@ -126,7 +126,7 @@ if __name__ == "__main__":
     history = [
         {
             "role": "user",
-            "content": "How many words are in the sentence 'Hello World Rattan'?",
+            "content": "How many words are in the sentence 'Hello Worldie'?",
         }
     ]
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         use_cache=True,
         logging_role="test",
         chat_model_id="meta-llama/Meta-Llama-3-8B-Instruct",
-        # chat_model_id="meta-llama/Llama-3.1-8B-Instruct",
+        # chat_model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
         # chat_model_id="unsloth/llama-3-8b-Instruct-bnb-4bit",
         # chat_model_id="codellama/CodeLlama-7b-hf",
     )
