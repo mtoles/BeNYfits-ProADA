@@ -33,10 +33,9 @@ def get_last_bool_in_str(s: str) -> str:
     pattern = r"true|false|yes|no"
     match = re.findall(pattern, s.lower())[-1]
     if match:
-        group = match.group()
-        if group in ["yes", "true"]:
+        if match in ["yes", "true"]:
             return "True"
-        elif group in ["no", "false"]:
+        elif match in ["no", "false"]:
             return "False"
     else:
         return "False"
@@ -139,10 +138,15 @@ class ChatBot:
         prompt = rename_roles(history)
         prompt += [
             {
+<<<<<<< Updated upstream
                 "role": "user",
                 "content": self.predict_cq_prompt.format(
                     eligibility_requirements=self.eligibility_requirements
                 ),
+=======
+                "role": RoleEnum.CQ_MODEL.value,
+                "content": self.predict_cq_prompt,
+>>>>>>> Stashed changes
             }
         ]
         cq = self.lm_api.forward(
