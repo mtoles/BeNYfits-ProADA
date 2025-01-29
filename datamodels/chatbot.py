@@ -31,7 +31,7 @@ predict_cq_prompt_loose = "Ask a clarifying question that will help you determin
 def get_last_bool_in_str(s: str) -> str:
     """Get the last True or False mentioned in a string. Additionally, return True if yes or Yes are in the input, and false if no or No are in the input"""
     pattern = r"true|false|yes|no"
-    match = re.search(pattern, s.lower())
+    match = re.findall(pattern, s.lower())[-1]
     if match:
         group = match.group()
         if group in ["yes", "true"]:
