@@ -40,7 +40,7 @@ raw_model = None
 tk = None
 
 def watch_inactivity():
-    T = 60*60 # 1 hour
+    T = 60*60*2 # 2 hours
     # T = 30
     global model, tk, current_name_of_model, raw_model
     while True:
