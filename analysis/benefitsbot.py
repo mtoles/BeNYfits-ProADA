@@ -17,12 +17,13 @@ from datetime import datetime
 from uuid import uuid4
 from users.benefits_programs import BenefitsProgramMeta
 from utils import RoleEnum
+import json
 
 start = datetime.now()
 parser = argparse.ArgumentParser(description="Build benefits bot")
 parser.add_argument(
     "--chat_model_id",
-    default="meta-llama/Meta-Llama-3-8B-Instruct",
+    default="meta-llama/Meta-Llama-3-70B-Instruct",
     help="Name of the benefits bot model to use.",
 )
 parser.add_argument(
@@ -44,7 +45,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--synthetic_user_model_name",
-    default="meta-llama/Meta-Llama-3-8B-Instruct",
+    default="meta-llama/Meta-Llama-3-70B-Instruct",
     help="Name of the synthetic user model to use.",
 )
 parser.add_argument(
@@ -125,6 +126,12 @@ now = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 programs_abbreviation = len(args.programs)
 
 output_dir = f"./results/{args.estring}/{now}_{programs_abbreviation}"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+# print args to the output dir
+args_path = os.path.join(output_dir, "params.txt")
+args_df = pd.DataFrame(args.__dict__).iloc[:1]
+args_df.to_json(args_path)
 
 # Read the chat history from the file
 
@@ -339,18 +346,14 @@ for index, row in tqdm(labels_df.iterrows()):
             cur_iter_count > 0
             and str(chatbot.predict_benefits_ready(history)) == "True"
         ) or cur_iter_count == turn_limit:
-            print(
-                f"Benefits eligibility decided on turn {cur_iter_count}/{turn_limit}"
-            )
+            print(f"Benefits eligibility decided on turn {cur_iter_count}/{turn_limit}")
             # decision = per_turn_predictions[-1]
             decision = chatbot.predict_benefits_eligibility(history, target_programs)
             per_turn_predictions.append(decision)
             print(f"Decision:  {decision}")
             print(f"label:     {labels.to_dict()}")
             print("==" * 20)
-            per_turn_predictions.extend(
-                [decision] * (turn_limit - cur_iter_count)
-            )
+            per_turn_predictions.extend([decision] * (turn_limit - cur_iter_count))
             last_turn_iteration.append(cur_iter_count)
             break
 
@@ -381,8 +384,6 @@ for log in lm_logger.log:
             count += 1
     turns.append(count)
 
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
 
 if code_run_mode:
     eligibility_li = []
