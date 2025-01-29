@@ -14,8 +14,8 @@ memory = Memory(".joblib_cache", verbose=0)
 # load_dotenv(override=False)  # Load environment variables from a .env file
 
 port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
-url = os.getenv("LM_SERVER_URL")
-
+# url = os.getenv("LM_SERVER_URL")
+url = "http://localhost"
 
 class ModelAPIClient:
     def __init__(self, api_url, random_seed, lm_logger=None):

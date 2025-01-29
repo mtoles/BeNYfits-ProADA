@@ -97,6 +97,7 @@ def forward_hf(request: ForwardRequest):
     print(f"constraints (input): {request.constraints}")
     print(f"constraint_type: {request.constraint_type}")
     print(f"constraints: {constraints}")
+    print(f"name of the model: {name_of_model}")
 
     if name_of_model != current_name_of_model:
         if model is not None:
@@ -104,7 +105,7 @@ def forward_hf(request: ForwardRequest):
             del tk
             torch.cuda.empty_cache()
         try:
-            tk = AutoTokenizer.from_pretrained(name_of_model)
+            tk = AutoTokenizer.from_pretrained(name_of_model, use_fast=False)
             print("CUDA devices available:")
             for i in range(torch.cuda.device_count()):
                 print(f"- {torch.cuda.get_device_name(i)}")
@@ -178,6 +179,9 @@ def forward(request: ForwardRequest):
 
 if __name__ == "__main__":
     load_dotenv()
-    port = int(os.getenv("LM_PORT_NO"))
-    url = os.getenv("LM_SERVER_URL")
+    # port = int(os.getenv("LM_PORT_NO"))
+    # url = os.getenv("LM_SERVER_URL")
+    port = 8000
+    url = "localhost"
     uvicorn.run(app, host=url, port=port)
+    print(f"Server started on {url}:{port}")
