@@ -613,7 +613,7 @@ class CodeBot(ChatBot):
     ):
         prompt = [
             {
-                "role": "system",
+                "role": "user",
                 "content": prompt,
             }
         ]

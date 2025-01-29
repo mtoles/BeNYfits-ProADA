@@ -12,6 +12,7 @@ import uvicorn
 from dotenv import load_dotenv
 import time
 import threading
+import gc
 
 load_dotenv(override=False)
 
@@ -31,9 +32,17 @@ sampler = outlines.samplers.multinomial(temperature=0.7)
 last_request_time = time.time()
 request_in_progress = False
 
+
+### GLOBALS ###
+current_name_of_model = None
+model = None
+raw_model = None
+tk = None
+
 def watch_inactivity():
-    T = 60*60
-    global model, tk, current_name_of_model
+    T = 60*60*2 # 2 hours
+    # T = 30
+    global model, tk, current_name_of_model, raw_model
     while True:
         time.sleep(T/4)  
         if time.time() - last_request_time > T and not request_in_progress:
@@ -45,6 +54,10 @@ def watch_inactivity():
             if tk is not None:
                 del tk
                 tk = None
+            if raw_model is not None:
+                del raw_model
+                raw_model = None
+            gc.collect()
             torch.cuda.empty_cache()
             current_name_of_model = None
         else:
@@ -64,9 +77,7 @@ class ForwardRequest(BaseModel):
     # prefix: Optional[list[dict]]
 
 
-current_name_of_model = None
-model = None
-tk = None
+
 
 
 def _str_to_type(s):
@@ -80,9 +91,10 @@ def _str_to_type(s):
 
 @memory.cache
 def forward_hf(request: ForwardRequest):
-    global current_name_of_model, model, tk
+    global current_name_of_model, model, tk, raw_model
     name_of_model = request.name_of_model
     history = request.history
+    assert history[-1]["role"] == "user"
     print(f"hf Received: {history}")
     if request.constraint_type == "types":
         constraints = [_str_to_type(x) for x in request.constraints]
@@ -101,8 +113,8 @@ def forward_hf(request: ForwardRequest):
 
     if name_of_model != current_name_of_model:
         if model is not None:
-            del model
-            del tk
+            model = None
+            tk = None
             torch.cuda.empty_cache()
         try:
             tk = AutoTokenizer.from_pretrained(name_of_model)
@@ -132,6 +144,7 @@ def forward_hf(request: ForwardRequest):
             tokenize=False,
             add_generation_prompt=True,
         )
+        print(f"prompt: {prompt}")
         if request.constraint_type == "none":
             generator = outlines.generate.text(model, sampler=sampler)
         elif request.constraint_type == "choice":

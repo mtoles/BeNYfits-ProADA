@@ -27,12 +27,17 @@ parser.add_argument("-t", "--trials", type=int, default=10000, help="The number 
 parser.add_argument("-o", "--output", type=str, default="edge_case_dataset.jsonl", help="Output path to save the dataset to")
 args = parser.parse_args()
 
-households = [hh for hh in DatasetConstructor.fuzz(limit=args.limit, trials=args.trials)]
+ds_df = DatasetConstructor.fuzz(limit=args.limit, trials=args.trials)
+# households = [hh for hh in ]
+households = ds_df["hh"].tolist()
 households_members = [eval(str(hh)) for hh in households]
 
 with open(args.output, "w") as fout:
 
-    for hh, members in tqdm(zip(households, households_members)):
+    # for hh, members in tqdm(zip(households, households_members)):
+    for i in tqdm(range(len(households))):
+        hh = households[i]
+        members = households_members[i]
         household_dict = {"hh": {"features": {"members": []}}}
 
         for member in members:
@@ -45,6 +50,7 @@ with open(args.output, "w") as fout:
         # ].nl_person_profile_always_include()
         household_dict["hh_nl_always_include"] = "\n".join([x.nl_person_profile_always_include() for x in hh.members])
         household_dict["note"] = ""
+        household_dict["edge_case_programs"] = ds_df.iloc[i]["programs"]
 
         for program in benefits_classes.values():
             # for program in BenefitsProgramMeta.registry.values(): # doesn't work because of complicated tracing interaction

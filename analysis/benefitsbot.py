@@ -8,7 +8,7 @@ from datamodels.chatbot import *
 from datamodels.syntheticuser import SyntheticUser
 from datetime import datetime
 from tqdm import tqdm
-from acc_over_time_experiment import plot_metrics_per_turn, plot_code_mode_results
+from acc_over_time_experiment import plot_code_mode_results
 from models.lm_logging import LmLogger
 from users.dataset_generation import unit_test_dataset
 from users.users import Household
@@ -117,6 +117,7 @@ parser.add_argument(
     help="Random seed to use",
 )
 
+TURNS_PER_PROGRAM = 10
 args = parser.parse_args()
 if args.synthetic_user_model_name == "same":
     args.synthetic_user_model_name = args.chat_model_id
@@ -149,14 +150,14 @@ def eligibility_to_string(eligibility_df):
 predictions_df = read_eligibility_requirements(
     args.eligibility_requirements, args.num_programs
 )
-eligibility_requirements = predictions_df.set_index("program_name")[
+all_eligibility_requirements = predictions_df.set_index("program_name")[
     "plain_language_eligibility"
 ].to_dict()
-eligibility_requirements = {
-    k: v for k, v in eligibility_requirements.items() if k in args.programs
+all_eligibility_requirements = {
+    k: v for k, v in all_eligibility_requirements.items() if k in args.programs
 }
 
-program_names = set(eligibility_requirements.keys())
+program_names = set(all_eligibility_requirements.keys())
 class_names = set(args.programs)
 bad_class_names = class_names - program_names
 bad_program_names = program_names - class_names
@@ -168,6 +169,8 @@ if os.path.exists(args.dataset_path):
     labels_df = pd.read_json(args.dataset_path, lines=True)
 elif args.dataset_path == "unittest":
     labels_df = unit_test_dataset()
+else:
+    raise ValueError(f"Invalid dataset path: {args.dataset_path}")
 labels_df["hh"] = labels_df["hh"].apply(
     lambda hh: Household.from_dict(hh) if isinstance(hh, dict) else hh
 )
@@ -175,7 +178,7 @@ if args.ds_shift:
     labels_df = labels_df.iloc[args.ds_shift :]
 if args.downsample_size:
     labels_df = labels_df[: args.downsample_size]
-
+labels_df.rename(columns={"edge_case_programs": "target_programs"}, inplace=True)
 predictions = []
 histories = []
 per_turn_all_predictions = []
@@ -189,7 +192,7 @@ lm_logger = LmLogger(log_dir=output_dir)
 def get_chatbot(
     strategy: str = args.chatbot_strategy,
     no_of_programs: str = len(args.programs),
-    eligibility_dict: dict = eligibility_requirements,
+    eligibility_dict: dict = all_eligibility_requirements,
     use_cache: bool = args.use_cache,
     lm_logger: LmLogger = lm_logger,
     chat_model_id: str = args.chat_model_id,
@@ -229,15 +232,15 @@ def get_chatbot(
         raise NotImplementedError(f"Invalid chatbot strategy: {strategy}")
 
 
-chatbot = get_chatbot(
-    strategy=args.chatbot_strategy,
-    no_of_programs=len(args.programs),
-    eligibility_dict=eligibility_requirements,
-    use_cache=args.use_cache,
-    lm_logger=lm_logger,
-    chat_model_id=args.chat_model_id,
-    code_model_id=args.code_model_id,
-)
+# chatbot = get_chatbot(
+#     strategy=args.chatbot_strategy,
+#     no_of_programs=len(args.programs),
+#     eligibility_dict=all_eligibility_requirements,
+#     use_cache=args.use_cache,
+#     lm_logger=lm_logger,
+#     chat_model_id=args.chat_model_id,
+#     code_model_id=args.code_model_id,
+# )
 
 generated_code_filename = f"generated_code_{now}_{uuid4()}.py"
 generated_code_path = os.path.join("generated_code", generated_code_filename)
@@ -245,9 +248,16 @@ os.makedirs("generated_code", exist_ok=True)
 
 generated_code_results = []
 for index, row in tqdm(labels_df.iterrows()):
+    target_programs = row["target_programs"]
+    n_programs = len(target_programs)
+    turn_limit = min(args.max_dialog_turns, n_programs * TURNS_PER_PROGRAM)
+    eligibility_requirements = {
+        k: v for k, v in all_eligibility_requirements.items() if k in target_programs
+    }
+
     chatbot = get_chatbot(
         strategy=args.chatbot_strategy,
-        no_of_programs=len(args.programs),
+        no_of_programs=len(target_programs),
         eligibility_dict=eligibility_requirements,
         use_cache=args.use_cache,
         lm_logger=lm_logger,
@@ -264,7 +274,7 @@ for index, row in tqdm(labels_df.iterrows()):
         lm_logger=lm_logger,
         top_k=args.top_k,
     )
-    labels = row[args.programs]
+    labels = row[target_programs]
     lm_logger.add_empty_convo(labels.to_dict())
 
     code_run_mode = "code" in args.chatbot_strategy
@@ -281,7 +291,7 @@ for index, row in tqdm(labels_df.iterrows()):
             code_file_path=generated_code_path,
             synthetic_user=synthetic_user,
             eligibility_requirements=eligibility_requirements,
-            program_names=args.programs,
+            program_names=target_programs,
         )
         generated_code_results.append(code_results)
 
@@ -307,17 +317,17 @@ for index, row in tqdm(labels_df.iterrows()):
     # If not code mode or fallback:
     per_turn_predictions = []
     history = [
-        {
-            "role": RoleEnum.SYSTEM.value,
-            "content": (
-                f"You are a language model trying to help user to determine "
-                f"eligbility of user for benefits. Currently, you do not know "
-                f"anything about the user. Ask questions that will help you determine "
-                f"the eligibility of user for benefits as quickly as possible. "
-                f"Ask only one question at a time. The eligibility requirements "
-                f"are as follows:\n\n{eligibility_requirements}"
-            ),
-        }
+        # {
+        #     "role": RoleEnum.SYSTEM.value,
+        #     "content": (
+        #         f"You are a language model trying to help user to determine "
+        #         f"eligbility of user for benefits. Currently, you do not know "
+        #         f"anything about the user. Ask questions that will help you determine "
+        #         f"the eligibility of user for benefits as quickly as possible. "
+        #         f"Ask only one question at a time. The eligibility requirements "
+        #         f"are as follows:\n\n{eligibility_requirements}"
+        #     ),
+        # }
     ]
     print(f"Index: {index}")
 
@@ -325,44 +335,25 @@ for index, row in tqdm(labels_df.iterrows()):
     decision = None
 
     while True:
-        # if cur_iter_count != 0 :
-        #     per_turn_predictions.append(
-        #         chatbot.predict_benefits_eligibility(history, args.programs)
-        #     )
-        # else:
-        # default_predictions = dict([(x, 0) for x in args.programs])
-        # per_turn_predictions.append(default_predictions)
-
-
-
         if (
-            (cur_iter_count > 0
-            and str(chatbot.predict_benefits_ready(history)) == "True") or 
-            cur_iter_count == args.max_dialog_turns
-        ):
+            cur_iter_count > 0
+            and str(chatbot.predict_benefits_ready(history)) == "True"
+        ) or cur_iter_count == turn_limit:
             print(
-                f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
+                f"Benefits eligibility decided on turn {cur_iter_count}/{turn_limit}"
             )
             # decision = per_turn_predictions[-1]
-            decision = chatbot.predict_benefits_eligibility(history, args.programs)
+            decision = chatbot.predict_benefits_eligibility(history, target_programs)
             per_turn_predictions.append(decision)
             print(f"Decision:  {decision}")
             print(f"label:     {labels.to_dict()}")
             print("==" * 20)
             per_turn_predictions.extend(
-                [decision] * (args.max_dialog_turns - cur_iter_count)
+                [decision] * (turn_limit - cur_iter_count)
             )
             last_turn_iteration.append(cur_iter_count)
             break
-        # if cur_iter_count >= args.max_dialog_turns:
-        #     print(f"Max dialog turns ({args.max_dialog_turns}) reached")
-        #     print("==" * 20)
-        #     last_turn_iteration.append(cur_iter_count)
-        #     decision = per_turn_predictions[-1]
-        #     print(f"Decision:  {decision}")
-        #     print(f"label:     {labels.to_dict()}")
-        #     print("==" * 20)
-        #     break
+
         cq = chatbot.predict_cq(history, chat_model_id=args.chat_model_id)
         history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
         cq_answer = synthetic_user.answer_cq(history=history, cq=cq)
