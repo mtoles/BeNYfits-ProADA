@@ -15,7 +15,6 @@ import threading
 import os
 
 load_dotenv(override=False)
-os.environ['HF_HOME'] = '/local/data/rds_hf_cache'
 
 """
 run with:
@@ -257,9 +256,8 @@ def forward(request: ForwardRequest):
 
 if __name__ == "__main__":
     load_dotenv()
+    print(f"HF Home: {os.environ['HF_HOME']}")
     print(f"GPU Occupancy: {GPU_OCCUPANCY}")
-    # port = int(os.getenv("LM_PORT_NO"))
-    # url = os.getenv("LM_SERVER_URL")
-    port = 8000
-    url = "localhost"
+    port = int(os.getenv("LM_PORT_NO"))
+    url = os.getenv("LM_SERVER_URL")
     uvicorn.run(app, host=url, port=port)

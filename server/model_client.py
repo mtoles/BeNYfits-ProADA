@@ -14,8 +14,7 @@ memory = Memory(".joblib_cache", verbose=0)
 # load_dotenv(override=False)  # Load environment variables from a .env file
 
 port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
-# url = os.getenv("LM_SERVER_URL")
-url = "http://localhost"
+url = "http://" + os.getenv("LM_SERVER_URL")
 
 class ModelAPIClient:
     def __init__(self, api_url, random_seed, lm_logger=None):
@@ -127,7 +126,7 @@ if __name__ == "__main__":
     history = [
         {
             "role": "user",
-            "content": "How many words are in the sentence 'Hello World'?",
+            "content": "How many words are in the sentence 'Hello World Rattan'?",
         }
     ]
 

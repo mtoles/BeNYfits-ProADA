@@ -179,9 +179,7 @@ def forward(request: ForwardRequest):
 
 if __name__ == "__main__":
     load_dotenv()
-    # port = int(os.getenv("LM_PORT_NO"))
-    # url = os.getenv("LM_SERVER_URL")
-    port = 8000
-    url = "localhost"
+    port = int(os.getenv("LM_PORT_NO"))
+    url = os.getenv("LM_SERVER_URL")
     uvicorn.run(app, host=url, port=port)
     print(f"Server started on {url}:{port}")
