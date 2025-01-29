@@ -63,9 +63,9 @@ class ChatBot:
         #     "role": "user",
         #     "content": "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False.",
         # }
-        self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine eligibility of all programs? Answer only in one word True or False."
-        self.benefits_prediction_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which the user is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
-        self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time."
+        self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Answer only in one word True or False."
+        self.benefits_prediction_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which any member of the user's household is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
+        self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine if any member of the user's household is eligible for benefits as efficiently as possible. Only ask about one fact at a time."
         self.use_cache = use_cache
         self.random_seed = random_seed
         self.lm_api = ModelAPIClient(
@@ -233,10 +233,10 @@ class CotChatBot(ChatBot):
         #     "role": "user",
         #     "content": "Is the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False.",
         # }
-        self.benefits_ready_prompt =  "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False."
-        self.predict_benefits_reasoning_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nPredict the programs for which the user is eligible. Think through your reasoning out loud, then output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
-        self.predict_benefits_constrained_prompt = "Reasoning: {reasoning}. \n\nUsing the reasoning above, predict the programs for which the user is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
-        self.predict_cq_prompt = "Eligibility requirements: {eligibility_requirements}.\n\nAsk a clarifying question that will help you determine the eligibility of user for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
+        self.benefits_ready_prompt =  "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Think through your reasoning out loud. Then answer with True or False."
+        self.predict_benefits_reasoning_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which any member of the user's household is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess.Think through your reasoning out loud."
+        self.predict_benefits_constrained_prompt = "Reasoning: {reasoning}. \n\nUsing the reasoning above, predict the programs for which any member of the user's household is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
+        self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine if any member of the user's household is eligible for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
 
     def predict_cq(self, history, chat_model_id) -> str:
         cq = super().predict_cq(history, chat_model_id)

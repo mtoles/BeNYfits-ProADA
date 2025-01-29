@@ -117,6 +117,7 @@ parser.add_argument(
     help="Random seed to use",
 )
 
+TURNS_PER_PROGRAM = 10
 args = parser.parse_args()
 if args.synthetic_user_model_name == "same":
     args.synthetic_user_model_name = args.chat_model_id
@@ -248,6 +249,8 @@ os.makedirs("generated_code", exist_ok=True)
 generated_code_results = []
 for index, row in tqdm(labels_df.iterrows()):
     target_programs = row["target_programs"]
+    n_programs = len(target_programs)
+    turn_limit = min(args.max_dialog_turns, n_programs * TURNS_PER_PROGRAM)
     eligibility_requirements = {
         k: v for k, v in all_eligibility_requirements.items() if k in target_programs
     }
@@ -335,9 +338,9 @@ for index, row in tqdm(labels_df.iterrows()):
         if (
             cur_iter_count > 0
             and str(chatbot.predict_benefits_ready(history)) == "True"
-        ) or cur_iter_count == args.max_dialog_turns:
+        ) or cur_iter_count == turn_limit:
             print(
-                f"Benefits eligibility decided on turn {cur_iter_count}/{args.max_dialog_turns}"
+                f"Benefits eligibility decided on turn {cur_iter_count}/{turn_limit}"
             )
             # decision = per_turn_predictions[-1]
             decision = chatbot.predict_benefits_eligibility(history, target_programs)
@@ -346,7 +349,7 @@ for index, row in tqdm(labels_df.iterrows()):
             print(f"label:     {labels.to_dict()}")
             print("==" * 20)
             per_turn_predictions.extend(
-                [decision] * (args.max_dialog_turns - cur_iter_count)
+                [decision] * (turn_limit - cur_iter_count)
             )
             last_turn_iteration.append(cur_iter_count)
             break
