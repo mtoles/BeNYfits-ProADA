@@ -136,6 +136,8 @@ if __name__ == "__main__":
         use_cache=True,
         logging_role="test",
         chat_model_id="meta-llama/Meta-Llama-3-8B-Instruct",
+        # chat_model_id="unsloth/llama-3-8b-Instruct-bnb-4bit",
+        # chat_model_id="codellama/CodeLlama-7b-hf",
     )
 
     print(output)

@@ -12,8 +12,10 @@ import uvicorn
 from dotenv import load_dotenv
 import time
 import threading
+import os
 
 load_dotenv(override=False)
+os.environ['HF_HOME'] = '/local/data/rds_hf_cache'
 
 """
 run with:
@@ -135,7 +137,8 @@ def forward_hf(request: ForwardRequest):
 
     print(f"[{name_of_model}] History: {history}")
     print(f"[{name_of_model}] Constraints: {constraints} (type={request.constraint_type})")
-
+    print(f"GPU Occupancy: {GPU_OCCUPANCY}")
+    
     # --- Acquire lock to safely load or fetch model ---
     with model_lock:
         if name_of_model in MODEL_STORE:
@@ -254,9 +257,9 @@ def forward(request: ForwardRequest):
 
 if __name__ == "__main__":
     load_dotenv()
+    print(f"GPU Occupancy: {GPU_OCCUPANCY}")
     # port = int(os.getenv("LM_PORT_NO"))
     # url = os.getenv("LM_SERVER_URL")
     port = 8000
     url = "localhost"
     uvicorn.run(app, host=url, port=port)
-    print(f"Server started on {url}:{port}")
