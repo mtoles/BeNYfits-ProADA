@@ -956,7 +956,7 @@ class primary_residence(BasePersonAttr):
 class months_owned_property(BasePersonAttr):
     schema = And(int, lambda v: v >= 0)
     random = lambda: np.random.randint(0, 240)  # e.g., up to 20 years
-    uniform = lambda: np.random.randint(0, 240)  # e.g., up to 20 years
+    uniform = lambda: np.random.randint(0, 286)  # e.g., up to 20 years
     default = 0
     nl_fn = lambda n, x: (
         f"{n} has owned the house they live in for {x} months."
@@ -1182,13 +1182,19 @@ class months_since_worked(BasePersonAttr):
         else:
             return np.random.randint(1, 240)
     def uniform():
-        r = np.random.randint(3)
-        if r == 0:
-            return -1
-        elif r == 1:
-            return 0
+        # r = np.random.randint(3)
+        # if r == 0:
+        #     return -1
+        # elif r == 1:
+        #     return 0
+        # else:
+        #     return np.random.randint(1, 240)
+        r = np.random.float(0, 100)
+        if r < 3.7: # currently unemployed
+            return np.random.randint(12)
         else:
-            return np.random.randint(1, 240)
+            return 0
+        
     default = 0
 
     def nl_fn(n, x):
