@@ -31,11 +31,14 @@ predict_cq_prompt_loose = "Ask a clarifying question that will help you determin
 def get_last_bool_in_str(s: str) -> str:
     """Get the last True or False mentioned in a string. Additionally, return True if yes or Yes are in the input, and false if no or No are in the input"""
     pattern = r"true|false|yes|no"
-    match = re.findall(pattern, s.lower())[-1]
+    match = re.findall(pattern, s.lower())
+    if not match:
+        return "False"
+    found = match[-1]
     if match:
-        if match in ["yes", "true"]:
+        if found in ["yes", "true"]:
             return "True"
-        elif match in ["no", "false"]:
+        elif found in ["no", "false"]:
             return "False"
     else:
         return "False"
@@ -230,7 +233,7 @@ class CotChatBot(ChatBot):
         #     "role": "user",
         #     "content": "Is the information sufficient to determine eligibility of all programs? Think through your reasoning out loud. Then answer with True or False.",
         # }
-        self.benefits_ready_prompt =  "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Think through your reasoning out loud. Then answer with True or False."
+        self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Think through your reasoning out loud. Then answer with True or False."
         self.predict_benefits_reasoning_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which any member of the user's household is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess.Think through your reasoning out loud."
         self.predict_benefits_constrained_prompt = "Reasoning: {reasoning}. \n\nUsing the reasoning above, predict the programs for which any member of the user's household is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
         self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine if any member of the user's household is eligible for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
@@ -246,7 +249,9 @@ class CotChatBot(ChatBot):
         """
         prompt = {
             "role": "user",
-            "content": self.benefits_ready_prompt.format(eligibility_requirements=self.eligibility_requirements)
+            "content": self.benefits_ready_prompt.format(
+                eligibility_requirements=self.eligibility_requirements
+            ),
         }
         raw_lm_output = self.lm_api.forward(
             history + [prompt],
