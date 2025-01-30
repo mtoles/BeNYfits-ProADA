@@ -346,6 +346,13 @@ class annual_work_income(BasePersonAttr):
 
 
 class annual_investment_income(BasePersonAttr):
+    distribution = [
+        ((0, 34999), 19),
+        ((35000, 52999), 44),
+        ((53000, 99999), 66),
+        ((100000, 250000), 88)
+    ]
+
     schema = And(int, lambda n: n >= 0)
     # random = lambda: np.random.randint(0, 100000)
     def random():
@@ -354,10 +361,8 @@ class annual_investment_income(BasePersonAttr):
         else:
             return 0
     def uniform():
-        if np.random.choice([True, False]):
-            return np.random.randint(0, 100000)
-        else:
-            return 0
+        return sample_from_distribution(annual_investment_income.distribution)
+    
     default = 0
     nl_fn = lambda n, x: f"{n} makes {x} per year from investments."
 
