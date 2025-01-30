@@ -633,6 +633,8 @@ class monthly_rent_spending(BasePersonAttr):
             return 0
         if hh.members[person_idx]["is_property_owner"]:
             return 0
+        if person_idx == 0:
+            return 1000
         return original_value
 
 
@@ -699,8 +701,8 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
 
 
 class HousingEnum(Enum):
-    HOUSE_2B = "2 bedroom house"
-    HOUSE_4B = "4 bedroom house"
+    HOUSE_2B = "2 bedroom, 1 family house"
+    HOUSE_4B = "4 bedroom, 1 family house"
     CONDO = "condo"
     COOPERATIVE_APARTMENT = "cooperative apartment"
     MANUFACTURED_HOME = "manufactured home"

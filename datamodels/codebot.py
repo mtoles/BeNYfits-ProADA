@@ -121,7 +121,7 @@ class CodeBot(ChatBot):
     get_values_prompt = """Context:{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible values of {key}? Return ONLY the list of possible values in a list of strings. For example, return `["a", "b", "c"]`."""
 
     extract_value_from_ans_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to extract the value of {key} from the following dialog:\n\nQuestion: {cq}\n\nAnswer:\n{answer}\n\nWhat should we set as the value of {key}? Return ONLY the value."""
-    key_error_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to determine what value of {key} should be stored in the `hh` dictionary. Ask a question to the user that would get this value. Return ONLY the question."""
+    key_error_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to determine what value of {key} should be stored in the `hh` dictionary. Ask a question to the user that would get this value. For example, for age_i, ask "What is the age of person i?". Return ONLY the question."""
 
     # type_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, cannot be cast to type {target_type}. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
     # str_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, is not one of {target_options}. Which option of {target_options} is most similar to {value}? Return ONLY the value."""
@@ -446,8 +446,11 @@ class CodeBot(ChatBot):
     ):
         program_outputs = {}
         sorted_program_names = sorted(program_names, key=len, reverse=True)
+        hh=ImaginaryData()
         for program_name in sorted_program_names:
-            spo = self.run_single_program(
+
+            spo, hh = self.run_single_program(
+                hh=hh,
                 program_name=program_name,
                 code_file_path=code_file_path,
                 synthetic_user=synthetic_user,
@@ -461,6 +464,7 @@ class CodeBot(ChatBot):
 
     def run_single_program(
         self,
+        hh,
         program_name,
         code_file_path,
         synthetic_user,
@@ -471,20 +475,14 @@ class CodeBot(ChatBot):
         spec.loader.exec_module(generated_code)
 
         history = []
-        hh = ImaginaryData()
+        # hh = ImaginaryData()
         attempt_no = 0
         prev_hh = None
         this_program_questions = 0
 
         while True:
             if hh == prev_hh:
-                # return {
-                #     "program_name": program_name,
-                #     "hh": hh,
-                #     "history": history,
-                #     "eligibility": None,
-                #     "completed": False,
-                # }
+
                 print(f"warning: no progress for {program_name}")
 
             try:
@@ -521,9 +519,7 @@ class CodeBot(ChatBot):
                     line = "\n".join(
                         [
                             x.line
-                            for x in list(
-                                traceback.extract_tb(error_var.__traceback__)
-                            )
+                            for x in list(traceback.extract_tb(error_var.__traceback__))
                         ]
                     )
                     assert line
@@ -539,7 +535,9 @@ class CodeBot(ChatBot):
                 this_program_questions += 1
                 self.total_questions += 1
                 print(f"{this_program_questions} questions on program {program_name}")
-                print(f"{self.total_questions} total questions on {self.total_programs_completed} programs")
+                print(
+                    f"{self.total_questions} total questions on {self.total_programs_completed} programs"
+                )
                 history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
                 ca = synthetic_user.answer_cq(cq=cq, history=history)
                 history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": ca})
@@ -586,7 +584,7 @@ class CodeBot(ChatBot):
                     "history": history,
                     "eligibility": np.random.choice([True, False]),
                     "completed": False,
-                }
+                }, hh
 
         return {
             "program_name": program_name,
@@ -594,7 +592,7 @@ class CodeBot(ChatBot):
             "history": history,
             "eligibility": eligibility,
             "completed": True,
-        }
+        }, hh
 
     def find_line(self, fe, key, filename):
         for frame in fe[::-1]:

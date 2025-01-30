@@ -2408,7 +2408,7 @@ class AccessARideParatransitService(BaseBenefitsProgram):
     @staticmethod
     def __call__(hh):
         def is_eligible(m):
-            if m["can_access_subway_or_bus"]:
+            if not m["can_access_subway_or_bus"]:
                 return True
             if m["recovering_from_surgery"]:
                 return True
