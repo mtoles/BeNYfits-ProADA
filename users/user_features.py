@@ -150,9 +150,9 @@ class RelationEnum(Enum):
     FOSTER_CHILD = "foster child"
     ADOPTED_CHILD = "adopted child"
     SIBLING = "sibling"
-    NIECE_NEPHEW = "niece_nephew"
-    OTHER_FAMILY = "other_family"
-    OTHER_NON_FAMILY = "other_non_family"
+    NIECE_NEPHEW = "niece or nephew"
+    OTHER_FAMILY = "cousin"
+    OTHER_NON_FAMILY = "friend"
 
 
 class relation(BasePersonAttr):
@@ -667,6 +667,10 @@ class days_looking_for_work(BasePersonAttr):
     def conform(cls, hh, person_idx, original_value):
         if hh.members[person_idx]["age"] < 16:
             return 0
+        if hh.members[person_idx]["work_hours_per_week"] > 0:
+            return 0
+        if hh.members[person_idx]["annual_work_income"] > 0:
+            return 0
         return original_value
 
 
@@ -760,6 +764,8 @@ class monthly_rent_spending(BasePersonAttr):
             return 0
         if hh.members[person_idx]["is_property_owner"]:
             return 0
+        if person_idx == 0:
+            return 1000
         return original_value
 
 
@@ -834,8 +840,8 @@ class receiving_treatment_for_substance_abuse(BasePersonAttr):
 
 
 class HousingEnum(Enum):
-    HOUSE_2B = "2 bedroom house"
-    HOUSE_4B = "4 bedroom house"
+    HOUSE_2B = "2 bedroom, 1 family house"
+    HOUSE_4B = "4 bedroom, 1 family house"
     CONDO = "condo"
     COOPERATIVE_APARTMENT = "cooperative apartment"
     MANUFACTURED_HOME = "manufactured home"

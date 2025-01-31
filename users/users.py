@@ -53,32 +53,10 @@ class Person:
             attr.name: attr.schema for attr in PersonAttributeMeta.registry.values()
         }
         for attr, value in self.features.items():
+            # print("remember to reenable this validatioN!!!")
             assert Schema(schemas[attr]).is_valid(
                 value
             ), f"Invalid value `{value}` (of type {type(value)}) for attribute `{attr}` under schema `{schemas[attr]}`"
-
-    # @staticmethod
-    # def default_unemployed(random_name=True, is_self=False):
-    #     attr_names = PersonAttributeMeta.registry.keys()
-    #     defaults = [attr.default for attr in PersonAttributeMeta.registry.values()]
-    #     person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
-    #     person = Person.from_dict(person_dict)
-    #     if not is_self:
-    #         person["relation"] = "other_family"
-    #     return person
-
-    # @staticmethod
-    # def default_employed(random_name=True, is_self=False):
-    #     attr_names = PersonAttributeMeta.registry.keys()
-    #     defaults = [attr.default for attr in PersonAttributeMeta.registry.values()]
-    #     person_dict = {attr: default for attr, default in zip(attr_names, defaults)}
-    #     person = Person.from_dict(person_dict)
-    #     person["works_outside_home"] = True
-    #     person["work_income"] = 50000
-    #     person["work_hours_per_week"] = 40
-    #     if not is_self:
-    #         person["relation"] = "other_family"
-    #     return person
 
     @staticmethod
     def default_person(random_name=False, is_self=True):
@@ -114,27 +92,6 @@ class Person:
             person["relation"] = "self"
         return person
     
-    # @staticmethod
-    # def default_child(random_name=True):
-    #     child = Person.default_unemployed(random_name=random_name)
-    #     child["relation"] = "child"
-    #     child["provides_over_half_of_own_financial_support"] = False
-    #     child["can_care_for_self"] = False
-    #     child["age"] = 4
-    #     child["student"] = True
-    #     child["current_school_level"] = "pk"
-    #     child["dependent"] = True
-    #     return child
-
-    # @staticmethod
-    # def default_adult_dependent(random_name=True):
-    #     child = Person.default_unemployed(random_name=random_name)
-    #     child["relation"] = "dependent"
-    #     child["provides_over_half_of_own_financial_support"] = False
-    #     child["can_care_for_self"] = False
-    #     child["age"] = 78
-    #     child["dependent"] = True
-    #     return child
 
     def nl_person_profile(self) -> str:
         name = self.features["name"]
@@ -145,13 +102,15 @@ class Person:
             assert new_sentence is not None, f"Failed to generate sentence for {f}"
             sentences.append(new_sentence)
             # sentences.append(fn(name, person[field]))
+
         return "\n".join(sentences).strip()
 
     def nl_person_profile_always_include(self) -> str:
         name = self.features["name"]
-        sentences = [f"You are {name}"]
+        # sentences = [f"You are {name}"]
+        sentences = []
         for f, v in self.features.items():
-            if not PersonAttributeMeta.registry[f].always_include:
+            if PersonAttributeMeta.registry[f].always_include:  # fixed
                 sentences.append(PersonAttributeMeta.registry[f].nl_fn(name, v))
             # sentences.append(fn(name, person[field]))
         return "\n".join(sentences).strip()
@@ -338,7 +297,14 @@ class Household:
             ]
             + member_profiles
             + [
-                f"There are {num_members} members in your household, of which {num_children} are children."
+                f"There are {num_members} members in your household, of which {num_children} are children.",
+                f"Your total household income is {self.hh_annual_total_income()}.",
+                f"Your total household work income is {self.hh_annual_work_income()}.",
+                f"Your total household investment income is {self.hh_annual_investment_income()}.",
+                f"Your total household property owner income is {self.owners_total_income()}.",
+                f"Your total income if filing jointly is {self.marriage_total_income()}.",
+                f"Your total work income if filing jointly is {self.marriage_annual_work_income()}.",
+                f"Your total investment income if filing jointly is {self.marriage_annual_investment_income()}.",
             ]
         ).strip()
 
@@ -377,15 +343,15 @@ def show_household(hh):
         result.append(f"Age: {member['age']}")
         if member["relation"] == "self":
             result.append(
-                show_abnormal(member, Person.default_employed(random_name=False))
+                show_abnormal(member, Person.default_person(random_name=False))
             )
         elif member["relation"] == "spouse":
             result.append(
-                show_abnormal(member, Person.default_unemployed(random_name=False))
+                show_abnormal(member, Person.default_person(random_name=False))
             )
         elif member["relation"] == "child":
             result.append(
-                show_abnormal(member, Person.default_child(random_name=False))
+                show_abnormal(member, Person.default_person(random_name=False))
             )
         result.append("")  # for spacing between members
     return "\n".join(result).strip()

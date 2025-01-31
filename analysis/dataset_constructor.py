@@ -14,7 +14,7 @@ from sklearn_extra.cluster import KMedoids
 import torch
 import pandas as pd
 import numpy as np
-
+import random
 np.random.seed(0)
 
 # Import all classes except "BaseBenefitsProgram", "BenefitsProgramMeta"
@@ -22,6 +22,8 @@ module_name = "users.benefits_programs"
 classes = import_all_classes(module_name)
 
 benefits_classes = {}
+min_line_nos = {}
+max_line_nos = {}
 
 for class_name, cls in classes.items():
     if class_name not in ["BaseBenefitsProgram", "BenefitsProgramMeta"]:
@@ -69,6 +71,7 @@ class DatasetConstructor:
         candidate_vectors = []
         hhs = []
         eligibilities = []
+        program_liness = []
         for _ in tqdm(range(trials)):
             # Generate a new vector initialized with zeros
             new_vector = [0 for _ in range(n_source_lines)]
@@ -77,6 +80,7 @@ class DatasetConstructor:
             hh = get_random_household_input()
             hhs.append(hh)
             eligibility = {}
+            program_lines = {}
             # Loop through all the classes to compute new_vector
             for class_name in benefits_classes.values():
                 source_lines = list(
@@ -84,14 +88,27 @@ class DatasetConstructor:
                         class_name.__call__, hh
                     ).values()
                 )[0]
+                # min_line_nos[class_name.__name__] = min(source_lines + [min_line_nos[class_name.__name__]])
+                # max_line_nos[class_name.__name__] = max(source_lines + [max_line_nos[class_name.__name__]])
 
                 for line in source_lines:
                     new_vector[int(line)] = 1
+                program_lines[class_name.__name__] = source_lines
 
                 eligibility[class_name.__name__] = class_name.__call__(hh)
 
             eligibilities.append(eligibility)
             candidate_vectors.append(new_vector)
+            program_liness.append(program_lines)
+            # program_lines
+
+        # name_line_dict = {}
+        # for name, min_line, max_line in zip(benefits_classes.keys(), min_line_nos.values(), max_line_nos.values()):
+        #     name_line_dict[name] = list(range(min_line, max_line + 1))
+        # line_name_dict = {}
+        # for k, v in name_line_dict.items():
+        #     for i in v:
+        #         line_name_dict[i] = k
 
         elig_df = pd.DataFrame(eligibilities)
         num_passes = elig_df.sum(axis=0)
@@ -101,10 +118,7 @@ class DatasetConstructor:
         # drop indices where all elements are 0 or 1
         t = t[:, t.sum(dim=0) != 0]
         t = t[:, t.sum(dim=0) != trials]
-        # # run medoids
-        # kmedoids = KMedoids(n_clusters=limit, random_state=0)
-        # kmedoids.fit(t)
-        # medoids = torch.Tensor(kmedoids.cluster_centers_)
+
         best_starting_i = t.sum(dim=0).max().int()
         cover = t[best_starting_i].unsqueeze(0)
         indices = [best_starting_i]
@@ -128,33 +142,78 @@ class DatasetConstructor:
             cover, indices = add_best_new_vector(cover, t, indices)
 
         hh_cover = [hhs[i] for i in indices]
-        return hh_cover
-        # greedily add vectors to cover
+        print(f"found cover of size {len(hh_cover)}")
 
-        # percent_lines_hit_by_medoids = (medoids.mean(axis=0)==0).float().mean()
-        # print
+        all_program_names = list(benefits_classes.keys())
+        shrinking = []
+        for i in indices:
+            shrinking.append(
+                {
+                    "hh": hhs[i],
+                    "eligibility": eligibilities[i],
+                    "program_lines": program_liness[i],
+                    "programs": set(all_program_names),
+                }
+            )
+        df = pd.DataFrame(shrinking)
 
-        #         # Compute the Manhattan distance (cityblock distance) between vector and new_vector
-        #         distance = cityblock(vector, new_vector)
+        # iterate over the df, dropping programs from "programs" if they do not contribute unique lines in "program_lines"
+        changed = True
+        while changed:
+            changed = False
+            for p in all_program_names:
+                other_hh_used_lines = set()
+                # for i in range(len(df)):
+                # if p in df.iloc[i]["programs"]:
+                indices = list(range(len(df)))
+                random.shuffle(indices)
+                for i in indices:
+                    if p in df.iloc[i]["programs"]:
+                        # used_lines = used_lines | set(df.iloc[i]["program_lines"][p])
+                        other_lines_df = pd.concat([df.iloc[:i], df.iloc[i + 1 :]])
+                        other_lines_programs = other_lines_df[
+                            other_lines_df["programs"].apply(lambda x: p in x)
+                        ]
+                        other_lines = (
+                            other_lines_programs["program_lines"]
+                            .apply(lambda x: x[p])
+                            .tolist()
+                        )
+                        other_hh_used_lines = set(
+                            [item for sublist in other_lines for item in sublist]
+                        )
+                        this_hh_used_lines = set(df.iloc[i]["program_lines"][p])
+                        this_hh_unique_lines = this_hh_used_lines - other_hh_used_lines
+                        if len(this_hh_unique_lines) == 0:
+                            print(f"removing program {p} from hh {i}")
+                            df.iloc[i]["programs"].remove(p)
+                            df.iloc[i]["program_lines"].pop(p)
+                            changed = True
+                            print(df["programs"].apply(lambda x: len(x)))
+                # flatten the list of lists
+                print
 
-        #         # Update the maximum distance, vector, and household input if applicable
-        #         if distance > max_distance:
-        #             max_distance = distance
-        #             max_new_vector = new_vector
-        #             max_hh = hh
 
-        #     # Increment iteration count
-        #     iteration_count += 1
+        # double check coverage
+        original_df = pd.DataFrame(shrinking)
+        final_used_lines_set = lambda d: set().union(
+            *[
+                set(
+                    sum(
+                        [
+                            v
+                            for k, v in d.iloc[i]["program_lines"].items()
+                            if k in d.iloc[i]["programs"]
+                        ],
+                        [],
+                    )
+                )
+                for i in range(len(d))
+            ]
+        )
+        assert final_used_lines_set(df) == final_used_lines_set(original_df)
 
-        #     # Update the vector using an incremental average to maintain linear complexity
-        #     vector = [
-        #         (vector[i] * (iteration_count - 1) + max_new_vector[i])
-        #         / iteration_count
-        #         for i in range(n_source_lines)
-        #     ]
-
-        #     # Append the maximally distant household input to the output list
-        #     output.append(max_hh)
-
-        # # Return the output list
-        # return output
+        df = df[df["programs"].apply(lambda x: len(x) > 0)]
+        df["programs"] = df["programs"].apply(lambda x: list(x))
+        return df
+        # return hh_cover
