@@ -59,6 +59,12 @@ class DatasetConstructor:
         finally:
             sys.settrace(original_tracer)
 
+    def get_demographic_df():
+        """
+        equivalent of `fuzz` but using the demographic randomizer and no filtering
+        """
+
+
     def fuzz(limit, trials):
         assert trials >= limit
 
