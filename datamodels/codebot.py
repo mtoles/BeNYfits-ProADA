@@ -296,14 +296,15 @@ class CodeBot(ChatBot):
             failed_test_case = None
             failed_code = None
 
-            checker_attempt_no = 0
+            checker_attempt_no = 0 
+            oai_seed_no = checker_attempt_no + 1000 * self.random_seed
             self.max_code_gen_attempts = self.max_code_gen_attempts
             while checker_attempt_no < self.max_code_gen_attempts:
-                print(f"attempting to generate checker, attempt {checker_attempt_no}")
+                print(f"attempting to generate checker, attempt {oai_seed_no}")
 
                 if failed_test_case is None:
                     prompt_content = self.gen_checker_prompt.format(
-                        attempt_no=checker_attempt_no,
+                        attempt_no=oai_seed_no,
                         eligibility_requirement=desc,
                         preexisting_keys=self.get_pek_str(),
                     )
@@ -311,7 +312,7 @@ class CodeBot(ChatBot):
                     failed_test_case = None
                     failed_code = None
                     prompt_content = self.gen_checker_prompt.format(
-                        attempt_no=checker_attempt_no,
+                        attempt_no=oai_seed_no,
                         eligibility_requirement=desc,
                         preexisting_keys=self.get_pek_str(),
                     )
