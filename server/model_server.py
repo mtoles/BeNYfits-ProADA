@@ -72,7 +72,7 @@ class ForwardRequest(BaseModel):
     constraints: Optional[Union[BaseModel, list[str], str]]
     # constraints: Optional[Union[list[str], str]]
     constraint_type: Optional[str]
-    response_format: Any
+    response_format: Optional[str]
     random_seed: int
     # prefix: Optional[list[dict]]
 

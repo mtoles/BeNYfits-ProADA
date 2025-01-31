@@ -141,7 +141,9 @@ class ChatBot:
         prompt = history + [
             {
                 "role": RoleEnum.CQ_MODEL.value,
-                "content": self.predict_cq_prompt,
+                "content": self.predict_cq_prompt.format(
+                    eligibility_requirements=self.eligibility_requirements
+                ),
             }
         ]
         prompt = rename_roles(prompt)

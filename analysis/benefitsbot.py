@@ -134,7 +134,18 @@ args_df = pd.DataFrame(args.__dict__).iloc[:1]
 args_df.to_json(args_path)
 
 # Read the chat history from the file
-
+# from server.model_client import gpt_forward_cached
+# history = [
+#     {
+#         "role": "user",
+#         "content": "How many words are in the sentence 'Hello World'?",
+#     }
+# ]
+# output = gpt_forward_cached(
+#     "gpt-4o-mini-2024-07-18",
+#     history,
+#     response_format=None,
+# )
 
 def read_eligibility_requirements(file_path, num_programs):
     with open(file_path, "r") as file:
@@ -205,6 +216,7 @@ def get_chatbot(
     chat_model_id: str = args.chat_model_id,
     code_model_id: Optional[str] = args.code_model_id,
     random_seed: int = args.random_seed,
+    data_user_index: int = 0,
 ):
     if strategy == "backbone":
         return ChatBot(
@@ -225,6 +237,7 @@ def get_chatbot(
             random_seed=random_seed,
             code_model_id=code_model_id,
             max_code_gen_attempts=args.max_code_gen_attempts,
+            data_user_index=data_user_index,
         )
     elif strategy == "cot":
         return CotChatBot(
@@ -270,6 +283,7 @@ for index, row in tqdm(labels_df.iterrows()):
         lm_logger=lm_logger,
         chat_model_id=args.chat_model_id,
         code_model_id=args.code_model_id,
+        data_user_index=index,
     )
     synthetic_user = SyntheticUser(
         row,

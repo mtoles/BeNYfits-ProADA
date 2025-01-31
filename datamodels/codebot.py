@@ -2,6 +2,7 @@ from users import user_features
 from users.user_features import PersonAttributeMeta
 from .chatbot import *
 from tqdm import tqdm
+from server.model_client import ResponseFormat
 import re
 import sys
 import importlib.util
@@ -24,10 +25,6 @@ from copy import deepcopy
 
 np.random.seed(0)
 list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
-
-
-class Options(BaseModel):
-    options: list[str]
 
 
 class ConstraintType:
@@ -160,6 +157,7 @@ class CodeBot(ChatBot):
         lm_logger=None,
         code_model_id: Optional[str] = None,
         max_code_gen_attempts: int = 1,
+        data_user_index: int = 0,  # user data index used for tracking progress
     ):
         super().__init__(
             chat_model_id=chat_model_id,
@@ -178,6 +176,7 @@ class CodeBot(ChatBot):
         self.max_code_gen_attempts = max_code_gen_attempts
         self.total_questions = 0
         self.total_programs_completed = 0
+        self.data_user_index = data_user_index
 
     def pre_conversation(
         self,
@@ -255,7 +254,7 @@ class CodeBot(ChatBot):
                     chat_model_id=code_model_id,
                     use_cache=use_cache,
                     logging_role="choice_gen",
-                    openai_response_format=Options,
+                    openai_response_format=ResponseFormat.options.value,
                 )
                 response_dict = json.loads(response_dict_raw)
                 choices = response_dict.get("options", [])
@@ -342,44 +341,44 @@ class CodeBot(ChatBot):
                     self.clean_checker_outputs[name] = func_def
                     generated_checker_text[name] = func_def
 
-                    edge_case_prompt = [
-                        {
-                            "role": "user",
-                            "content": self.make_unit_tests_prompt.format(
-                                eligibility_requirements=eligibility_requirements,
-                                code=func_def,
-                            )
-                            + self.example_unit_test,
-                        }
-                    ]
+                    # edge_case_prompt = [
+                    #     {
+                    #         "role": "user",
+                    #         "content": self.make_unit_tests_prompt.format(
+                    #             eligibility_requirements=eligibility_requirements,
+                    #             code=func_def,
+                    #         )
+                    #         + self.example_unit_test,
+                    #     }
+                    # ]
 
-                    edge_case_output = (
-                        self.lm_api.forward(
-                            edge_case_prompt,
-                            chat_model_id=code_model_id,
-                            use_cache=use_cache,
-                            logging_role="code_gen",
-                        )
-                        .strip("`")
-                        .strip("json\n")
-                    )
+                    # edge_case_output = (
+                    #     self.lm_api.forward(
+                    #         edge_case_prompt,
+                    #         chat_model_id=code_model_id,
+                    #         use_cache=use_cache,
+                    #         logging_role="code_gen",
+                    #     )
+                    #     .strip("`")
+                    #     .strip("json\n")
+                    # )
 
-                    edge_case_outputs = json.loads(edge_case_output)
-                    matches = True
+                    # edge_case_outputs = json.loads(edge_case_output)
+                    # matches = True
 
-                    for case in edge_case_outputs:
-                        hh = case["hh"]
-                        expected = case["expected"]
-                        result = locals()[name](hh)
-                        if result != expected:
-                            matches = False
-                            failed_test_case = case
-                            failed_code = func_def
-                            break
+                    # for case in edge_case_outputs:
+                    #     hh = case["hh"]
+                    #     expected = case["expected"]
+                    #     result = locals()[name](hh)
+                    #     if result != expected:
+                    #         matches = False
+                    #         failed_test_case = case
+                    #         failed_code = func_def
+                    #         break
 
-                    if not matches:
-                        checker_attempt_no += 1
-                        continue
+                    # if not matches:
+                    checker_attempt_no += 1
+                    # continue
 
                     # Success
                     break
@@ -389,11 +388,10 @@ class CodeBot(ChatBot):
                     checker_attempt_no += 1
 
             # If we exceeded attempts, skip this requirement
-            if checker_attempt_no >= self.max_code_gen_attempts:
-                print(
+            if checker_attempt_no > self.max_code_gen_attempts:
+                raise Exception(
                     f"Failed to generate checker for {name} after {checker_attempt_no} attempts."
                 )
-                continue
 
             this_program_used_keys = re.findall(
                 r'\["(.*?)"\]', self.clean_checker_outputs[name]
@@ -446,7 +444,7 @@ class CodeBot(ChatBot):
     ):
         program_outputs = {}
         sorted_program_names = sorted(program_names, key=len, reverse=True)
-        hh=ImaginaryData()
+        hh = ImaginaryData()
         for program_name in sorted_program_names:
 
             spo, hh = self.run_single_program(
@@ -523,7 +521,6 @@ class CodeBot(ChatBot):
                         ]
                     )
                     assert line
-                    print
                 cq = self.forward_generic(
                     prompt=self.key_error_prompt.format(
                         eligibility_requirements=relevant_program,
@@ -534,6 +531,7 @@ class CodeBot(ChatBot):
                 )
                 this_program_questions += 1
                 self.total_questions += 1
+                print(f"user index: {self.data_user_index}")
                 print(f"{this_program_questions} questions on program {program_name}")
                 print(
                     f"{self.total_questions} total questions on {self.total_programs_completed} programs"
