@@ -1,8 +1,9 @@
 import random
 from names import get_full_name
-from users import Household, Person, nuclear_family
+from users.users import Household, Person, nuclear_family
+
 # from users import user_features
-from user_features import (
+from users.user_features import (
     HousingEnum,
     RelationEnum,
     SexEnum,
@@ -106,6 +107,7 @@ def get_random_household_input():
     hh.validate()
     return hh
 
+
 def get_uniform_household_input():
     """
     Fetches a random household to be used for all programs.
@@ -156,6 +158,7 @@ def get_uniform_household_input():
     hh = hh.conform()
     hh.validate()
     return hh
+
 
 class ChildAndDependentCareTaxCredit(BaseBenefitsProgram):
     """ "
@@ -8122,6 +8125,7 @@ class SummerYouthEmploymentProgram(BaseBenefitsProgram):
         ):
             result = cls.__call__(hh)
             assert not result, f"SummerYouthEmploymentProgram test {i} failed"
+
 
 if __name__ == "__main__":
     # hh = get_random_household_input()

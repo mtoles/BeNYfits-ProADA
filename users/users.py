@@ -3,7 +3,7 @@ from names import get_full_name
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Union, Callable
-from user_features import (
+from users.user_features import (
     PersonAttributeMeta,
     HousingEnum,
     RelationEnum,
@@ -11,10 +11,10 @@ from user_features import (
     PlaceOfResidenceEnum,
     CitizenshipEnum,
     EducationLevelEnum,
-    GradeLevelEnum
+    GradeLevelEnum,
+    BasePersonAttr,
 )
 
-import user_features
 
 np.random.seed(0)
 
@@ -53,7 +53,6 @@ class Person:
             attr.name: attr.schema for attr in PersonAttributeMeta.registry.values()
         }
         for attr, value in self.features.items():
-            # print("remember to reenable this validatioN!!!")
             assert Schema(schemas[attr]).is_valid(
                 value
             ), f"Invalid value `{value}` (of type {type(value)}) for attribute `{attr}` under schema `{schemas[attr]}`"
@@ -81,17 +80,17 @@ class Person:
         return person
 
     @staticmethod
-    def uniform_person(is_self=False):
+    def demographic_person(is_self=False):
         attr_names = PersonAttributeMeta.registry.keys()
         # person_dict = {attr: attr.random() for attr in attr_names}
         person_dict = {
-            attr: PersonAttributeMeta.registry[attr].uniform() for attr in attr_names
+            attr: PersonAttributeMeta.registry[attr].demographic()
+            for attr in attr_names
         }
         person = Person.from_dict(person_dict)
         if is_self:
             person["relation"] = "self"
         return person
-    
 
     def nl_person_profile(self) -> str:
         name = self.features["name"]
@@ -174,8 +173,8 @@ class Household:
 
     def conform(self):
         for i in range(len(self.members)):
-            for attr in user_features.BasePersonAttr.registry.keys():
-                cls = user_features.BasePersonAttr.registry[attr]
+            for attr in BasePersonAttr.registry.keys():
+                cls = BasePersonAttr.registry[attr]
                 self.members[i][attr] = cls.conform(cls, self, i, self.members[i][attr])
         self.validate()
         return self
@@ -307,6 +306,30 @@ class Household:
                 f"Your total investment income if filing jointly is {self.marriage_annual_investment_income()}.",
             ]
         ).strip()
+
+    @staticmethod
+    def demographic_hh():
+        """https://www.nyc.gov/assets/planning/download/pdf/data-maps/census/census2010/t_sf1_p5_nyc.pdf"""
+        hh_size_distribution = {
+            1: 0.319,
+            2: 0.282,
+            3: 0.159,
+            4: 0.122,
+            5: 0.117,
+            6: 0.001,
+        }
+        hh_size = np.random.choice(
+            list(hh_size_distribution.keys()), p=list(hh_size_distribution.values())
+        )
+        user = Person.demographic_person()
+        user["relation"] = RelationEnum.SELF.value
+        members = [user]
+        for i in range(hh_size - 1):
+            member = Person.demographic_person()
+            members.append(member)
+        hh = Household(members)
+        hh.validate()
+        return hh
 
 
 def nuclear_family():
