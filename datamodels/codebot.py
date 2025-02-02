@@ -296,10 +296,10 @@ class CodeBot(ChatBot):
             failed_test_case = None
             failed_code = None
 
-            checker_attempt_no = 0 
-            oai_seed_no = checker_attempt_no + 1000 * self.random_seed
+            checker_attempt_no = 0
             self.max_code_gen_attempts = self.max_code_gen_attempts
             while checker_attempt_no < self.max_code_gen_attempts:
+                oai_seed_no = checker_attempt_no + 1000 * self.random_seed
                 print(f"attempting to generate checker, attempt {oai_seed_no}")
 
                 if failed_test_case is None:
@@ -378,29 +378,24 @@ class CodeBot(ChatBot):
                     #         break
 
                     # if not matches:
-                    checker_attempt_no += 1
                     # continue
-
+                    this_program_used_keys = re.findall(
+                        r'\["(.*?)"\]', self.clean_checker_outputs[name]
+                    )
+                    checker_attempt_no += 1
+                    # If we exceeded attempts, skip this requirement
+                    if checker_attempt_no > self.max_code_gen_attempts:
+                        raise Exception(
+                            f"Failed to generate checker for {name} after {checker_attempt_no} attempts."
+                        )
                     # Success
                     break
-
                 except Exception as e:
                     print(e)
                     checker_attempt_no += 1
 
-            # If we exceeded attempts, skip this requirement
-            if checker_attempt_no > self.max_code_gen_attempts:
-                raise Exception(
-                    f"Failed to generate checker for {name} after {checker_attempt_no} attempts."
-                )
-
-            this_program_used_keys = re.findall(
-                r'\["(.*?)"\]', self.clean_checker_outputs[name]
-            )
-            (
-                this_program_key_types,
-                new_choices,
-            ) = self._update_key_types_and_choices(
+            
+            this_program_key_types, new_choices, = self._update_key_types_and_choices(
                 this_program_used_keys,
                 desc,
                 self.clean_checker_outputs[name],
