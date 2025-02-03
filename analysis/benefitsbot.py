@@ -44,6 +44,12 @@ parser.add_argument(
     help="Number of times to attempt to generate code",
 )
 parser.add_argument(
+    "--max_code_rewrite_attempts",
+    default=0,
+    type=int,
+    help="Number of times to attempt to rewrite code",
+)
+parser.add_argument(
     "--synthetic_user_model_name",
     default="meta-llama/Meta-Llama-3-70B-Instruct",
     help="Name of the synthetic user model to use.",
@@ -238,6 +244,7 @@ def get_chatbot(
             random_seed=random_seed,
             code_model_id=code_model_id,
             max_code_gen_attempts=args.max_code_gen_attempts,
+            max_code_rewrite_attempts=args.max_code_rewrite_attempts,
             data_user_index=data_user_index,
         )
     elif strategy == "cot":
