@@ -119,14 +119,14 @@ def get_uniform_household_input():
     num_adults = random.randint(0, 1)
 
     ### user
-    user = Person.uniform_person(is_self=True)
+    user = Person.demographic_person(is_self=True)
     members = [user]
     if has_spouse:
-        spouse = Person.uniform_person(is_self=False)
+        spouse = Person.demographic_person(is_self=False)
         spouse["relation"] = "spouse"
         members.append(spouse)
     for _ in range(num_children):
-        child = Person.uniform_person(is_self=False)
+        child = Person.demographic_person(is_self=False)
         child["age"] = random.randint(0, 18)
         child["relation"] = np.random.choice(
             [
@@ -139,7 +139,7 @@ def get_uniform_household_input():
         )
         members.append(child)
     for _ in range(num_adults):
-        adult = Person.uniform_person(is_self=False)
+        adult = Person.demographic_person(is_self=False)
         adult["age"] = random.randint(18, 100)
         adult["relation"] = np.random.choice(
             [

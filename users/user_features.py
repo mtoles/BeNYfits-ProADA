@@ -1261,7 +1261,21 @@ class heating_electrical_bill_in_name(BasePersonAttr):
 class available_financial_resources(BasePersonAttr):
     schema = And(float)
     random = lambda: float(np.random.randint(0, 10000))
-    demographic = lambda: float(np.random.randint(0, 10000))
+
+    def demographic():
+        # Distribution
+        # 0   --> 0
+        # 30  --> 3000
+        # 70  --> 8000
+        # 100 --> 10000
+        r = np.random.uniform(0, 100)
+        if r <= 30:
+            return 0.0 + ((r - 0.0)/(30.0 - 0.0)) * (3000.0 - 0.0)
+        elif r <= 70:
+            return 3000.0 + ((r - 30.0)/(70.0 - 30.0)) * (8000.0 - 3000.0)
+        else:
+            return 8000.0 + ((r - 70.0)/(100.0 - 70.0)) * (10000.0 - 8000.0)
+    
     default = 0.0
     nl_fn = lambda n, x: f"{n}'s household has {x} in available financial resources."
 
@@ -2024,10 +2038,17 @@ class college_credits(BasePersonAttr):
             return 0
 
     def demographic():
-        if np.random.choice([True, False]):
-            return np.random.randint(1, 200)
-        else:
+        categories = ['less_than_hs', 'hs', 'some_college', 'associate', 'bachelor', 'advanced']
+        probabilities = [0.09, 0.28, 0.15, 0.10, 0.23, 0.15]
+
+        choice = np.random.choice(categories, p=probabilities)
+
+        if choice in ('less_than_hs', 'hs'):
             return 0
+        elif choice == 'some_college':
+            return np.random.randint(0, 51)
+        else:
+            return 200
 
     default = 0
     nl_fn = lambda n, x: (
@@ -2045,7 +2066,7 @@ class college_credits(BasePersonAttr):
 class gpa(BasePersonAttr):
     schema = And(float)
     random = lambda: np.random.uniform(0.0, 4.0)
-    demographic = lambda: np.random.uniform(0.0, 4.0)
+    demographic = lambda: np.clip(np.random.normal(3.15, 1.0), 0.0, 4.0)
     default = 0.0
     nl_fn = lambda n, x: (f"{n} has a {x} GPA." if x else f"{n} does not have a GPA.")
 
@@ -2529,10 +2550,10 @@ class evicted_months_ago(BasePersonAttr):
             return np.random.randint(1, 24)
 
     def demographic():
-        if np.random.choice([True, False]):
+        if np.random.random() < 0.95:
             return 0
         else:
-            return np.random.randint(1, 24)
+            return np.random.randint(1, 25)
 
     default = 0
     nl_fn = lambda n, x: (
