@@ -282,7 +282,7 @@ class CodeBot(ChatBot):
             # for i, c in enumerate(choices):  # escape all '$'
             #     choices[i] = re.sub(r"(?<!\\)\$", r"\\$", c)
 
-            new_choices[c] = choices
+            new_choices[c] = [x.strip("\"'") for x in choices]
         # do the $ escape substitution for all choices
         for k, cs in new_choices.items():
             for i, c in enumerate(cs):
