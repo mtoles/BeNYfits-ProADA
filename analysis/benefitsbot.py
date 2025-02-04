@@ -118,7 +118,7 @@ parser.add_argument(
     help="Random seed to use",
 )
 
-TURNS_PER_PROGRAM = 10
+TURNS_PER_PROGRAM = 20
 args = parser.parse_args()
 if args.synthetic_user_model_name == "same":
     args.synthetic_user_model_name = args.chat_model_id
@@ -466,3 +466,4 @@ labels_df[args.programs].astype(int).to_json(
 
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
+print(f"Saved to {output_dir}")
