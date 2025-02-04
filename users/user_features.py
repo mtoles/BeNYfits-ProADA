@@ -608,7 +608,24 @@ class GradeLevelEnum(Enum):
     COLLEGE = "college"
 
 
-GRADE_DICT = {x.value: x.name for x in GradeLevelEnum}
+GRADE_DICT = {
+    GradeLevelEnum.NONE.value: "not in school",
+    GradeLevelEnum.PK.value: "in preschool (PK)",
+    GradeLevelEnum.K.value: "in kindergarten",
+    GradeLevelEnum.ONE.value: "in 1st grade",
+    GradeLevelEnum.TWO.value: "in 2nd grade",
+    GradeLevelEnum.THREE.value: "in 3rd grade",
+    GradeLevelEnum.FOUR.value: "in 4th grade",
+    GradeLevelEnum.FIVE.value: "in 5th grade",
+    GradeLevelEnum.SIX.value: "in 6th grade",
+    GradeLevelEnum.SEVEN.value: "in 7th grade",
+    GradeLevelEnum.EIGHT.value: "in 8th grade",
+    GradeLevelEnum.NINE.value: "in 9th grade",
+    GradeLevelEnum.TEN.value: "in 10th grade",
+    GradeLevelEnum.ELEVEN.value: "in 11th grade",
+    GradeLevelEnum.TWELVE.value: "in 12th grade",
+    GradeLevelEnum.COLLEGE.value: "in college",
+}
 
 
 class current_school_level(BasePersonAttr):
@@ -642,9 +659,7 @@ class current_school_level(BasePersonAttr):
     random = randomize
     demographic = lambda: sample_categorical(current_school_level.distribution)
     default = GradeLevelEnum.NONE.value
-    nl_fn = lambda n, x: (
-        f"{n} is in {GRADE_DICT[x]}." if x else f"{n} is not in school."
-    )
+    nl_fn = lambda n, x: (f"{n} is {GRADE_DICT[x]}." if x else f"{n} is not in school.")
 
     def conform(cls, hh, person_idx, original_value):
         if original_value == GradeLevelEnum.NONE.value:
