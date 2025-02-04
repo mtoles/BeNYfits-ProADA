@@ -5,6 +5,7 @@ import pandas as pd
 
 # from models.model_utils import load_lm
 from datamodels.chatbot import *
+from datamodels.humanbot import HumanBot
 from datamodels.syntheticuser import SyntheticUser
 from datetime import datetime
 from tqdm import tqdm
@@ -218,6 +219,7 @@ def get_chatbot(
     code_model_id: Optional[str] = args.code_model_id,
     random_seed: int = args.random_seed,
     data_user_index: int = 0,
+    target_programs: Optional[List[str]] = None,
 ):
     if strategy == "backbone":
         return ChatBot(
@@ -227,6 +229,16 @@ def get_chatbot(
             use_cache=use_cache,
             lm_logger=lm_logger,
             random_seed=random_seed,
+        )
+    elif strategy == "human":
+        return HumanBot(
+            chat_model_id=chat_model_id,
+            no_of_programs=no_of_programs,
+            eligibility_requirements=eligibility_dict,
+            use_cache=use_cache,
+            lm_logger=lm_logger,
+            random_seed=random_seed,
+            target_programs=target_programs,
         )
     elif strategy == "codebot":
         return CodeBot(
@@ -285,7 +297,9 @@ for index, row in tqdm(labels_df.iterrows()):
         chat_model_id=args.chat_model_id,
         code_model_id=args.code_model_id,
         data_user_index=index,
+        target_programs=target_programs,
     )
+    
     synthetic_user = SyntheticUser(
         row,
         # hh_nl_desc,
