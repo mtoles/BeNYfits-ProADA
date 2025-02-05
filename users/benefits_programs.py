@@ -6908,6 +6908,8 @@ class DisabledHomeownersExemption(BaseBenefitsProgram):
                     or m["relation"] == RelationEnum.SIBLING.value
                 ):
                     spouse_or_sibling_owner = True
+        if len(owner_indices) == 0:
+            return False
         num_disabled = 0
         primary_residents = 0
         for i in owner_indices:

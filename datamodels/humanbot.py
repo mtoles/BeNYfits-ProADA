@@ -26,8 +26,11 @@ class HumanBot(ChatBot):
             random_seed=random_seed,
         )
         self.target_programs = target_programs
+        self.lm_logger = lm_logger
 
-        print("** Your task is to predict benefits eligibility for the following program names: ")
+        print(
+            "** Your task is to predict benefits eligibility for the following program names: "
+        )
 
         print("*" * 20)
 
@@ -37,8 +40,11 @@ class HumanBot(ChatBot):
         print("*" * 20)
 
     def predict_cq(self, history, chat_model_id) -> str:
-        print("** Ask a clarifying question and solicit information from the user that will help you deterimine benefits eligibility ** \n")
+        print(
+            "** Ask a clarifying question and solicit information from the user that will help you deterimine benefits eligibility ** \n"
+        )
         cq = str(input())
+        self.lm_logger.log_io(lm_input=history, lm_output=cq, role="predict_cq")
 
         return cq
 
@@ -48,12 +54,17 @@ class HumanBot(ChatBot):
         """
 
         while True:
-            print("** Based on the information you have gathered so far, do you think you can determine eligibility for all programs in question? Say only a single character: Y/N **\n")
+            print(
+                "** Based on the information you have gathered so far, do you think you can determine eligibility for all programs in question? Say only a single character: Y/N **\n"
+            )
             c = str(input()).lower()
             if c in ["y", "n"]:
                 break
-        
-        return "True" if c == 'y' else "False"
+        output = "True" if c == "y" else "False"
+        self.lm_logger.log_io(
+            lm_input=history, lm_output=output, role="predict_benefits_ready"
+        )
+        return output
 
     def predict_benefits_eligibility(self, history, programs) -> List[bool]:
         """
@@ -64,11 +75,17 @@ class HumanBot(ChatBot):
 
         for program in programs:
             while True:
-                print(f"** Based on the information you have gathered so far, do you think the user is eligible for the program named {program}? Say only a single character: Y/N: **\n")
+                print(
+                    f"** Based on the information you have gathered so far, do you think the user is eligible for the program named {program}? Say only a single character: Y/N: **\n"
+                )
                 c = str(input()).lower()
                 if c in ["y", "n"]:
                     break
-        
+
             output_dict[program] = True if c == "y" else False
-        
+        self.lm_logger.log_io(
+            lm_input=history,
+            lm_output=str(output_dict),
+            role="predict_benefits_eligibility",
+        )
         return output_dict
