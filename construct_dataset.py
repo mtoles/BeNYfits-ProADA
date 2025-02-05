@@ -17,25 +17,32 @@ np.random.seed(0)
 def generate_demographic_dataset(limit, benefits_classes):
     households = []
     # n_programs = [np.random.randint(1, len(benefits_classes)) for _ in range(limit)]
-    weights = np.array([min(1 / (2**n), 1 / (2**8)) for n in range(len(benefits_classes))])
-    n_programs = [np.random.choice(
-        list(range(1, len(benefits_classes) + 1)), p=weights / sum(weights)
-    ) for _ in range(limit)]
-    program_lists = []
+    # weights = np.array([min(1 / (2**n), 1 / (2**8)) for n in range(len(benefits_classes))])
+    # n_programs = [np.random.choice(
+    #     list(range(1, len(benefits_classes) + 1)), p=weights / sum(weights)
+    # ) for _ in range(limit)]
+    # program_lists = []
     eligibilities = []
+
+    N_REPEATS = 3  # add each program to the ds N_REPEATS times
+    N_PROGRAMS = len(benefits_classes)
+    N_HOUSEHOLDS = 25
+    program_lists = [[] for _ in range(N_HOUSEHOLDS)]
+    for _ in range(N_REPEATS):
+        for i in range(N_PROGRAMS):
+            target = np.random.randint(0, N_HOUSEHOLDS)
+            p = list(benefits_classes.keys())[i]
+            program_lists[target].append(p)
+    for pl in program_lists:
+        assert len(pl) != 0
 
     for i in range(limit):
         hh = Household.demographic_hh()
         hh = hh.conform()
-        program_list = list(
-            np.random.choice(
-                list(benefits_classes.keys()), n_programs[i], replace=False
-            )
-        )
+        program_list = program_lists[i]
         eligibility = {p: benefits_classes[p].__call__(hh) for p in program_list}
 
         households.append(hh)
-        program_lists.append(program_list)
         eligibilities.append(eligibility)
 
     ds_df = pd.DataFrame(

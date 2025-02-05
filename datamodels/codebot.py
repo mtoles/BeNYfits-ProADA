@@ -246,6 +246,8 @@ class CodeBot(ChatBot):
                 constraints=["int", "float", "choice"],
                 constraint_type="choice",
             ).strip()
+            # replace all '$' with '\$` as long as the $ is not already escaped
+            # guessed_type = re.sub(r"[^\\](\$)")
             this_program_key_types[key] = guessed_type
 
         # Determine possible choices
@@ -291,8 +293,14 @@ class CodeBot(ChatBot):
                     constraint_type="regex",
                 ).strip()
                 choices = ast.literal_eval(choices)
-            new_choices[c] = choices
+            # for i, c in enumerate(choices):  # escape all '$'
+            #     choices[i] = re.sub(r"(?<!\\)\$", r"\\$", c)
 
+            new_choices[c] = [x.strip("\"'") for x in choices]
+        # do the $ escape substitution for all choices
+        for k, cs in new_choices.items():
+            for i, c in enumerate(cs):
+                new_choices[k][i] = re.sub(r"(?<!\\)\$", r"\\$", c)
         return this_program_key_types, new_choices
 
     def make_program(
@@ -530,6 +538,13 @@ class CodeBot(ChatBot):
             if hh == prev_hh:
 
                 print(f"warning: no progress for {program_name}")
+                return {
+                    "program_name": program_name,
+                    "hh": hh,
+                    "history": history,
+                    "eligibility": np.random.choice([True, False]),
+                    "completed": False,
+                }, hh
 
             try:
                 p_fn = generated_code.calls[program_name]

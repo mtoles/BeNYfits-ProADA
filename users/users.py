@@ -297,13 +297,13 @@ class Household:
             + member_profiles
             + [
                 f"There are {num_members} members in your household, of which {num_children} are children.",
-                f"Your total household income is {self.hh_annual_total_income()}.",
-                f"Your total household work income is {self.hh_annual_work_income()}.",
-                f"Your total household investment income is {self.hh_annual_investment_income()}.",
-                f"Your total household property owner income is {self.owners_total_income()}.",
-                f"Your total income if filing jointly is {self.marriage_total_income()}.",
-                f"Your total work income if filing jointly is {self.marriage_annual_work_income()}.",
-                f"Your total investment income if filing jointly is {self.marriage_annual_investment_income()}.",
+                f"Your total annual household income is {self.hh_annual_total_income()}.",
+                f"Your total annual household work income is {self.hh_annual_work_income()}.",
+                f"Your total annual household investment income is {self.hh_annual_investment_income()}.",
+                f"Your total annual household property owner income is {self.owners_total_income()}.",
+                f"Your total annual income if filing jointly is {self.marriage_total_income()}.",
+                f"Your total annual work income if filing jointly is {self.marriage_annual_work_income()}.",
+                f"Your total annual investment income if filing jointly is {self.marriage_annual_investment_income()}.",
             ]
         ).strip()
 

@@ -122,7 +122,7 @@ class ChatBot:
         )
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
-        processed_output = ast.literal_eval(f"[{lm_output}]")
+        processed_output = ast.literal_eval(f"[{lm_output.strip('[]')}]")
         assert len(processed_output) == len(programs)
         output_dict = dict(zip(programs, processed_output))
         return output_dict
