@@ -275,7 +275,8 @@ class has_itin(BasePersonAttr):
 
 
 class can_care_for_self(BasePersonAttr):
-    distribution = [("Yes", 3.69), ("No", 96.31)]
+    # distribution = [("Yes", 3.69), ("No", 96.31)]
+    distribution = [("Yes", 96.31), ("No", 3.69)]
     schema = And(bool)
     random = lambda: bool(np.random.choice([True, False]))
     demographic = lambda: yes_no_to_bool_map(
