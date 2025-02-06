@@ -246,6 +246,9 @@ class CodeBot(ChatBot):
                 constraints=["int", "float", "choice"],
                 constraint_type="choice",
             ).strip()
+            # find the last int/float/choice in case gpt fucks up
+            guessed_type = re.findall(r"int|float|choice", guessed_type)[-1]
+            assert guessed_type in ["int", "float", "choice"]
             # replace all '$' with '\$` as long as the $ is not already escaped
             # guessed_type = re.sub(r"[^\\](\$)")
             this_program_key_types[key] = guessed_type
@@ -614,6 +617,7 @@ class CodeBot(ChatBot):
                     constraint_type = ConstraintType.none
                     constraint = None
                 else:
+                    print(f"unknown key_type: {key_type}")
                     raise NotImplementedError
 
                 new_hh_value = self.forward_generic(
