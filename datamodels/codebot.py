@@ -450,6 +450,15 @@ class CodeBot(ChatBot):
                             continue
                     
                     # success: neither code gen nor code rewrite need to run again
+                    this_program_key_types, new_choices, = self._update_key_types_and_choices(
+                        this_program_used_keys,
+                        desc,
+                        self.clean_checker_outputs[name],
+                        code_model_id,
+                        use_cache,
+                    )
+                    self.key_types.update(this_program_key_types)
+                    self.choices.update(new_choices)
                     break
                 except Exception as e:
                     import traceback
@@ -458,15 +467,7 @@ class CodeBot(ChatBot):
                     continue
                     
             
-            this_program_key_types, new_choices, = self._update_key_types_and_choices(
-                this_program_used_keys,
-                desc,
-                self.clean_checker_outputs[name],
-                code_model_id,
-                use_cache,
-            )
-            self.key_types.update(this_program_key_types)
-            self.choices.update(new_choices)
+
 
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
