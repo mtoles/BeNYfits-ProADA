@@ -5,9 +5,9 @@ import numpy as np
 
 
 def process_directory(root_dir):
-    counts = []
     for dirpath, dirnames, filenames in os.walk(root_dir):
         if "history.jsonl" in filenames:
+            counts = []
             file_path = os.path.join(dirpath, "history.jsonl")
             with open(file_path, "r", encoding="utf-8") as file:
                 content = file.read()

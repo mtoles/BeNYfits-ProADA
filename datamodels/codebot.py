@@ -596,6 +596,18 @@ class CodeBot(ChatBot):
                     ),
                     logging_role="key_error",
                 )
+                # check that the cq doesn't appear in the history more than 12 times
+                past_cqs = np.array([x["content"] for x in history])
+                if np.sum(past_cqs == cq) > 12:
+                    print("too many cq repeats")
+                    return {
+                        "program_name": program_name,
+                        "hh": hh,
+                        "history": history,
+                        "eligibility": np.random.choice([True, False]),
+                        "completed": False,
+                    }, hh
+
                 this_program_questions += 1
                 self.total_questions += 1
                 print(f"user index: {self.data_user_index}")
