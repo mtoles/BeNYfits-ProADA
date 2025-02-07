@@ -18,7 +18,7 @@ load_dotenv(override=False)
 
 """
 Run with:
-   uvicorn server.model_server:app --reload
+    CUDA_VISIBLE_DEVICES=0 uvicorn server.concurrent_multiple_model_server:app --port XXXXX
 """
 
 memory = Memory(".joblib_cache", verbose=0)

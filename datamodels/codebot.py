@@ -9,6 +9,7 @@ import importlib.util
 import traceback
 import json
 import ast
+import sys
 
 import black
 import numpy as np
@@ -25,6 +26,18 @@ from copy import deepcopy
 
 np.random.seed(0)
 list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
+
+
+def convert_keys_to_int(d):
+    if not isinstance(d, dict):
+        return d  # Return unchanged if not a dictionary
+    
+    new_dict = {}
+    for key, value in d.items():
+        new_key = int(key) if isinstance(key, str) and key.isdigit() else key
+        new_dict[new_key] = convert_keys_to_int(value) if isinstance(value, dict) else value
+    
+    return new_dict
 
 
 class ConstraintType:
@@ -93,7 +106,7 @@ class CodeBot(ChatBot):
      
      `check_eligibility` returns a bool. All keys and values of `hh` are strings. If you write helper functions, keep them inside the `check_eligibility` function. Make your code as detailed as possible capturing every edge case. Remember that the household may have no relevant members, so be sure to ask about the composition of the household. For example, for childcare programs, check that the household has at least one child. After each new lookup in `hh`, write a comment suggesting a question to ask. Here is an example:
 
-    def dummy_eligibility_program(hh: dict) -> bool:
+    def check_eligibility(hh: dict) -> bool:
         def _helper(individual):
             if individual["has_id"]=="yes": # "Does the individual have an ID?"
                 return True
@@ -128,20 +141,19 @@ class CodeBot(ChatBot):
     # schema_error_prompt = """Attempt: {attempt_no}\nContext:\n{eligibility_requirements}\n\Dialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, does not fit the following criteria: `{target_type}`. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
 
     generate_edge_cases_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the edge cases that will fail the code? Return ONLY the edge cases as a JSON in the form ["The first case", "The second case", ...]"""
-    generate_corrected_code_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nThe given code fails for {failed_test_case}. Please correct it. Return ONLY the code."""
-    make_unit_tests_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the test cases that will fail the code? Return ONLY five test cases as JSON list in the form:
+    generate_corrected_code_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nThe given code fails for {failed_test_case}. Please correct it. The output function name should strictly be "check_eligibility". Return ONLY the code."""
+    make_unit_tests_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nQuestion: Given the code and context above, what are the test cases that will fail the code? DO NOT miss any JSON keys in the test cases. Return ONLY five test cases as JSON list in the form and DO NOT return an empty or null json:
     """
     example_unit_test = """[
     {
-        "hh": {
-            0: {
+        "hh": [
+            {
+                "individual_level_key": "individual_level_value"
+            },
+            {
                 "individual_level_key": "individual_level_value"
             }
-            1: {
-                "individual_level_key": "individual_level_value"
-            }
-            "household_level_key": "household_level_value"
-        },
+        ],
         "expected": "value"
     }
 ]
@@ -157,6 +169,7 @@ class CodeBot(ChatBot):
         lm_logger=None,
         code_model_id: Optional[str] = None,
         max_code_gen_attempts: int = 1,
+        max_code_rewrite_attempts: int = 0,
         data_user_index: int = 0,  # user data index used for tracking progress
     ):
         super().__init__(
@@ -174,6 +187,7 @@ class CodeBot(ChatBot):
         # self.choices = {name: {} for name, desc in eligibility_requirements.items()} # per-program choices
         self.choices = {}  # merged choices
         self.max_code_gen_attempts = max_code_gen_attempts
+        self.max_code_rewrite_attempts = max_code_rewrite_attempts
         self.total_questions = 0
         self.total_programs_completed = 0
         self.data_user_index = data_user_index
@@ -232,6 +246,9 @@ class CodeBot(ChatBot):
                 constraints=["int", "float", "choice"],
                 constraint_type="choice",
             ).strip()
+            # find the last int/float/choice in case gpt fucks up
+            guessed_type = re.findall(r"int|float|choice", guessed_type)[-1]
+            assert guessed_type in ["int", "float", "choice"]
             # replace all '$' with '\$` as long as the $ is not already escaped
             # guessed_type = re.sub(r"[^\\](\$)")
             this_program_key_types[key] = guessed_type
@@ -303,10 +320,14 @@ class CodeBot(ChatBot):
         for name, desc in tqdm(eligibility_requirements.items()):
             failed_test_case = None
             failed_code = None
+            error_trace = None
 
             checker_attempt_no = 0
+            code_rewrite_attempt_no = 0
+            rewritten = False
+
             self.max_code_gen_attempts = self.max_code_gen_attempts
-            while checker_attempt_no < self.max_code_gen_attempts:
+            while checker_attempt_no < self.max_code_gen_attempts or code_rewrite_attempt_no < self.max_code_rewrite_attempts:
                 oai_seed_no = checker_attempt_no + 1000 * self.random_seed
                 print(f"attempting to generate checker, attempt {oai_seed_no}")
 
@@ -316,14 +337,24 @@ class CodeBot(ChatBot):
                         eligibility_requirement=desc,
                         preexisting_keys=self.get_pek_str(),
                     )
+                    rewritten = False
                 else:
+                    
+                    prompt_content = self.generate_corrected_code_prompt.format(
+                        eligibility_requirements=desc,
+                        code=failed_code,
+                        failed_test_case=failed_test_case,
+                    )
+                    
+                    if error_trace:
+                        prompt_content += f"\nThrows an error:\n {error_trace}"
+                    else:
+                        prompt_content += "Throws no errors but generates wrong output."
+
                     failed_test_case = None
                     failed_code = None
-                    prompt_content = self.gen_checker_prompt.format(
-                        attempt_no=oai_seed_no,
-                        eligibility_requirement=desc,
-                        preexisting_keys=self.get_pek_str(),
-                    )
+                    error_trace = None
+                    rewritten = True
 
                 dirty_checker_output = self.lm_api.forward(
                     [{"role": "user", "content": prompt_content}],
@@ -350,70 +381,93 @@ class CodeBot(ChatBot):
                     self.clean_checker_outputs[name] = func_def
                     generated_checker_text[name] = func_def
 
-                    # edge_case_prompt = [
-                    #     {
-                    #         "role": "user",
-                    #         "content": self.make_unit_tests_prompt.format(
-                    #             eligibility_requirements=eligibility_requirements,
-                    #             code=func_def,
-                    #         )
-                    #         + self.example_unit_test,
-                    #     }
-                    # ]
-
-                    # edge_case_output = (
-                    #     self.lm_api.forward(
-                    #         edge_case_prompt,
-                    #         chat_model_id=code_model_id,
-                    #         use_cache=use_cache,
-                    #         logging_role="code_gen",
-                    #     )
-                    #     .strip("`")
-                    #     .strip("json\n")
-                    # )
-
-                    # edge_case_outputs = json.loads(edge_case_output)
-                    # matches = True
-
-                    # for case in edge_case_outputs:
-                    #     hh = case["hh"]
-                    #     expected = case["expected"]
-                    #     result = locals()[name](hh)
-                    #     if result != expected:
-                    #         matches = False
-                    #         failed_test_case = case
-                    #         failed_code = func_def
-                    #         break
-
-                    # if not matches:
-                    # continue
                     this_program_used_keys = re.findall(
                         r'\["(.*?)"\]', self.clean_checker_outputs[name]
                     )
-                    checker_attempt_no += 1
+
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    
+                    if not rewritten:
+                        checker_attempt_no += 1
+
                     # If we exceeded attempts, skip this requirement
-                    if checker_attempt_no > self.max_code_gen_attempts:
+                    if not rewritten and checker_attempt_no > self.max_code_gen_attempts:
                         raise Exception(
                             f"Failed to generate checker for {name} after {checker_attempt_no} attempts."
                         )
-                    # Success
+
+                try:
+                    if code_rewrite_attempt_no < self.max_code_rewrite_attempts:
+                        code_rewrite_attempt_no += 1
+                        edge_case_prompt = [
+                            {
+                                "role": "user",
+                                "content": self.make_unit_tests_prompt.format(
+                                    eligibility_requirements=eligibility_requirements,
+                                    code=func_def,
+                                )
+                                + self.example_unit_test,
+                            }
+                        ]
+
+                        edge_case_output = (
+                            self.lm_api.forward(
+                                edge_case_prompt,
+                                chat_model_id=code_model_id,
+                                use_cache=use_cache,
+                                logging_role="code_gen",
+                            )
+                            .strip("`")
+                            .strip("json\n")
+                        )
+
+                        edge_case_outputs = json.loads(edge_case_output)
+                        matches = True
+
+                        for case in edge_case_outputs:
+                            hh = convert_keys_to_int(case["hh"])
+                            expected = case["expected"]
+                            try:
+                                result = locals()[name](hh)
+                            except Exception as err:
+                                import traceback
+                                error_trace = ''.join(traceback.format_exception(*sys.exc_info()))
+                                failed_code = func_def
+                                failed_test_case = case
+                                matches = False
+
+                                break
+
+                            if result != expected:
+                                matches = False
+                                failed_test_case = case
+                                failed_code = func_def
+                                break
+
+                        if not matches:
+                            continue
+                    
+                    # success: neither code gen nor code rewrite need to run again
+                    this_program_key_types, new_choices, = self._update_key_types_and_choices(
+                        this_program_used_keys,
+                        desc,
+                        self.clean_checker_outputs[name],
+                        code_model_id,
+                        use_cache,
+                    )
+                    self.key_types.update(this_program_key_types)
+                    self.choices.update(new_choices)
                     break
                 except Exception as e:
-                    print(e)
-                    checker_attempt_no += 1
+                    import traceback
+                    traceback.print_exc()
 
-            (
-                this_program_key_types,
-                new_choices,
-            ) = self._update_key_types_and_choices(
-                this_program_used_keys,
-                desc,
-                self.clean_checker_outputs[name],
-                code_model_id,
-                use_cache,
-            )
-            self.key_types.update(this_program_key_types)
-            self.choices.update(new_choices)
+                    continue
+                    
+            
+
 
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
@@ -564,6 +618,7 @@ class CodeBot(ChatBot):
                     constraint_type = ConstraintType.none
                     constraint = None
                 else:
+                    print(f"unknown key_type: {key_type}")
                     raise NotImplementedError
 
                 new_hh_value = self.forward_generic(
