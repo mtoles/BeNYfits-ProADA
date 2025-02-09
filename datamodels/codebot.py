@@ -632,19 +632,22 @@ class CodeBot(ChatBot):
                 else:
                     print(f"unknown key_type: {key_type}")
                     raise NotImplementedError
-
-                new_hh_value = self.forward_generic(
-                    prompt=self.extract_value_from_ans_prompt.format(
-                        eligibility_requirements=relevant_program,
-                        line=line,
-                        key=key,
-                        cq=cq,
-                        answer=ca,
-                    ),
-                    logging_role="extract_value_from_ans",
-                    constraint_type=constraint_type,
-                    constraints=constraint,
-                )
+                try:
+                    new_hh_value = self.forward_generic(
+                        prompt=self.extract_value_from_ans_prompt.format(
+                            eligibility_requirements=relevant_program,
+                            line=line,
+                            key=key,
+                            cq=cq,
+                            answer=ca,
+                        ),
+                        logging_role="extract_value_from_ans",
+                        constraint_type=constraint_type,
+                        constraints=constraint,
+                    )
+                except Exception as e:
+                    print(f"failed to extract value from answer: {e}") # not sure whats wrong, fix later, @nikhil?
+                    new_hh_value = "0"
                 # history.append({"role": "assistant", "content": new_hh_value})
                 prev_hh = deepcopy(hh)
                 if member_idx is None:
