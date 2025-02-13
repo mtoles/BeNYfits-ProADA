@@ -6,6 +6,7 @@ import pandas as pd
 # from models.model_utils import load_lm
 from datamodels.chatbot import *
 from datamodels.humanbot import HumanBot
+from datamodels.randombot import RandomBot
 from datamodels.syntheticuser import SyntheticUser
 from datetime import datetime
 from tqdm import tqdm
@@ -261,6 +262,15 @@ def get_chatbot(
         )
     elif strategy == "cot":
         return CotChatBot(
+            chat_model_id=chat_model_id,
+            no_of_programs=no_of_programs,
+            eligibility_requirements=eligibility_dict,
+            use_cache=use_cache,
+            lm_logger=lm_logger,
+            random_seed=random_seed,
+        )
+    elif strategy == "random":
+        return RandomBot(
             chat_model_id=chat_model_id,
             no_of_programs=no_of_programs,
             eligibility_requirements=eligibility_dict,
