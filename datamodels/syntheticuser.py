@@ -92,6 +92,8 @@ class SyntheticUser:
         """
         Function to answer the question asked from the user using the user profile in natural language
         """
+        if self.chat_model_id == "human":
+            return input(f"{cq}\n")
 
         relevant_sentences = {
             "role": "system",

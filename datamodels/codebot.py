@@ -633,6 +633,7 @@ class CodeBot(ChatBot):
                     print(f"unknown key_type: {key_type}")
                     raise NotImplementedError
                 try:
+                    # need a loop here to check if answer is solid
                     new_hh_value = self.forward_generic(
                         prompt=self.extract_value_from_ans_prompt.format(
                             eligibility_requirements=relevant_program,
