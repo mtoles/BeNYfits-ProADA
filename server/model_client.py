@@ -29,8 +29,13 @@ url = os.getenv("LM_SERVER_URL")
 
 @memory.cache
 def gpt_forward_cached(name_of_model, history, response_format):
-    if response_format == ResponseFormat.options.value:
-        response_format = Options
+    # if response_format == ResponseFormat.options.value:
+    if name_of_model.startswith("o1"):
+        response_format = None
+    # if not name_of_model.startswith("o1"):
+    # response_format = {"type": "json_object"}
+    # else:
+    # response_format = None
     client = OpenAI()
     # try:
     # if request.constraints is not None and request.constraint_type=="openai":
@@ -38,21 +43,29 @@ def gpt_forward_cached(name_of_model, history, response_format):
     #     response_format = request.constraints
     # else:
     #     response_format = None
-    if response_format is None:
-        # completion = client.beta.chat.completions.parse(
-        completion = client.chat.completions.create(
-            model=name_of_model,
-            messages=history,
-            temperature=0.7,
-        )
-    else:
-        completion = client.beta.chat.completions.parse(
-            model=name_of_model,
-            messages=history,
-            temperature=0.7,
-            response_format=response_format,
-        )
-    print(type(completion))
+    temperature = 0.7
+    if name_of_model.startswith("o1"):
+        temperature = 1
+    # if response_format is None:
+    # completion = client.beta.chat.completions.parse(
+    completion = client.chat.completions.create(
+        model=name_of_model,
+        messages=history,
+        temperature=temperature,
+        response_format=response_format,
+    )
+    # else:
+    # elif response_format == "json_object":
+    #     # completion = client.beta.chat.completions.parse(
+    #     completion = client.chat.completions.create(
+    #         model=name_of_model,
+    #         messages=history,
+    #         temperature=temperature,
+    #         response_format={"type": "json_object"},
+    #     )
+    # else:
+    #     raise NotImplementedError # response format is not supported/specified
+    # print(type(completion))
     generated_text = completion.choices[0].message.content.strip()
     return generated_text
 
@@ -92,7 +105,7 @@ class ModelAPIClient:
             response_format=openai_response_format,
             random_seed=self.random_seed,
         )
-        if fr.name_of_model.startswith("gpt"):
+        if fr.name_of_model.startswith("gpt") or fr.name_of_model.startswith("o1"):
             response = self.forward_gpt(fr)
             # self.lm_logger.log_io(
             #     lm_input=history, lm_output=response, role=logging_role

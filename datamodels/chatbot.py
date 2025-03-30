@@ -119,10 +119,18 @@ class ChatBot:
             use_cache=self.use_cache,
             constraint_type="regex",
             constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
+            openai_response_format={"type": "json_object"}
         )
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
-        processed_output = ast.literal_eval(f"[{lm_output.strip('[]')}]")
+        found_list = re.search(r"\[(.*?)\]", lm_output).group(1)
+        processed_output = ast.literal_eval(f"[{found_list.strip('[]')}]")
+        if len(processed_output) > len(programs):
+            processed_output = processed_output[: len(programs)]
+        if len(processed_output) < len(programs):
+            processed_output = processed_output + [False] * (
+                len(programs) - len(processed_output)
+            )
         assert len(processed_output) == len(programs)
         output_dict = dict(zip(programs, processed_output))
         return output_dict

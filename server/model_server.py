@@ -39,12 +39,13 @@ model = None
 raw_model = None
 tk = None
 
+
 def watch_inactivity():
-    T = 60*60*2 # 2 hours
+    T = 60 * 60 * 2  # 2 hours
     # T = 30
     global model, tk, current_name_of_model, raw_model
     while True:
-        time.sleep(T/4)  
+        time.sleep(T / 4)
         if time.time() - last_request_time > T and not request_in_progress:
             print("flushing model")
             # flush model
@@ -63,7 +64,9 @@ def watch_inactivity():
         else:
             print("model preserved")
 
+
 threading.Thread(target=watch_inactivity, daemon=True).start()
+
 
 class ForwardRequest(BaseModel):
     name_of_model: str
@@ -72,12 +75,9 @@ class ForwardRequest(BaseModel):
     constraints: Optional[Union[BaseModel, list[str], str]]
     # constraints: Optional[Union[list[str], str]]
     constraint_type: Optional[str]
-    response_format: Optional[str]
+    response_format: Optional[dict]
     random_seed: int
     # prefix: Optional[list[dict]]
-
-
-
 
 
 def _str_to_type(s):
