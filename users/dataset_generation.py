@@ -5,21 +5,22 @@ import pandas as pd
 
 
 def unit_test_dataset():
-    hh1 = Household([Person.default_unemployed(is_self=True)])
-    hh2 = Household(
-        [
-            Person.default_employed(is_self=True),
-            Person.default_child(),
-        ]
-    )
-    hh3 = Household(
-        [
-            Person.random_person(is_self=True),
-            Person.random_person(),
-            Person.random_person(),
-        ]
-    )
-    hhs = [hh1, hh2, hh3]
+    hh1 = Household([Person.default_person(is_self=True)])
+    # hh2 = Household(
+    #     [
+    #         Person.default_employed(is_self=True),
+    #         Person.default_child(),
+    #     ]
+    # )
+    # hh3 = Household(
+    #     [
+    #         Person.random_person(is_self=True),
+    #         Person.random_person(),
+    #         Person.random_person(),
+    #     ]
+    # )
+    # hhs = [hh1, hh2, hh3]
+    hhs = [hh1]
     # nl_descs = []
     rows = []
     for hh in hhs:

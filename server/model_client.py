@@ -30,8 +30,6 @@ url = os.getenv("LM_SERVER_URL")
 @memory.cache
 def gpt_forward_cached(name_of_model, history, response_format):
     # if response_format == ResponseFormat.options.value:
-    if name_of_model.startswith("o1"):
-        response_format = None
     # if not name_of_model.startswith("o1"):
     # response_format = {"type": "json_object"}
     # else:
@@ -44,7 +42,8 @@ def gpt_forward_cached(name_of_model, history, response_format):
     # else:
     #     response_format = None
     temperature = 0.7
-    if name_of_model.startswith("o1"):
+    if name_of_model.startswith("o1") or name_of_model.startswith("o3"):
+        response_format = None
         temperature = 1
     # if response_format is None:
     # completion = client.beta.chat.completions.parse(
@@ -105,7 +104,7 @@ class ModelAPIClient:
             response_format=openai_response_format,
             random_seed=self.random_seed,
         )
-        if fr.name_of_model.startswith("gpt") or fr.name_of_model.startswith("o1"):
+        if fr.name_of_model.startswith("gpt") or fr.name_of_model.startswith("o1") or fr.name_of_model.startswith("o3"):
             response = self.forward_gpt(fr)
             # self.lm_logger.log_io(
             #     lm_input=history, lm_output=response, role=logging_role
@@ -126,7 +125,7 @@ class ModelAPIClient:
             self.lm_logger.log_io(
                 lm_input=history, lm_output=generated_text, role=logging_role
             )
-        print(f"prompt: {history[-1]['content']}")
+        # print(f"prompt: {history[-1]['content']}")
         print(f"response: {generated_text}")
         print("==================================")
         return generated_text

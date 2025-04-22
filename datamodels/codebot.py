@@ -31,12 +31,14 @@ list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
 def convert_keys_to_int(d):
     if not isinstance(d, dict):
         return d  # Return unchanged if not a dictionary
-    
+
     new_dict = {}
     for key, value in d.items():
         new_key = int(key) if isinstance(key, str) and key.isdigit() else key
-        new_dict[new_key] = convert_keys_to_int(value) if isinstance(value, dict) else value
-    
+        new_dict[new_key] = (
+            convert_keys_to_int(value) if isinstance(value, dict) else value
+        )
+
     return new_dict
 
 
@@ -67,6 +69,9 @@ class ImaginaryData:
             if int_key in self.members:
                 return self.members[int_key]
             else:
+                if len(self.members) > 100:
+                    print("infinite loop caused too many members")
+                    raise NotImplementedError
                 self.members[int_key] = ImaginaryData(index=int_key)
                 return self.members[int_key]
         elif key in self.tl_data:
@@ -128,11 +133,13 @@ class CodeBot(ChatBot):
 
     get_type_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what do you expect {key} to be an integer, a float, or one choice from a set of strings? Return ONLY int, float, or choice."""
     # get_choices_prompt = """Context:\n{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible choices of {key}? Return ONLY the list of possible values."""
-    get_values_prompt = """Context:{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible values of {key}? Return ONLY the list of possible values in a list of strings. For example, return `["a", "b", "c"]`."""
+    get_values_prompt = """Context:{eligibility_requirements}\n\nCode:\n{code}\n\nTraget key:\n{key}\n\nQuestion: Given the code and context above, what are the possible values of {key}? Return ONLY a JSON dict with they key "options" and the value being a list of possible values in a list of strings. For example, return `{{"options": ["a", "b", "c"]}}`."""
 
     extract_value_from_ans_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to extract the value of {key} from the following dialog:\n\nQuestion: {cq}\n\nAnswer:\n{answer}\n\nWhat should we set as the value of {key}? Return ONLY the value."""
     key_error_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to determine what value of {key} should be stored in the `hh` dictionary. Ask a question to the user that would get this value. For example, for age_i, ask "What is the age of person i?". Return ONLY the question."""
+    response_not_found_prompt = """Context:\n{eligibility_requirements}\n\nLine:\n```{line}```\n\nWe need to determine what value of {key} should be stored in the `hh` dictionary. Ask a question to the user that would get this value. For example, for age_i, ask "What is the age of person i?". Return ONLY the question. The user responded "{answer}" to the previous question, which was"{cq}", so try to clarify the communication breakdown."""
 
+    did_response_contain_answer_prompt = """Context:\nQuestion: {cq}\n\nResponse: {answer}\n\nDoes the response contain an answer to the question? Answer ONLY yes or no."""
     # type_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, cannot be cast to type {target_type}. What string can we use instead that can be cast to type {target_type}? Return ONLY the value."""
     # str_error_prompt = """Context:\n{eligibility_requirements}\n\nDialog:{dialog}\n\nLine:\n```{line}```\n\nThe string value, {value}, is not one of {target_options}. Which option of {target_options} is most similar to {value}? Return ONLY the value."""
 
@@ -273,7 +280,8 @@ class CodeBot(ChatBot):
                     chat_model_id=code_model_id,
                     use_cache=use_cache,
                     logging_role="choice_gen",
-                    openai_response_format=ResponseFormat.options.value,
+                    # openai_response_format=ResponseFormat.options.value,
+                    openai_response_format={"type": "json_object"},
                 )
                 response_dict = json.loads(response_dict_raw)
                 choices = response_dict.get("options", [])
@@ -327,7 +335,10 @@ class CodeBot(ChatBot):
             rewritten = False
 
             self.max_code_gen_attempts = self.max_code_gen_attempts
-            while checker_attempt_no < self.max_code_gen_attempts or code_rewrite_attempt_no < self.max_code_rewrite_attempts:
+            while (
+                checker_attempt_no < self.max_code_gen_attempts
+                or code_rewrite_attempt_no < self.max_code_rewrite_attempts
+            ):
                 oai_seed_no = checker_attempt_no + 1000 * self.random_seed
                 print(f"attempting to generate checker, attempt {oai_seed_no}")
 
@@ -339,13 +350,13 @@ class CodeBot(ChatBot):
                     )
                     rewritten = False
                 else:
-                    
+
                     prompt_content = self.generate_corrected_code_prompt.format(
                         eligibility_requirements=desc,
                         code=failed_code,
                         failed_test_case=failed_test_case,
                     )
-                    
+
                     if error_trace:
                         prompt_content += f"\nThrows an error:\n {error_trace}"
                     else:
@@ -387,13 +398,17 @@ class CodeBot(ChatBot):
 
                 except Exception as e:
                     import traceback
+
                     traceback.print_exc()
-                    
+
                     if not rewritten:
                         checker_attempt_no += 1
 
                     # If we exceeded attempts, skip this requirement
-                    if not rewritten and checker_attempt_no > self.max_code_gen_attempts:
+                    if (
+                        not rewritten
+                        and checker_attempt_no > self.max_code_gen_attempts
+                    ):
                         raise Exception(
                             f"Failed to generate checker for {name} after {checker_attempt_no} attempts."
                         )
@@ -433,7 +448,10 @@ class CodeBot(ChatBot):
                                 result = locals()[name](hh)
                             except Exception as err:
                                 import traceback
-                                error_trace = ''.join(traceback.format_exception(*sys.exc_info()))
+
+                                error_trace = "".join(
+                                    traceback.format_exception(*sys.exc_info())
+                                )
                                 failed_code = func_def
                                 failed_test_case = case
                                 matches = False
@@ -448,9 +466,12 @@ class CodeBot(ChatBot):
 
                         if not matches:
                             continue
-                    
+
                     # success: neither code gen nor code rewrite need to run again
-                    this_program_key_types, new_choices, = self._update_key_types_and_choices(
+                    (
+                        this_program_key_types,
+                        new_choices,
+                    ) = self._update_key_types_and_choices(
                         this_program_used_keys,
                         desc,
                         self.clean_checker_outputs[name],
@@ -462,12 +483,10 @@ class CodeBot(ChatBot):
                     break
                 except Exception as e:
                     import traceback
+
                     traceback.print_exc()
 
                     continue
-                    
-            
-
 
         with open("datamodels/template.py", "r") as template_file:
             template = template_file.read()
@@ -588,6 +607,7 @@ class CodeBot(ChatBot):
                         ]
                     )
                     assert line
+
                 cq = self.forward_generic(
                     prompt=self.key_error_prompt.format(
                         eligibility_requirements=relevant_program,
@@ -596,44 +616,76 @@ class CodeBot(ChatBot):
                     ),
                     logging_role="key_error",
                 )
-                # check that the cq doesn't appear in the history more than 12 times
-                past_cqs = np.array([x["content"] for x in history])
-                if np.sum(past_cqs == cq) > 12:
-                    print("too many cq repeats")
-                    return {
-                        "program_name": program_name,
-                        "hh": hh,
-                        "history": history,
-                        "eligibility": np.random.choice([True, False]),
-                        "completed": False,
-                    }, hh
+                for clarification_attempt_no in range(3):
+                    # check that the cq doesn't appear in the history more than 12 times
+                    past_cqs = np.array([x["content"] for x in history])
+                    if np.sum(past_cqs == cq) > 12:
+                        # print("too many cq repeats")
+                        return {
+                            "program_name": program_name,
+                            "hh": hh,
+                            "history": history,
+                            "eligibility": np.random.choice([True, False]),
+                            "completed": False,
+                        }, hh
 
-                this_program_questions += 1
-                self.total_questions += 1
-                print(f"user index: {self.data_user_index}")
-                print(f"{this_program_questions} questions on program {program_name}")
-                print(
-                    f"{self.total_questions} total questions on {self.total_programs_completed} programs"
-                )
-                history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
-                ca = synthetic_user.answer_cq(cq=cq, history=history)
-                history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": ca})
+                    this_program_questions += 1
+                    self.total_questions += 1
+                    print(f"user index: {self.data_user_index}")
+                    print(
+                        f"{this_program_questions} questions on program {program_name}"
+                    )
+                    print(
+                        f"{self.total_questions} total questions on {self.total_programs_completed} programs"
+                    )
+                    history.append({"role": RoleEnum.CQ_MODEL.value, "content": cq})
+                    ca = synthetic_user.answer_cq(cq=cq, history=history)
+                    history.append(
+                        {"role": RoleEnum.SYNTHETIC_USER.value, "content": ca}
+                    )
 
-                key_type = self.key_types.get(key, "any")
-                if key_type == ConstraintType.choice:
-                    constraint_type = ConstraintType.choice
-                    constraint = self.choices[key]
-                elif key_type in ["int", "float"]:
-                    constraint_type = ConstraintType.types
-                    constraint = [eval(key_type)]
-                elif key_type == "any":
-                    constraint_type = ConstraintType.none
-                    constraint = None
-                else:
-                    print(f"unknown key_type: {key_type}")
-                    raise NotImplementedError
-                try:
+                    key_type = self.key_types.get(key, "any")
+                    if key_type == ConstraintType.choice:
+                        constraint_type = ConstraintType.choice
+                        constraint = self.choices[key]
+                    elif key_type in ["int", "float"]:
+                        constraint_type = ConstraintType.types
+                        constraint = [eval(key_type)]
+                    elif key_type == "any":
+                        constraint_type = ConstraintType.none
+                        constraint = None
+                    else:
+                        print(f"unknown key_type: {key_type}")
+                        raise NotImplementedError
+                    # try:
                     # need a loop here to check if answer is solid
+                    mini_history = deepcopy(history)
+                    question_was_answered = self.forward_generic(
+                        prompt=self.did_response_contain_answer_prompt.format(
+                            cq=cq,
+                            answer=ca,
+                        ),
+                        logging_role="did_response_contain_answer",
+                        constraint_type=ConstraintType.choice,
+                        constraints=["yes", "no"],
+                    )
+                    if "yes" in question_was_answered.lower():
+                        break
+                    else:
+                        cq = self.forward_generic(
+                            prompt=self.response_not_found_prompt.format(
+                                cq=cq,
+                                answer=ca,
+                                eligibility_requirements=relevant_program,
+                                line=line,
+                                key=key,
+                            ),
+                            logging_role="response_not_found",
+                        )
+                    # except Exception as e:
+                    #     print(f"failed to extract value from answer: {e}")
+                    #     new_hh_value = "0"
+                try:
                     new_hh_value = self.forward_generic(
                         prompt=self.extract_value_from_ans_prompt.format(
                             eligibility_requirements=relevant_program,
@@ -647,7 +699,9 @@ class CodeBot(ChatBot):
                         constraints=constraint,
                     )
                 except Exception as e:
-                    print(f"failed to extract value from answer: {e}") # not sure whats wrong, fix later, @nikhil?
+                    print(
+                        f"failed to extract value from answer: {e}"
+                    )  # not sure whats wrong, fix later, @nikhil?
                     new_hh_value = "0"
                 # history.append({"role": "assistant", "content": new_hh_value})
                 prev_hh = deepcopy(hh)

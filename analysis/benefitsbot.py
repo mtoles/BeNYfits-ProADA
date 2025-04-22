@@ -58,7 +58,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_dialog_turns",
-    default=float("inf"),
+    default=100,
     help="Maximum number of iterations between benefits bot and synthetic user",
     type=int,
 )
@@ -155,6 +155,7 @@ args_df.to_json(args_path)
 #     response_format=None,
 # )
 
+
 def read_eligibility_requirements(file_path, num_programs):
     with open(file_path, "r") as file:
         file_content = file.read()
@@ -187,8 +188,8 @@ program_names = set(all_eligibility_requirements.keys())
 class_names = set(args.programs)
 bad_class_names = class_names - program_names
 bad_program_names = program_names - class_names
-print(f"Bad class names: {bad_class_names}")
-print(f"Bad program names: {bad_program_names}")
+# print(f"Bad class names: {bad_class_names}")
+# print(f"Bad program names: {bad_program_names}")
 assert len(bad_class_names) == 0
 
 if os.path.exists(args.dataset_path):
@@ -298,7 +299,7 @@ os.makedirs("generated_code", exist_ok=True)
 
 generated_code_results = []
 for index, row in tqdm(labels_df.iterrows()):
-    target_programs = row["target_programs"]
+    target_programs = list(set(row["target_programs"]) & set(args.programs))
     n_programs = len(target_programs)
     turn_limit = min(args.max_dialog_turns, n_programs * TURNS_PER_PROGRAM)
     eligibility_requirements = {
@@ -316,7 +317,7 @@ for index, row in tqdm(labels_df.iterrows()):
         data_user_index=index,
         target_programs=target_programs,
     )
-    
+
     synthetic_user = SyntheticUser(
         row,
         # hh_nl_desc,
@@ -348,13 +349,13 @@ for index, row in tqdm(labels_df.iterrows()):
         )
         generated_code_results.append(code_results)
 
-        for p_name, p_res in code_results.items():
-            label = labels[p_name]
-            # print labela nd pred
-            print(f"Program: {p_name}")
-            print(f"Label: {label}")
-            print(f"Eligibility: {p_res['eligibility']}")
-            print("\n")
+        # for p_name, p_res in code_results.items():
+        #     label = labels[p_name]
+        #     # print labela nd pred
+        #     print(f"Program: {p_name}")
+        #     print(f"Label: {label}")
+        #     print(f"Eligibility: {p_res['eligibility']}")
+        #     print("\n")
 
         predictions_log_entry = {}
         for k, v in code_results.items():
@@ -392,13 +393,13 @@ for index, row in tqdm(labels_df.iterrows()):
             cur_iter_count > 0
             and str(chatbot.predict_benefits_ready(history)) == "True"
         ) or cur_iter_count == turn_limit:
-            print(f"Benefits eligibility decided on turn {cur_iter_count}/{turn_limit}")
+            # print(f"Benefits eligibility decided on turn {cur_iter_count}/{turn_limit}")
             # decision = per_turn_predictions[-1]
             decision = chatbot.predict_benefits_eligibility(history, target_programs)
             per_turn_predictions.append(decision)
-            print(f"Decision:  {decision}")
-            print(f"label:     {labels.to_dict()}")
-            print("==" * 20)
+            # print(f"Decision:  {decision}")
+            # print(f"label:     {labels.to_dict()}")
+            # print("==" * 20)
             per_turn_predictions.extend([decision] * (turn_limit - cur_iter_count))
             last_turn_iteration.append(cur_iter_count)
             break
@@ -408,11 +409,11 @@ for index, row in tqdm(labels_df.iterrows()):
         cq_answer = synthetic_user.answer_cq(history=history, cq=cq)
         history.append({"role": RoleEnum.SYNTHETIC_USER.value, "content": cq_answer})
 
-        print(f"Turn Number:         {cur_iter_count}")
-        print(f"Clarifying Question: {cq}")
-        print(f"Answer:              {cq_answer}")
+        # print(f"Turn Number:         {cur_iter_count}")
+        # print(f"Clarifying Question: {cq}")
+        # print(f"Answer:              {cq_answer}")
         chatbot.post_answer(history)
-        print("==" * 20)
+        # print("==" * 20)
         cur_iter_count += 1
 
     per_turn_all_predictions.append(per_turn_predictions)
@@ -498,3 +499,14 @@ labels_df[args.programs].astype(int).to_json(
 runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
 print(f"Saved to {output_dir}")
+
+# print eligibility prediction for each program in args.programs
+for program in args.programs:
+    print(f"{program}: {all_eligibility_requirements[program]}")
+    if program in predictions_df.columns:
+        print(
+            f"Eligibility Prediction: {'Yes' if predictions_df.iloc[0][program] else 'No'}"
+        )
+    else:
+        print(f"Eligibility Prediction: {per_turn_predictions[-1][program]}")
+    print("==" * 20)

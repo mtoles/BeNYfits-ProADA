@@ -16,7 +16,8 @@ def plot_code_mode_results(
     Counts all NaN predictions as incorrect.
     """
     n = len(df)
-    p_names = df.columns
+    # p_names = df.columns
+    p_names = labels_df.columns[1:] # skip first columns ("index")
     dfs = {}
     labels_df = labels_df.astype(int)
     output_dir = PurePath(output_dir)

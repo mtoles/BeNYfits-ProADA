@@ -119,7 +119,7 @@ class ChatBot:
             use_cache=self.use_cache,
             constraint_type="regex",
             constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
-            openai_response_format={"type": "json_object"}
+            openai_response_format={"type": "json_object"},
         )
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
@@ -257,6 +257,7 @@ class CotChatBot(ChatBot):
         """
         Check whether chatbot history has sufficient information to determine eligbility of all benenfits
         """
+        history_ = rename_roles(history)
         prompt = {
             "role": "user",
             "content": self.benefits_ready_prompt.format(
@@ -264,7 +265,7 @@ class CotChatBot(ChatBot):
             ),
         }
         raw_lm_output = self.lm_api.forward(
-            history + [prompt],
+            history_ + [prompt],
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
             logging_role="predict_benefits_ready",
@@ -285,8 +286,9 @@ class CotChatBot(ChatBot):
                 example_array=example_array(self.num_programs),
             ),
         }
+        history_ = rename_roles(history)
         reasoning = self.lm_api.forward(
-            history + [reasoning_prompt],
+            history_ + [reasoning_prompt],
             logging_role="predict_benefits_eligibility",
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
@@ -306,7 +308,7 @@ class CotChatBot(ChatBot):
             ),
         }
         decision = self.lm_api.forward(
-            history + [decision_turn],
+            history_ + [decision_turn],
             logging_role="predict_benefits_eligibility",
             chat_model_id=self.chat_model_id,
             use_cache=self.use_cache,
@@ -315,6 +317,9 @@ class CotChatBot(ChatBot):
         )
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
+        matches = re.findall(r".*\[([^]]*)\]", decision)  # [-1].strip("[]")
+        decision = matches[-1].strip("[]") if matches else None
+
         processed_output = ast.literal_eval(f"[{decision}]")
         assert len(processed_output) == len(programs)
         output_dict = dict(zip(programs, processed_output))
