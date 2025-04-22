@@ -500,13 +500,13 @@ runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
 print(f"Saved to {output_dir}")
 
-# print eligibility prediction for each program in args.programs
-for program in args.programs:
-    print(f"{program}: {all_eligibility_requirements[program]}")
-    if program in predictions_df.columns:
-        print(
-            f"Eligibility Prediction: {'Yes' if predictions_df.iloc[0][program] else 'No'}"
-        )
-    else:
-        print(f"Eligibility Prediction: {per_turn_predictions[-1][program]}")
-    print("==" * 20)
+# # print eligibility prediction for each program in args.programs
+# for program in args.programs:
+#     print(f"{program}: {all_eligibility_requirements[program]}")
+#     if program in predictions_df.columns:
+#         print(
+#             f"Eligibility Prediction: {'Yes' if predictions_df.iloc[0][program] else 'No'}"
+#         )
+#     else:
+#         print(f"Eligibility Prediction: {per_turn_predictions[-1][program]}")
+#     print("==" * 20)

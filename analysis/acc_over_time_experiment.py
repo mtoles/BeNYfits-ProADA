@@ -21,7 +21,7 @@ def plot_code_mode_results(
     dfs = {}
     labels_df = labels_df.astype(int)
     output_dir = PurePath(output_dir)
-    for p in p_names:
+    for p in df.columns:
         for i in range(n):
             targets = ~df[p].isna()
             preds = df[targets][p]

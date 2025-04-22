@@ -65,9 +65,15 @@ class ChatBot:
         #     "role": "user",
         #     "content": "Is the information sufficient to determine eligibility of all programs? Answer only in one word True or False.",
         # }
-        self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Answer only in one word True or False."
-        self.benefits_prediction_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which any member of the user's household is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess."
+        self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Answer only in one word True or False in JSON format."
+        self.benefits_prediction_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which any member of the user's household is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess. Answer in JSON format."
         self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine if any member of the user's household is eligible for benefits as efficiently as possible. Only ask about one fact at a time."
+
+        # self.benefits_ready_prompt = "Eligibility requirements: {eligibility_requirements}. \n\nIs the information sufficient to determine whether any member of the user's household is eligible for all programs? Think through your reasoning out loud. Then answer with True or False."
+        # self.predict_benefits_reasoning_prompt = "Eligibility: {eligibility_requirements}. \n\nPredict the programs for which any member of the user's household is eligible. Return only a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. Only return the array. Do not return anything else in the response. If a user's eligibility is unclear, make your best guess.Think through your reasoning out loud."
+        # self.predict_benefits_constrained_prompt = "Reasoning: {reasoning}. \n\nUsing the reasoning above, predict the programs for which any member of the user's household is eligible. Output a boolean array of length {num_programs}, e.g. {example_array}, where the value at index `i` is true iff the user is eligible for program `i`. If a user's eligibility is unclear, make your best guess."
+        # self.predict_cq_prompt = "Eligibility: {eligibility_requirements}. \n\nAsk a clarifying question that will help you determine if any member of the user's household is eligible for benefits as efficiently as possible. Only ask about one fact at a time. Think through your reasoning out loud, then state your question after a colon, e.g. Question: What is the user's age?"
+
         self.use_cache = use_cache
         self.random_seed = random_seed
         self.lm_api = ModelAPIClient(
@@ -124,6 +130,8 @@ class ChatBot:
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
         found_list = re.search(r"\[(.*?)\]", lm_output).group(1)
+        # replace false -> False, true -> True
+        found_list = found_list.replace("false", "False").replace("true", "True")
         processed_output = ast.literal_eval(f"[{found_list.strip('[]')}]")
         if len(processed_output) > len(programs):
             processed_output = processed_output[: len(programs)]
