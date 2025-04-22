@@ -1,0 +1,3 @@
+"""
+Users package for benefitsbot.
+"""
