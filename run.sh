@@ -1,3 +1,5 @@
 export CUDA_VISIBLE_DEVICES=0
 LM_PORT_NO=55221
-uvicorn server.concurrent_multiple_model_server:app --port ${LM_PORT_NO}
+# uvicorn server.concurrent_multiple_model_server:app --port ${LM_PORT_NO}
+# python3 analysis/benefitsbot.py --chat_model_id meta-llama/Meta-Llama-3.1-70B-Instruct --code_model_id gpt-4o-2024-08-06 --chatbot_strategy cot --max_code_gen_attempts 3 --synthetic_user_model_name meta-llama/Meta-Llama-3.1-70B-Instruct --programs EarlyHeadStart InfantToddlerPrograms HeadStart ComprehensiveAfterSchoolSystemOfNYC PreKForAll --estring debug --dataset_path dataset/user_study_dataset.jsonl\n\
+python3 analysis/benefitsbot.py --chat_model_id meta-llama/Meta-Llama-3.1-70B-Instruct --code_model_id gpt-4o-2024-08-06 --chatbot_strategy codebot --max_code_gen_attempts 3 --synthetic_user_model_name human --programs EarlyHeadStart InfantToddlerPrograms HeadStart ComprehensiveAfterSchoolSystemOfNYC PreKForAll --estring human-evals --dataset_path dataset/user_study_dataset.jsonl 
