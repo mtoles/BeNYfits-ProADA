@@ -9,7 +9,7 @@ from inspect import currentframe
 from server.model_client import ModelAPIClient
 from dotenv import load_dotenv
 import os
-from utils import rename_roles, RoleEnum
+from utils.utils import rename_roles, RoleEnum
 
 load_dotenv(override=False)
 np.random.seed(42)

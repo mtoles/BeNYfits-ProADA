@@ -18,9 +18,9 @@ from tqdm import tqdm
 from pydantic import BaseModel
 import json
 
-from utils import extract_function_definitions, remove_raise_statements, RoleEnum
+from utils.utils import extract_function_definitions, remove_raise_statements, RoleEnum
 from datamodels.chatbot import ChatBot
-from utils import hist_to_str
+from utils.utils import hist_to_str
 from typing import Optional
 from copy import deepcopy
 

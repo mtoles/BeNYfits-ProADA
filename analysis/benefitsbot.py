@@ -18,7 +18,7 @@ from datamodels.codebot import CodeBot
 from datetime import datetime
 from uuid import uuid4
 from users.benefits_programs import BenefitsProgramMeta
-from utils import RoleEnum
+from utils.utils import RoleEnum
 import json
 
 start = datetime.now()

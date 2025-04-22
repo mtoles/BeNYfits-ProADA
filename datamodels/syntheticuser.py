@@ -8,7 +8,7 @@ import torch
 from dotenv import load_dotenv
 import os
 from server.model_client import ModelAPIClient
-from utils import RoleEnum, rename_roles
+from utils.utils import RoleEnum, rename_roles
 from copy import deepcopy
 
 

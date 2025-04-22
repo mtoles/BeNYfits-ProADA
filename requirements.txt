@@ -22,3 +22,4 @@ outlines
 uvicorn
 black
 huggingface_hub
+accelerate
