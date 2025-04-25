@@ -190,7 +190,7 @@ bad_class_names = class_names - program_names
 bad_program_names = program_names - class_names
 # print(f"Bad class names: {bad_class_names}")
 # print(f"Bad program names: {bad_program_names}")
-assert len(bad_class_names) == 0
+assert len(bad_class_names) == 0, f"Bad class names: {bad_class_names}"
 
 if os.path.exists(args.dataset_path):
     labels_df = pd.read_json(args.dataset_path, lines=True)
@@ -501,7 +501,7 @@ print(f"Runtime: {runtime}")
 print(f"Saved to {output_dir}")
 
 # print eligibility prediction for each program in args.programs
-if args.dataset_path == "dataset/user_study_dataset.jsonl"
+if args.dataset_path == "dataset/user_study_dataset.jsonl":
     for program in args.programs:
         print(f"{program}: {all_eligibility_requirements[program]}")
         if program in predictions_df.columns:
