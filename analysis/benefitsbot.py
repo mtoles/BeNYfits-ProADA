@@ -183,7 +183,7 @@ all_eligibility_requirements = predictions_df.set_index("program_name")[
 all_eligibility_requirements = {
     k: v for k, v in all_eligibility_requirements.items() if k in args.programs
 }
-
+print("\n".join(predictions_df.program_name))
 program_names = set(all_eligibility_requirements.keys())
 class_names = set(args.programs)
 bad_class_names = class_names - program_names
@@ -500,13 +500,14 @@ runtime = datetime.now() - start
 print(f"Runtime: {runtime}")
 print(f"Saved to {output_dir}")
 
-# # print eligibility prediction for each program in args.programs
-# for program in args.programs:
-#     print(f"{program}: {all_eligibility_requirements[program]}")
-#     if program in predictions_df.columns:
-#         print(
-#             f"Eligibility Prediction: {'Yes' if predictions_df.iloc[0][program] else 'No'}"
-#         )
-#     else:
-#         print(f"Eligibility Prediction: {per_turn_predictions[-1][program]}")
-#     print("==" * 20)
+# print eligibility prediction for each program in args.programs
+if args.dataset_path == "dataset/user_study_dataset.jsonl"
+    for program in args.programs:
+        print(f"{program}: {all_eligibility_requirements[program]}")
+        if program in predictions_df.columns:
+            print(
+                f"Eligibility Prediction: {'Yes' if predictions_df.iloc[0][program] else 'No'}"
+            )
+        else:
+            print(f"Eligibility Prediction: {per_turn_predictions[-1][program]}")
+        print("==" * 20)
