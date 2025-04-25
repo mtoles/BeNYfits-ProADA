@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import time
 import threading
 import queue  # <--- For the per-model queues
+import gc
 
 load_dotenv(override=False)
 
@@ -20,7 +21,6 @@ load_dotenv(override=False)
 Run with:
     CUDA_VISIBLE_DEVICES=0 uvicorn server.concurrent_multiple_model_server:app --port XXXXX
 """
-
 memory = Memory(".joblib_cache", verbose=0)
 app = FastAPI()
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -45,18 +45,17 @@ MODEL_STORE structure:
 }
 """
 
-GPU_OCCUPANCY = {
-    gpu_id: set() for gpu_id in range(torch.cuda.device_count())
-}
+GPU_OCCUPANCY = {gpu_id: set() for gpu_id in range(torch.cuda.device_count())}
 
-INACTIVITY_TIMEOUT = 60 * 60  # 1 hour
-
+# INACTIVITY_TIMEOUT = 60 * 60  # 1 hour
+INACTIVITY_TIMEOUT = 10  # 10 seconds
 # One lock to protect the actual model_store loading/unloading
 model_store_lock = threading.Lock()
 
 # Create a queue per model name when needed
-MODEL_QUEUES = {}   # model_name -> queue.Queue
+MODEL_QUEUES = {}  # model_name -> queue.Queue
 MODEL_WORKERS = {}  # model_name -> threading.Thread
+
 
 class ForwardRequest(BaseModel):
     name_of_model: str
@@ -67,6 +66,7 @@ class ForwardRequest(BaseModel):
     response_format: Any
     random_seed: int
 
+
 def _str_to_type(s):
     if s == "int":
         return int
@@ -75,11 +75,13 @@ def _str_to_type(s):
     else:
         raise NotImplementedError(f"Type {s} not supported.")
 
+
 @memory.cache
 def forward_hf(request: ForwardRequest):
     """
     The main text-generation function using Outlines & HuggingFace models.
     """
+    print("hello 4")
     name_of_model = request.name_of_model
     history = request.history
 
@@ -95,8 +97,10 @@ def forward_hf(request: ForwardRequest):
     else:
         raise NotImplementedError(f"Unknown constraint type: {request.constraint_type}")
 
-    print(f"[{name_of_model}] History: {history}")
-    print(f"[{name_of_model}] Constraints: {constraints} (type={request.constraint_type})")
+    # print(f"[{name_of_model}] History: {history}")
+    # print(
+    #     f"[{name_of_model}] Constraints: {constraints} (type={request.constraint_type})"
+    # )
     print(f"GPU Occupancy: {GPU_OCCUPANCY}")
 
     model_obj, tokenizer = load_model_if_needed(name_of_model)
@@ -112,15 +116,23 @@ def forward_hf(request: ForwardRequest):
         if not constraints or request.constraint_type == "none":
             generator = outlines.generate.text(model_obj, sampler=sampler)
         elif request.constraint_type == "choice":
-            generator = outlines.generate.choice(model_obj, constraints, sampler=sampler)
+            generator = outlines.generate.choice(
+                model_obj, constraints, sampler=sampler
+            )
         elif request.constraint_type == "types":
             # Typically expect single type
-            assert len(constraints) == 1, "For 'types' constraint, provide exactly one type."
-            generator = outlines.generate.format(model_obj, constraints[0], sampler=sampler)
+            assert (
+                len(constraints) == 1
+            ), "For 'types' constraint, provide exactly one type."
+            generator = outlines.generate.format(
+                model_obj, constraints[0], sampler=sampler
+            )
         elif request.constraint_type == "regex":
             generator = outlines.generate.regex(model_obj, constraints, sampler=sampler)
         else:
-            raise NotImplementedError(f"Constraint type {request.constraint_type} not supported.")
+            raise NotImplementedError(
+                f"Constraint type {request.constraint_type} not supported."
+            )
 
         generated_text = str(generator(prompt)).strip()
         print(f"[{name_of_model}] Generated text: {generated_text}")
@@ -133,10 +145,8 @@ def forward_hf(request: ForwardRequest):
 
     except Exception as e:
         print(traceback.format_exc())
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating text: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error generating text: {e}")
+
 
 def load_model_if_needed(model_name: str):
     """
@@ -156,12 +166,16 @@ def load_model_if_needed(model_name: str):
                 device_map = {"": "cpu"}
             else:
                 # Find free GPU (0 models). If none, pick GPU with fewest models.
-                free_gpus = [g for g, occupant in GPU_OCCUPANCY.items() if len(occupant) == 0]
+                free_gpus = [
+                    g for g, occupant in GPU_OCCUPANCY.items() if len(occupant) == 0
+                ]
                 if free_gpus:
                     chosen_gpu = free_gpus[0]
                     print(f"[{model_name}] Found free GPU {chosen_gpu} (no models).")
                 else:
-                    chosen_gpu = min(GPU_OCCUPANCY.keys(), key=lambda g: len(GPU_OCCUPANCY[g]))
+                    chosen_gpu = min(
+                        GPU_OCCUPANCY.keys(), key=lambda g: len(GPU_OCCUPANCY[g])
+                    )
                     print(f"[{model_name}] All GPUs occupied. Using GPU {chosen_gpu}.")
 
                 device_map = {"": f"cuda:{chosen_gpu}"}
@@ -173,7 +187,7 @@ def load_model_if_needed(model_name: str):
                     model_name,
                     torch_dtype=torch.bfloat16,
                     load_in_4bit=True,
-                    device_map=device_map
+                    device_map=device_map,
                 )
                 model_obj = outlines.models.Transformers(raw_model, tokenizer)
 
@@ -182,7 +196,7 @@ def load_model_if_needed(model_name: str):
                     "model": model_obj,
                     "tokenizer": tokenizer,
                     "device": chosen_gpu if chosen_gpu is not None else -1,
-                    "last_used": time.time()
+                    "last_used": time.time(),
                 }
                 if chosen_gpu is not None:
                     GPU_OCCUPANCY[chosen_gpu].add(model_name)
@@ -192,13 +206,14 @@ def load_model_if_needed(model_name: str):
             except Exception as e:
                 print(traceback.format_exc())
                 raise HTTPException(
-                    status_code=500,
-                    detail=f"Error loading model '{model_name}': {e}"
+                    status_code=500, detail=f"Error loading model '{model_name}': {e}"
                 )
+
 
 #
 # Worker / queue design
 #
+
 
 def model_worker(model_name: str):
     """
@@ -214,7 +229,7 @@ def model_worker(model_name: str):
             break
 
         (request_obj, done_event, result_dict) = job
-        
+
         try:
             output = forward_hf(request_obj)
             result_dict["result"] = output
@@ -225,6 +240,7 @@ def model_worker(model_name: str):
         # Signal that we’re done
         done_event.set()
         q.task_done()
+
 
 def start_model_worker(model_name: str):
     """
@@ -238,13 +254,16 @@ def start_model_worker(model_name: str):
         MODEL_WORKERS[model_name] = th
         th.start()
 
+
 #
 # The inactivity watcher
 #
 
+
 def watch_inactivity():
     global MODEL_STORE, GPU_OCCUPANCY
     while True:
+        print(f"[Inactivity Watcher] Checking for inactive models...")
         time.sleep(INACTIVITY_TIMEOUT // 4)
         now = time.time()
 
@@ -252,6 +271,7 @@ def watch_inactivity():
         with model_store_lock:
             to_remove = []
             for model_name, info in MODEL_STORE.items():
+                print(f"now: {now}, last_used: {info['last_used']}")
                 if (now - info["last_used"]) > INACTIVITY_TIMEOUT:
                     to_remove.append(model_name)
 
@@ -267,23 +287,29 @@ def watch_inactivity():
                     del MODEL_STORE[model_name]["model"]
                     del MODEL_STORE[model_name]["tokenizer"]
                     del MODEL_STORE[model_name]
+                    
+                    gc.collect()
                     torch.cuda.empty_cache()
                 except Exception as e:
                     print(f"Error unloading {model_name}: {e}")
 
         print("[Inactivity Watcher] Cycle complete.")
 
+
+print("[Inactivity Watcher] Starting watcher...")
 threading.Thread(target=watch_inactivity, daemon=True).start()
 
 #
 # FastAPI endpoint
 #
 
+
 @app.post("/forward")
 def forward(request: ForwardRequest):
     """
     Endpoint that handles generation requests via queue-based model concurrency.
     """
+    print("hello 3")
     # Example policy: forbid GPT names
     if request.name_of_model.startswith("gpt"):
         raise HTTPException(status_code=400, detail="GPT models are client side only.")
@@ -307,16 +333,15 @@ def forward(request: ForwardRequest):
     # 5) Check for exceptions
     if "exception" in result_holder:
         ex = result_holder["exception"]
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error during generation: {ex}"
-        )
-    
+        raise HTTPException(status_code=500, detail=f"Error during generation: {ex}")
+
     # 6) Return result
     return result_holder["result"]
 
 
 if __name__ == "__main__":
+    print("hello 2")
+
     port = int(os.getenv("LM_PORT_NO", "8000"))
     url = os.getenv("LM_SERVER_URL", "0.0.0.0")
     uvicorn.run(app, host=url, port=port)

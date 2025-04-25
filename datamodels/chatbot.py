@@ -129,7 +129,10 @@ class ChatBot:
         )
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
-        found_list = re.search(r"\[(.*?)\]", lm_output).group(1)
+        try:
+            found_list = re.search(r"\[(.*?)\]", lm_output).group(1)
+        except:
+            found_list = lm_output
         # replace false -> False, true -> True
         found_list = found_list.replace("false", "False").replace("true", "True")
         processed_output = ast.literal_eval(f"[{found_list.strip('[]')}]")
