@@ -47,8 +47,8 @@ MODEL_STORE structure:
 
 GPU_OCCUPANCY = {gpu_id: set() for gpu_id in range(torch.cuda.device_count())}
 
-# INACTIVITY_TIMEOUT = 60 * 60  # 1 hour
-INACTIVITY_TIMEOUT = 10  # 10 seconds
+INACTIVITY_TIMEOUT = 60 * 60  # 1 hour
+# INACTIVITY_TIMEOUT = 10  # 10 seconds
 # One lock to protect the actual model_store loading/unloading
 model_store_lock = threading.Lock()
 
@@ -97,10 +97,10 @@ def forward_hf(request: ForwardRequest):
     else:
         raise NotImplementedError(f"Unknown constraint type: {request.constraint_type}")
 
-    # print(f"[{name_of_model}] History: {history}")
-    # print(
-    #     f"[{name_of_model}] Constraints: {constraints} (type={request.constraint_type})"
-    # )
+    print(f"[{name_of_model}] History: {history}")
+    print(
+        f"[{name_of_model}] Constraints: {constraints} (type={request.constraint_type})"
+    )
     print(f"GPU Occupancy: {GPU_OCCUPANCY}")
 
     model_obj, tokenizer = load_model_if_needed(name_of_model)
