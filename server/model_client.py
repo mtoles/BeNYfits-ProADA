@@ -3,6 +3,7 @@ import requests
 from enum import Enum
 from typing import Union, Optional
 from openai import OpenAI, NotGiven
+from anthropic import Anthropic
 from joblib import Memory
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -21,7 +22,6 @@ class ResponseFormat(Enum):
 
 memory = Memory(".joblib_cache", verbose=0)
 
-# load_dotenv(override=False)  # Load environment variables from a .env file
 
 port = os.getenv("LM_PORT_NO")  # Read 'PORT' environment variable
 url = os.getenv("LM_SERVER_URL")
@@ -29,18 +29,9 @@ url = os.getenv("LM_SERVER_URL")
 
 @memory.cache
 def gpt_forward_cached(name_of_model, history, response_format):
-    # if response_format == ResponseFormat.options.value:
-    # if not name_of_model.startswith("o1"):
-    # response_format = {"type": "json_object"}
-    # else:
-    # response_format = None
+
     client = OpenAI()
-    # try:
-    # if request.constraints is not None and request.constraint_type=="openai":
-    #     # if request.constraint_type == "options":
-    #     response_format = request.constraints
-    # else:
-    #     response_format = None
+
     temperature = 0.7
     if name_of_model.startswith("o1") or name_of_model.startswith("o3"):
         response_format = None
@@ -53,19 +44,38 @@ def gpt_forward_cached(name_of_model, history, response_format):
         temperature=temperature,
         response_format=response_format,
     )
-    # else:
-    # elif response_format == "json_object":
-    #     # completion = client.beta.chat.completions.parse(
-    #     completion = client.chat.completions.create(
-    #         model=name_of_model,
-    #         messages=history,
-    #         temperature=temperature,
-    #         response_format={"type": "json_object"},
-    #     )
-    # else:
-    #     raise NotImplementedError # response format is not supported/specified
-    # print(type(completion))
+
     generated_text = completion.choices[0].message.content.strip()
+    return generated_text
+
+
+@memory.cache
+def claude_forward_cached(name_of_model, history, response_format):
+    client = Anthropic()
+
+    temperature = 0.7
+    if name_of_model.startswith("claude-3"):
+        temperature = 1
+
+    # Convert OpenAI-style messages to Claude format
+    messages = []
+    for msg in history:
+        if msg["role"] == "system":
+            messages.append({"role": "system", "content": msg["content"]})
+        elif msg["role"] == "user":
+            messages.append({"role": "user", "content": msg["content"]})
+        elif msg["role"] == "assistant":
+            messages.append({"role": "assistant", "content": msg["content"]})
+
+    completion = client.messages.create(
+        model=name_of_model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=2048,
+    )
+
+    generated_text = completion.content[0].text.strip()
+    print(f"claude generated_text: {generated_text}")
     return generated_text
 
 
@@ -104,12 +114,18 @@ class ModelAPIClient:
             response_format=openai_response_format,
             random_seed=self.random_seed,
         )
-        if fr.name_of_model.startswith("gpt") or fr.name_of_model.startswith("o1") or fr.name_of_model.startswith("o3"):
+        if (
+            fr.name_of_model.startswith("gpt")
+            or fr.name_of_model.startswith("o1")
+            or fr.name_of_model.startswith("o3")
+        ):
             response = self.forward_gpt(fr)
             # self.lm_logger.log_io(
             #     lm_input=history, lm_output=response, role=logging_role
             # )
             # return response
+        elif fr.name_of_model.startswith("claude"):
+            response = self.forward_claude(fr)
         else:
 
             response_package = requests.post(
@@ -132,28 +148,18 @@ class ModelAPIClient:
 
     def forward_gpt(self, request: ForwardRequest):
 
-        # # ModelAPIClient = ModelAPIClient(f"{url}:{port}", lm_logger=None, random_seed=0)
-        # history = [
-        #     {
-        #         "role": "user",
-        #         "content": "How many words are in the sentence 'Hello World'?",
-        #     }
-        # ]
-        # output = gpt_forward_cached(
-        #     "gpt-4o-mini-2024-07-18",
-        #     history,
-        #     response_format=None,
-        # )
-
-        # assert request.prefix is None
         completion = gpt_forward_cached(
             request.name_of_model, request.history, request.response_format
         )
-        # generated_text = completion.choices[0].message.content.strip()
         generated_text = completion
         return {"generated_text": generated_text}
-        # except Exception as e:
-        #     raise HTTPException(status_code=500, detail=str(e))
+
+    def forward_claude(self, request: ForwardRequest):
+        completion = claude_forward_cached(
+            request.name_of_model, request.history, request.response_format
+        )
+        generated_text = completion
+        return {"generated_text": generated_text}
 
 
 if __name__ == "__main__":
@@ -171,13 +177,6 @@ if __name__ == "__main__":
         history,
         response_format=None,
     )
-
-    # output = ModelAPIClient.forward(
-    #     history,
-    #     use_cache=True,
-    #     logging_role="test",
-    #     chat_model_id="gpt-4o-mini-2024-07-18",
-    # )
 
     print(output)
     print
