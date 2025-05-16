@@ -332,7 +332,12 @@ class CotChatBot(ChatBot):
         decision = matches[-1].strip("[]") if matches else None
 
         processed_output = ast.literal_eval(f"[{decision}]")
-        assert len(processed_output) == len(programs)
+        if len(processed_output) > len(programs):
+            print(f"*** WARNING: Length of processed output ({len(processed_output)}) does not match length of programs ({len(programs)}). ***")
+            processed_output = processed_output[:len(programs)]
+        elif len(processed_output) < len(programs):
+            processed_output = processed_output + [False] * (len(programs) - len(processed_output))
+
         output_dict = dict(zip(programs, processed_output))
         return output_dict
 
