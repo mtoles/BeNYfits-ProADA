@@ -4,11 +4,13 @@ from enum import Enum
 from typing import Union, Optional
 from openai import OpenAI, NotGiven
 from anthropic import Anthropic
+import anthropic
 from joblib import Memory
 from fastapi import HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
+import json
 
 
 class Options(BaseModel):
@@ -50,7 +52,8 @@ def gpt_forward_cached(name_of_model, history, response_format):
 
 
 @memory.cache
-def claude_forward_cached(name_of_model, history, response_format):
+def claude_forward_cached(name_of_model, history, response_format, claude_tool_def):
+    claude_tool_def = [] if claude_tool_def is None else claude_tool_def
     client = Anthropic()
 
     temperature = 0.7
@@ -71,10 +74,18 @@ def claude_forward_cached(name_of_model, history, response_format):
         model=name_of_model,
         messages=messages,
         temperature=temperature,
-        max_tokens=2048,
+        tools=claude_tool_def,
+        max_tokens=8192,
     )
-
-    generated_text = completion.content[0].text.strip()
+    if claude_tool_def:
+        first_tool_use_block = [
+            x
+            for x in completion.content
+            if isinstance(x, anthropic.types.tool_use_block.ToolUseBlock)
+        ][0]
+        generated_text = json.dumps(first_tool_use_block.input)
+    else:
+        generated_text = completion.content[0].text.strip()
     print(f"claude generated_text: {generated_text}")
     return generated_text
 
@@ -94,6 +105,7 @@ class ModelAPIClient:
         constraint_type: str = "none",
         constraints: Optional[Union[list[str], list[type], BaseModel]] = [],
         openai_response_format=None,
+        claude_tool_def=None,
     ):
         assert constraint_type in ["types", "choice", "regex", "none"]
         assert not (constraint_type == "none" and constraints)
@@ -113,6 +125,7 @@ class ModelAPIClient:
             constraint_type=constraint_type,
             response_format=openai_response_format,
             random_seed=self.random_seed,
+            claude_tool_def=claude_tool_def,
         )
         if (
             fr.name_of_model.startswith("gpt")
@@ -156,7 +169,10 @@ class ModelAPIClient:
 
     def forward_claude(self, request: ForwardRequest):
         completion = claude_forward_cached(
-            request.name_of_model, request.history, request.response_format
+            request.name_of_model,
+            request.history,
+            request.response_format,
+            request.claude_tool_def,
         )
         generated_text = completion
         return {"generated_text": generated_text}

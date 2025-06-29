@@ -44,7 +44,7 @@ df["Turns"] = df["Turns"].astype(float)
 
 # --- Create the scatter plot ---
 
-fig, ax = plt.subplots(figsize=(5, 4.2))
+fig, ax = plt.subplots(figsize=(5, 5))
 
 # Set x-axis to logarithmic scale
 # ax.set_xscale("log")
@@ -88,7 +88,7 @@ ax.set_xlabel("Dialog Turns", fontsize=12, fontweight="bold")
 ax.set_ylabel("Average F1", fontsize=12, fontweight="bold")
 
 # Add horizontal line for random baseline
-ax.axhline(y=36.3, color="gray", linestyle=":", linewidth=1, label="Random")
+ax.axhline(y=36.3, color="gray", linestyle=":", linewidth=1, label="Random - P(True)=0.5")
 
 # Adjust legend to be placed inside the plot area
 handles, labels = ax.get_legend_handles_labels()
@@ -105,7 +105,7 @@ plt.tight_layout(pad=0)
 
 # Save the figure as a PDF file
 pdf_filename = "paper_figs/main.png"
-plt.savefig(pdf_filename, format="png", bbox_inches="tight")
+plt.savefig(pdf_filename, format="png", bbox_inches="tight", pad_inches=0.02)
 
 # Display the plot
 plt.show()

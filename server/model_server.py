@@ -78,6 +78,7 @@ class ForwardRequest(BaseModel):
     response_format: Optional[Union[dict, str]]
     random_seed: int
     # prefix: Optional[list[dict]]
+    claude_tool_def: Optional[list[dict]]
 
 
 def _str_to_type(s):

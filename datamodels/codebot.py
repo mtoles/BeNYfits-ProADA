@@ -285,6 +285,57 @@ class CodeBot(ChatBot):
                 )
                 response_dict = json.loads(response_dict_raw)
                 choices = response_dict.get("options", [])
+            elif code_model_id and code_model_id.startswith("claude"):
+                response_dict_raw = self.lm_api.forward(
+                    [
+                        {
+                            "role": "user",
+                            "content": self.get_values_prompt.format(
+                                eligibility_requirements=desc,
+                                code=clean_checker_output,
+                                key=c,
+                            ),
+                        }
+                    ],
+                    chat_model_id=code_model_id,
+                    use_cache=use_cache,
+                    logging_role="choice_gen",
+                    claude_tool_def=[
+                        {
+                            "name": "define_values",
+                            "description": "Define the possible values for a key",
+                            "input_schema": {
+                                "type": "object",
+                                "properties": {
+                                    "options": {
+                                        "type": "array",
+                                        "description": "The possible values for the key",
+                                        "items": {
+                                            "type": "string",
+                                        },
+                                    },
+                                },
+                                "required": ["options"],
+                            },
+                        }
+                    ],
+                )
+                # Handle Claude tool call response more robustly
+                try:
+                    if isinstance(response_dict_raw, str):
+                        # Try to parse as JSON first
+                        response_dict = json.loads(response_dict_raw)
+                        choices = response_dict.get("options", [])
+                    elif isinstance(response_dict_raw, dict):
+                        # If it's already a dict (tool call result)
+                        choices = response_dict_raw.get("options", [])
+                    else:
+                        # Fallback: treat as tool call result or other structure
+                        choices = getattr(response_dict_raw, "options", [])
+                except (json.JSONDecodeError, AttributeError, TypeError) as e:
+                    print(f"Warning: Failed to parse Claude tool response: {e}")
+                    # Final fallback: empty list
+                    choices = []
             else:
                 choices = self.lm_api.forward(
                     [

@@ -325,7 +325,7 @@ class CotChatBot(ChatBot):
             use_cache=self.use_cache,
             constraint_type="regex",
             constraints=rf"(True|False)(,(True|False)){{{len(programs)-1}}}",
-        )
+    )
         # TODO - Ensure output is a list of boolean
         # lm_output = self.extract_prediction(lm_output, programs)
         matches = re.findall(r".*\[([^]]*)\]", decision)  # [-1].strip("[]")
