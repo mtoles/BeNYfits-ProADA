@@ -25,7 +25,10 @@ from typing import Optional
 from copy import deepcopy
 
 np.random.seed(0)
-list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
+# list_regex = r'(\["[^"]+"(?: *, *"[^"]+")+\])'
+list_regex = (
+    r'\{\"options\": (\["[^"]+"(?: *, *"[^"]+")+\])\}'  # {"options": ["a", "b", "c"]}
+)
 
 
 def convert_keys_to_int(d):
@@ -286,56 +289,64 @@ class CodeBot(ChatBot):
                 response_dict = json.loads(response_dict_raw)
                 choices = response_dict.get("options", [])
             elif code_model_id and code_model_id.startswith("claude"):
-                response_dict_raw = self.lm_api.forward(
-                    [
-                        {
-                            "role": "user",
-                            "content": self.get_values_prompt.format(
-                                eligibility_requirements=desc,
-                                code=clean_checker_output,
-                                key=c,
-                            ),
-                        }
-                    ],
-                    chat_model_id=code_model_id,
-                    use_cache=use_cache,
-                    logging_role="choice_gen",
-                    claude_tool_def=[
-                        {
-                            "name": "define_values",
-                            "description": "Define the possible values for a key",
-                            "input_schema": {
-                                "type": "object",
-                                "properties": {
-                                    "options": {
-                                        "type": "array",
-                                        "description": "The possible values for the key",
-                                        "items": {
-                                            "type": "string",
+
+                def _is_valid(choices):
+                    if choices is None:
+                        return False
+                    if len(choices) == 0:
+                        return False
+                    for c in choices:
+                        if not isinstance(c, str):
+                            return False
+                    return True
+
+                choices = None
+                z = 0
+                while not _is_valid(choices):
+                    if z > 10:
+                        print("too many attempts")
+                        sys.exit(1)
+                    print(f"attempt no {z}")
+                    response_dict_raw = self.lm_api.forward(
+                        [
+                            {
+                                "role": "user",
+                                "content": f"attempt no {z}\n\n"
+                                + self.get_values_prompt.format(
+                                    eligibility_requirements=desc,
+                                    code=clean_checker_output,
+                                    key=c,
+                                ),
+                            }
+                        ],
+                        chat_model_id=code_model_id,
+                        use_cache=use_cache,
+                        logging_role="choice_gen",
+                        claude_tool_def=[
+                            {
+                                "name": "define_values",
+                                "description": "Define the possible values for a key",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "options": {
+                                            "type": "array",
+                                            "description": "The possible values for the key",
+                                            "items": {
+                                                "type": "string",
+                                            },
                                         },
                                     },
+                                    "required": ["options"],
                                 },
-                                "required": ["options"],
-                            },
-                        }
-                    ],
-                )
-                # Handle Claude tool call response more robustly
-                try:
-                    if isinstance(response_dict_raw, str):
-                        # Try to parse as JSON first
-                        response_dict = json.loads(response_dict_raw)
-                        choices = response_dict.get("options", [])
-                    elif isinstance(response_dict_raw, dict):
-                        # If it's already a dict (tool call result)
-                        choices = response_dict_raw.get("options", [])
-                    else:
-                        # Fallback: treat as tool call result or other structure
-                        choices = getattr(response_dict_raw, "options", [])
-                except (json.JSONDecodeError, AttributeError, TypeError) as e:
-                    print(f"Warning: Failed to parse Claude tool response: {e}")
-                    # Final fallback: empty list
-                    choices = []
+                            }
+                        ],
+                    )
+                    # Handle Claude tool call response more robustly
+                    response_dict = json.loads(response_dict_raw)
+                    choices = response_dict.get("options", [])
+                    z += 1
+
             else:
                 choices = self.lm_api.forward(
                     [
