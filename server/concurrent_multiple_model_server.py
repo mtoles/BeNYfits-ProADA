@@ -81,7 +81,6 @@ def forward_hf(request: ForwardRequest):
     """
     The main text-generation function using Outlines & HuggingFace models.
     """
-    print("hello 4")
     name_of_model = request.name_of_model
     history = request.history
 
@@ -309,7 +308,6 @@ def forward(request: ForwardRequest):
     """
     Endpoint that handles generation requests via queue-based model concurrency.
     """
-    print("hello 3")
     # Example policy: forbid GPT names
     if request.name_of_model.startswith("gpt"):
         raise HTTPException(status_code=400, detail="GPT models are client side only.")
@@ -340,7 +338,6 @@ def forward(request: ForwardRequest):
 
 
 if __name__ == "__main__":
-    print("hello 2")
 
     port = int(os.getenv("LM_PORT_NO", "8000"))
     url = os.getenv("LM_SERVER_URL", "0.0.0.0")

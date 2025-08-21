@@ -14,7 +14,7 @@ import pandas as pd
 np.random.seed(0)
 
 
-def generate_demographic_dataset(limit, benefits_classes):
+def generate_representative_dataset(limit, benefits_classes):
     households = []
     # n_programs = [np.random.randint(1, len(benefits_classes)) for _ in range(limit)]
     # weights = np.array([min(1 / (2**n), 1 / (2**8)) for n in range(len(benefits_classes))])

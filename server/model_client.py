@@ -147,7 +147,8 @@ class ModelAPIClient:
             status_code = response_package.status_code
             response = response_package.json()
             if status_code != 200:
-                raise Exception(f"Prediction error: {response['detail']}")
+                print(f"Prediction error: {response['detail']}")
+                raise Exception("Prediction error")
 
         generated_text = response["generated_text"]
         if self.lm_logger:

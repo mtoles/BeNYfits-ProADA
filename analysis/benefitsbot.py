@@ -69,7 +69,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--dataset_path",
-    default="dataset/edge_case_dataset.jsonl",
+    default="dataset/diverse_dataset.jsonl",
     help="Path to the chat history or benefits description",
 )
 parser.add_argument(
