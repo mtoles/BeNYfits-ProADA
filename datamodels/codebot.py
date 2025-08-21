@@ -348,24 +348,47 @@ class CodeBot(ChatBot):
                     z += 1
 
             else:
-                choices = self.lm_api.forward(
-                    [
-                        {
-                            "role": "user",
-                            "content": self.get_values_prompt.format(
-                                eligibility_requirements=desc,
-                                code=clean_checker_output,
-                                key=c,
-                            ),
-                        }
-                    ],
-                    chat_model_id=code_model_id,
-                    use_cache=use_cache,
-                    logging_role="choice_gen",
-                    constraints=list_regex,
-                    constraint_type="regex",
-                ).strip()
-                choices = ast.literal_eval(choices)
+
+                def _is_valid(choices):
+                    if choices is None:
+                        return False
+                    if len(choices) == 0:
+                        return False
+                    for c in choices:
+                        if not isinstance(c, str):
+                            return False
+                    return True
+
+                choices = None
+                z = 0
+                while not _is_valid(choices):
+                    if z > 10:
+                        print("too many attempts")
+                        sys.exit(1)
+                    print(f"attempt no {z}")
+                    response_raw = self.lm_api.forward(
+                        [
+                            {
+                                "role": "user",
+                                "content": f"attempt no {z}\n\n"
+                                + self.get_values_prompt.format(
+                                    eligibility_requirements=desc,
+                                    code=clean_checker_output,
+                                    key=c,
+                                ),
+                            }
+                        ],
+                        chat_model_id=code_model_id,
+                        use_cache=use_cache,
+                        logging_role="choice_gen",
+                        constraints=list_regex,
+                        constraint_type="regex",
+                    ).strip()
+                    try:
+                        choices = ast.literal_eval(response_raw)
+                    except (ValueError, SyntaxError):
+                        choices = None
+                    z += 1
             # for i, c in enumerate(choices):  # escape all '$'
             #     choices[i] = re.sub(r"(?<!\\)\$", r"\\$", c)
 

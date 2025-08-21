@@ -47,7 +47,7 @@ MODEL_STORE structure:
 
 GPU_OCCUPANCY = {gpu_id: set() for gpu_id in range(torch.cuda.device_count())}
 
-INACTIVITY_TIMEOUT = 60 * 60  # 1 hour
+INACTIVITY_TIMEOUT = 6 * 60 * 60  # 6 hours
 # INACTIVITY_TIMEOUT = 10  # 10 seconds
 # One lock to protect the actual model_store loading/unloading
 model_store_lock = threading.Lock()
